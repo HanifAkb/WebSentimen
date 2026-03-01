@@ -1,0 +1,193 @@
+{% extends "sentiment_app/base.html" %}
+
+{% block content %}
+<div class="row g-4 app-page">
+    <div class="col-12">
+        <div class="card shadow-sm panel-card">
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <h1 class="h4 fw-semibold mb-1">Detail Riwayat Prediksi</h1>
+                        <div class="text-muted small">
+                            Dibuat: {{ history.created_at|date:"d/m/Y H:i" }}
+                        </div>
+                    </div>
+                    <a class="btn btn-outline-secondary btn-sm" href="{% url 'history_list' %}">Kembali ke Riwayat</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if history.input_type == "single" and single_result %}
+        <div class="col-12">
+            <div class="card shadow-sm panel-card">
+                <div class="card-body">
+                    <h2 class="h5 mb-3 fw-semibold">Hasil Kalimat Tunggal</h2>
+                    <div class="mb-3">
+                        <span class="fw-semibold">Masukan:</span>
+                        <div class="mt-1 p-3 result-box rounded border">{{ single_result.text }}</div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="p-3 border rounded result-box">
+                                <div class="fw-semibold mb-2">KNN</div>
+                                <span class="badge {% if single_result.knn_label == 'Positive' %}text-bg-success{% else %}text-bg-danger{% endif %}">
+                                    {% if single_result.knn_label == "Positive" %}Positif{% elif single_result.knn_label == "Negative" %}Negatif{% else %}{{ single_result.knn_label }}{% endif %}
+                                </span>
+                                <div class="text-muted small mt-2">
+                                    Skor:
+                                    {% if single_result.knn_score is not None %}
+                                        {{ single_result.knn_score|floatformat:4 }}
+                                    {% else %}
+                                        Tidak tersedia
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 border rounded result-box">
+                                <div class="fw-semibold mb-2">SVM</div>
+                                <span class="badge {% if single_result.svm_label == 'Positive' %}text-bg-success{% else %}text-bg-danger{% endif %}">
+                                    {% if single_result.svm_label == "Positive" %}Positif{% elif single_result.svm_label == "Negative" %}Negatif{% else %}{{ single_result.svm_label }}{% endif %}
+                                </span>
+                                <div class="text-muted small mt-2">
+                                    Skor:
+                                    {% if single_result.svm_score is not None %}
+                                        {{ single_result.svm_score|floatformat:4 }}
+                                    {% else %}
+                                        Tidak tersedia
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="col-12">
+            <div class="card shadow-sm panel-card">
+                <div class="card-body">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <div>
+                            <h2 class="h5 mb-0 fw-semibold">Hasil Batch CSV/TXT</h2>
+                            <div class="text-muted small">
+                                Total baris: {{ batch_count }}
+                                {% if history.source_name %}, Sumber: {{ history.source_name }}{% endif %}
+                                {% if history.text_column %}, Kolom teks: {{ history.text_column }}{% endif %}
+                            </div>
+                        </div>
+                        {% if download_url %}
+                            <a class="btn btn-outline-primary btn-sm px-3" href="{{ download_url }}">Unduh CSV Lengkap</a>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                        <form method="get" class="d-flex align-items-center gap-2">
+                            <input type="hidden" name="page" value="1">
+                            <label class="small text-muted mb-0" for="per_page_top">Data per halaman</label>
+                            <input
+                                class="form-control form-control-sm"
+                                id="per_page_top"
+                                name="per_page"
+                                type="number"
+                                min="1"
+                                max="200"
+                                value="{{ per_page }}"
+                                style="width: 90px;"
+                            >
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">Terapkan</button>
+                        </form>
+
+                        <nav aria-label="Navigasi halaman atas">
+                            <ul class="pagination pagination-sm mb-0">
+                                {% if current_page > 1 %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ current_page|add:'-1' }}&per_page={{ per_page }}">&laquo;</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+                                {% endif %}
+                                {% for page_number in page_numbers %}
+                                    <li class="page-item {% if page_number == current_page %}active{% endif %}">
+                                        <a class="page-link" href="?page={{ page_number }}&per_page={{ per_page }}">{{ page_number }}</a>
+                                    </li>
+                                {% endfor %}
+                                {% if current_page < total_pages %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ current_page|add:'1' }}&per_page={{ per_page }}">&raquo;</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    {% for header in batch_preview_headers %}
+                                        <th>{{ header }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in batch_preview_rows %}
+                                    <tr>
+                                        <td>{{ row.index }}</td>
+                                        {% for cell in row.cells %}
+                                            <td class="text-break">
+                                                {% if cell.type == "label" %}
+                                                    <span class="badge {% if cell.value == 'Positive' %}text-bg-success{% else %}text-bg-danger{% endif %}">
+                                                        {% if cell.value == "Positive" %}Positif{% elif cell.value == "Negative" %}Negatif{% else %}{{ cell.value }}{% endif %}
+                                                    </span>
+                                                {% elif cell.type == "score" %}
+                                                    {% if cell.value is not None and cell.value != "" %}{{ cell.value|floatformat:4 }}{% endif %}
+                                                {% else %}
+                                                    {{ cell.value }}
+                                                {% endif %}
+                                            </td>
+                                        {% endfor %}
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+                        <div class="text-muted small">
+                            Halaman {{ current_page }} dari {{ total_pages }}
+                        </div>
+                        <nav aria-label="Navigasi halaman bawah">
+                            <ul class="pagination pagination-sm mb-0">
+                                {% if current_page > 1 %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ current_page|add:'-1' }}&per_page={{ per_page }}">&laquo;</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+                                {% endif %}
+                                {% for page_number in page_numbers %}
+                                    <li class="page-item {% if page_number == current_page %}active{% endif %}">
+                                        <a class="page-link" href="?page={{ page_number }}&per_page={{ per_page }}">{{ page_number }}</a>
+                                    </li>
+                                {% endfor %}
+                                {% if current_page < total_pages %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ current_page|add:'1' }}&per_page={{ per_page }}">&raquo;</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

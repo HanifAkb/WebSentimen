@@ -17,7 +17,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 
 from .forms import AdminCreateUserForm, LoginForm, PredictForm, TwitterFetchForm
-from .models import ScrapeHistory
+from .models import PredictionHistory, ScrapeHistory
 from .services.file_service import (
     FileValidationError,
     generate_classification_csv,
@@ -196,6 +196,74 @@ def _build_batch_preview(
                 }
             )
 
+        preview_rows.append({"index": index, "cells": cells})
+
+    return headers, preview_rows
+
+
+def _merge_batch_rows_for_history(
+    source_rows: list[dict[str, str]],
+    predictions: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    merged_rows: list[dict[str, object]] = []
+    for source_row, prediction in zip(source_rows, predictions):
+        merged_rows.append(
+            {
+                **source_row,
+                "knn_label": prediction.get("knn_label", ""),
+                "knn_score": prediction.get("knn_score"),
+                "svm_label": prediction.get("svm_label", ""),
+                "svm_score": prediction.get("svm_score"),
+            }
+        )
+    return merged_rows
+
+
+def _normalize_prediction_source_columns(
+    columns_value: object,
+    rows: list[dict[str, object]],
+) -> list[str]:
+    columns: list[str] = []
+    if isinstance(columns_value, list):
+        columns = [str(column) for column in columns_value if isinstance(column, str)]
+
+    if columns:
+        return columns
+
+    if not rows:
+        return []
+
+    first_row = rows[0]
+    derived_columns: list[str] = []
+    for key in first_row.keys():
+        if key not in PREDICTION_COLUMNS and key != "row_number":
+            derived_columns.append(str(key))
+    return derived_columns
+
+
+def _build_prediction_history_preview(
+    rows: list[dict[str, object]],
+    source_columns: list[str],
+) -> tuple[list[str], list[dict[str, object]]]:
+    columns = list(source_columns) + PREDICTION_COLUMNS
+    headers = [PREDICTION_HEADERS.get(column, column) for column in columns]
+    preview_rows: list[dict[str, object]] = []
+
+    for row in rows:
+        index = int(row.get("row_number", len(preview_rows) + 1))
+        cells: list[dict[str, object]] = []
+        for column in columns:
+            cell_type = "text"
+            if column in ("knn_label", "svm_label"):
+                cell_type = "label"
+            elif column in ("knn_score", "svm_score"):
+                cell_type = "score"
+            cells.append(
+                {
+                    "type": cell_type,
+                    "value": row.get(column, ""),
+                }
+            )
         preview_rows.append({"index": index, "cells": cells})
 
     return headers, preview_rows
@@ -547,7 +615,7 @@ def register_user_view(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def history_list_view(request: HttpRequest) -> HttpResponse:
-    histories = ScrapeHistory.objects.filter(user=request.user).only(
+    scrape_histories = ScrapeHistory.objects.filter(user=request.user).only(
         "id",
         "query",
         "language",
@@ -556,8 +624,17 @@ def history_list_view(request: HttpRequest) -> HttpResponse:
         "tweet_count",
         "created_at",
     )
+    prediction_histories = PredictionHistory.objects.filter(user=request.user).only(
+        "id",
+        "input_type",
+        "source_name",
+        "text_column",
+        "sample_count",
+        "created_at",
+    )
     context = {
-        "histories": histories,
+        "scrape_histories": scrape_histories,
+        "prediction_histories": prediction_histories,
     }
     return render(request, "sentiment_app/history.html", context)
 
@@ -590,6 +667,57 @@ def history_detail_view(request: HttpRequest, history_id: int) -> HttpResponse:
 
 
 @login_required
+def prediction_history_detail_view(request: HttpRequest, history_id: int) -> HttpResponse:
+    history = get_object_or_404(PredictionHistory, id=history_id, user=request.user)
+    context: dict[str, object] = {
+        "history": history,
+    }
+
+    rows = history.rows if isinstance(history.rows, list) else []
+
+    if history.input_type == PredictionHistory.InputType.SINGLE:
+        single_row: dict[str, object] = {}
+        if rows and isinstance(rows[0], dict):
+            single_row = rows[0]
+        context["single_result"] = {
+            "text": single_row.get("text", history.text_input),
+            "knn_label": single_row.get("knn_label", ""),
+            "knn_score": single_row.get("knn_score"),
+            "svm_label": single_row.get("svm_label", ""),
+            "svm_score": single_row.get("svm_score"),
+        }
+        return render(request, "sentiment_app/history_predict_detail.html", context)
+
+    requested_page = _safe_positive_int(request.GET.get("page"), 1)
+    per_page = _normalize_per_page(request.GET.get("per_page"), DEFAULT_PER_PAGE)
+    page_rows, total_rows, current_page, total_pages = _paginate_rows(rows, requested_page, per_page)
+
+    source_columns = _normalize_prediction_source_columns(history.columns, rows)
+    preview_headers, preview_rows = _build_prediction_history_preview(page_rows, source_columns)
+
+    page_start = max(1, current_page - 2)
+    page_end = min(total_pages, current_page + 2)
+
+    context.update(
+        {
+            "source_columns": source_columns,
+            "batch_count": total_rows,
+            "batch_preview_headers": preview_headers,
+            "batch_preview_rows": preview_rows,
+            "current_page": current_page,
+            "total_pages": total_pages,
+            "page_numbers": range(page_start, page_end + 1),
+            "per_page": per_page,
+        }
+    )
+
+    if history.output_filename:
+        context["download_url"] = reverse("download_output", args=[history.output_filename])
+
+    return render(request, "sentiment_app/history_predict_detail.html", context)
+
+
+@login_required
 def predict_view(request: HttpRequest) -> HttpResponse:
     form = PredictForm(request.POST or None, request.FILES or None)
     active_tab = "single"
@@ -613,11 +741,29 @@ def predict_view(request: HttpRequest) -> HttpResponse:
                 single_result = predict_single(text_input)
                 context["single_result"] = single_result
                 context["active_tab"] = "single"
+                PredictionHistory.objects.create(
+                    user=request.user,
+                    input_type=PredictionHistory.InputType.SINGLE,
+                    text_input=text_input,
+                    sample_count=1,
+                    rows=_serialize_history_rows(
+                        [
+                            {
+                                "text": single_result.get("text", text_input),
+                                "knn_label": single_result.get("knn_label", ""),
+                                "knn_score": single_result.get("knn_score"),
+                                "svm_label": single_result.get("svm_label", ""),
+                                "svm_score": single_result.get("svm_score"),
+                            }
+                        ]
+                    ),
+                )
             elif upload_file:
                 texts, detected_column, source_rows, source_columns = parse_uploaded_file(upload_file, text_column)
                 predictions = predict_batch(texts)
                 output_filename = generate_classification_csv(predictions, prefix="uploaded")
                 preview_headers, preview_rows = _build_batch_preview(source_rows, source_columns, predictions)
+                merged_rows = _merge_batch_rows_for_history(source_rows, predictions)
                 context["batch_count"] = len(predictions)
                 context["detected_column"] = detected_column
                 context["batch_preview_headers"] = preview_headers
@@ -625,6 +771,16 @@ def predict_view(request: HttpRequest) -> HttpResponse:
                 context["output_filename"] = output_filename
                 context["download_url"] = reverse("download_output", args=[output_filename])
                 context["active_tab"] = "file"
+                PredictionHistory.objects.create(
+                    user=request.user,
+                    input_type=PredictionHistory.InputType.FILE,
+                    source_name=getattr(upload_file, "name", "") or "",
+                    text_column=(detected_column or text_column or "").strip(),
+                    sample_count=len(merged_rows),
+                    columns=[str(column) for column in source_columns],
+                    rows=_serialize_history_rows(merged_rows),
+                    output_filename=output_filename,
+                )
         except (ModelServiceError, FileValidationError) as exc:
             messages.error(request, str(exc))
         except Exception as exc:

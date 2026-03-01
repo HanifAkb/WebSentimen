@@ -13,7 +13,7 @@ The app supports:
 - batch prediction from CSV/TXT upload
 - tweet fetch from `twitterapi.io` using user-provided API key
 - side-by-side KNN/SVM outputs
-- persistent scrape history per logged user
+- persistent history per logged user (scraping + prediction)
 
 ## 1) Project Structure
 
@@ -45,6 +45,7 @@ The app supports:
     |   |-- login.html
     |   |-- register.html
     |   |-- history.html
+    |   |-- history_predict_detail.html
     |   |-- predict.html
     |   |-- beranda.html
     |   `-- twitter.html
@@ -156,9 +157,12 @@ http://127.0.0.1:8000/
 
 ### Riwayat (`/history/`)
 
-- Menampilkan semua scraping yang pernah dijalankan oleh user login.
+- Menampilkan riwayat scraping dan riwayat prediksi milik user login.
+- Riwayat prediksi mencakup:
+  - kalimat tunggal
+  - unggah CSV/TXT
 - Data history terisolasi per-user.
-- Klik `Lihat` untuk membuka detail hasil (tabel + dashboard) dari scraping tersebut.
+- Klik `Lihat` untuk membuka detail setiap riwayat.
 
 Contoh kueri lanjutan (sesuaikan dukungan endpoint twitterapi.io Anda):
 
@@ -236,7 +240,7 @@ Included tests:
 - preprocessing behavior
 - CSV parsing + text column detection
 - prediction flow using mocked model artifacts
-- auth/access control + scrape history persistence
+- auth/access control + history persistence (scraping + prediction)
 - login payload SQL-like injection should fail authentication
 
 ## 8) Manual Test Checklist

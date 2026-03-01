@@ -5,10 +5,19 @@
     <div class="col-12">
         <div class="card shadow-sm panel-card">
             <div class="card-body">
-                <h1 class="h4 fw-semibold mb-2">Riwayat Scraping</h1>
+                <h1 class="h4 fw-semibold mb-2">Riwayat Aktivitas</h1>
+                <p class="text-muted small mb-0">Riwayat ini berisi hasil scraping dan prediksi yang pernah Anda jalankan.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="card shadow-sm panel-card">
+            <div class="card-body">
+                <h2 class="h5 fw-semibold mb-2">Riwayat Scraping</h2>
                 <p class="text-muted small mb-3">Daftar hasil scraping yang pernah Anda jalankan.</p>
 
-                {% if histories %}
+                {% if scrape_histories %}
                     <div class="table-responsive">
                         <table class="table table-striped align-middle">
                             <thead>
@@ -23,7 +32,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for item in histories %}
+                                {% for item in scrape_histories %}
                                     <tr>
                                         <td>{{ forloop.counter }}</td>
                                         <td>{{ item.created_at|date:"d/m/Y H:i" }}</td>
@@ -41,6 +50,62 @@
                     </div>
                 {% else %}
                     <div class="alert alert-info mb-0">Belum ada riwayat scraping.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="card shadow-sm panel-card">
+            <div class="card-body">
+                <h2 class="h5 fw-semibold mb-2">Riwayat Prediksi</h2>
+                <p class="text-muted small mb-3">Daftar hasil prediksi kalimat tunggal dan unggah CSV/TXT.</p>
+
+                {% if prediction_histories %}
+                    <div class="table-responsive">
+                        <table class="table table-striped align-middle">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Waktu</th>
+                                    <th>Tipe</th>
+                                    <th>Sumber</th>
+                                    <th>Kolom Teks</th>
+                                    <th>Jumlah Data</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in prediction_histories %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>{{ item.created_at|date:"d/m/Y H:i" }}</td>
+                                        <td>
+                                            {% if item.input_type == "single" %}
+                                                Kalimat Tunggal
+                                            {% else %}
+                                                CSV/TXT
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-break">
+                                            {% if item.input_type == "single" %}
+                                                Input manual
+                                            {% else %}
+                                                {{ item.source_name|default:"-" }}
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ item.text_column|default:"-" }}</td>
+                                        <td>{{ item.sample_count }}</td>
+                                        <td>
+                                            <a class="btn btn-sm btn-outline-primary" href="{% url 'prediction_history_detail' item.id %}">Lihat</a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info mb-0">Belum ada riwayat prediksi.</div>
                 {% endif %}
             </div>
         </div>

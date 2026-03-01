@@ -21,3 +21,30 @@ class ScrapeHistory(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user} | {self.start_date} - {self.end_date} ({self.tweet_count})"
+
+
+class PredictionHistory(models.Model):
+    class InputType(models.TextChoices):
+        SINGLE = "single", "Kalimat Tunggal"
+        FILE = "file", "CSV/TXT"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="prediction_histories",
+    )
+    input_type = models.CharField(max_length=12, choices=InputType.choices)
+    text_input = models.TextField(blank=True)
+    source_name = models.CharField(max_length=255, blank=True)
+    text_column = models.CharField(max_length=100, blank=True)
+    sample_count = models.PositiveIntegerField(default=1)
+    columns = models.JSONField(default=list, blank=True)
+    rows = models.JSONField(default=list, blank=True)
+    output_filename = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.user} | {self.get_input_type_display()} ({self.sample_count})"
