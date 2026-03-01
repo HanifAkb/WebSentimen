@@ -266,38 +266,41 @@ Catatan: paket free biasanya sleep saat idle (cold start saat dibuka lagi).
 1. Pastikan file model ada di repo:
    - `sentiment_site/models/knn_model.joblib`
    - `sentiment_site/models/svm_rbf_model.joblib`
-2. Pastikan push terbaru sudah masuk (termasuk `requirements.txt`).
+2. Pastikan push terbaru sudah masuk (termasuk `requirements.txt`, `render.yaml`, `build.sh`, `runtime.txt`).
 
-### B. Buat Web Service di Render
+### B. Deploy via Blueprint (`render.yaml`) - direkomendasikan
 
-1. Render dashboard -> `New +` -> `Web Service` -> connect repo GitHub.
-2. Isi command:
-   - Build Command:
-     - `pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate`
-   - Start Command:
-     - `gunicorn sentiment_site.wsgi:application --bind 0.0.0.0:$PORT`
+1. Render dashboard -> `New +` -> `Blueprint`.
+2. Pilih repo GitHub project ini.
+3. Render akan membaca `render.yaml` dan membuat:
+   - 1 web service (`prediksi-sentimen-web`)
+   - 1 PostgreSQL free database (`prediksi-sentimen-db`)
+4. Klik `Apply`.
 
 ### C. Environment variables (Render)
 
-Set minimal berikut:
+Set variabel berikut di service web (Environment):
 
-- `DJANGO_SECRET_KEY`: string acak panjang
-- `DJANGO_DEBUG`: `0`
-- `DJANGO_ALLOWED_HOSTS`: domain render kamu, contoh `nama-app.onrender.com`
-- `DJANGO_CSRF_TRUSTED_ORIGINS`: contoh `https://nama-app.onrender.com`
-- `DJANGO_SESSION_COOKIE_SECURE`: `1`
-- `DJANGO_CSRF_COOKIE_SECURE`: `1`
-- `DJANGO_SECURE_SSL_REDIRECT`: `1`
-- `DJANGO_SECURE_HSTS_SECONDS`: `31536000`
-- `DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS`: `1`
-- `DJANGO_SECURE_HSTS_PRELOAD`: `1`
+- `DJANGO_SECRET_KEY` (boleh auto-generate)
+- `DJANGO_DEBUG=0`
+- `DJANGO_ALLOWED_HOSTS=.onrender.com` (default di `render.yaml`)
+- `DJANGO_CSRF_TRUSTED_ORIGINS=https://*.onrender.com` (default di `render.yaml`)
+- `DJANGO_SESSION_COOKIE_SECURE=1`
+- `DJANGO_CSRF_COOKIE_SECURE=1`
+- `DJANGO_SECURE_SSL_REDIRECT=1`
+- `DJANGO_SECURE_HSTS_SECONDS=31536000`
+- `DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS=1`
+- `DJANGO_SECURE_HSTS_PRELOAD=1`
 
-Opsional database PostgreSQL:
+`DATABASE_URL` akan otomatis terhubung dari database service jika deploy lewat `render.yaml`.
 
-- Buat PostgreSQL service di Render, lalu set `DATABASE_URL` dari credential Render.
-- Jika `DATABASE_URL` kosong, aplikasi fallback ke SQLite.
+### D. Pertama kali deploy
 
-### D. Buat akun admin pertama
+1. Tunggu build selesai.
+2. Buka URL render app.
+3. Jika status sehat (`Live`), lanjut buat akun admin.
+
+### E. Buat akun admin pertama
 
 Setelah deploy sukses, buka Render Shell dan jalankan:
 
@@ -306,3 +309,10 @@ python manage.py createsuperuser
 ```
 
 Lalu login ke `/admin/` atau `/login/`.
+
+### F. Alternatif manual (tanpa Blueprint)
+
+Jika tidak pakai `render.yaml`, buat Web Service biasa lalu isi:
+
+- Build Command: `bash build.sh`
+- Start Command: `gunicorn sentiment_site.wsgi:application --bind 0.0.0.0:$PORT`
