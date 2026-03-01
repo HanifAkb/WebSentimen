@@ -1,3 +1,5 @@
+import importlib
+import importlib.util
 import os
 from pathlib import Path
 
@@ -60,6 +62,11 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+_HAS_WHITENOISE = importlib.util.find_spec("whitenoise") is not None
+
+if _HAS_WHITENOISE:
+    MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
+
 ROOT_URLCONF = "sentiment_site.urls"
 
 TEMPLATES = [
@@ -80,12 +87,28 @@ TEMPLATES = [
 WSGI_APPLICATION = "sentiment_site.wsgi.application"
 ASGI_APPLICATION = "sentiment_site.asgi.application"
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL:
+    try:
+        db_url_module = importlib.import_module("dj_database_url")
+    except ModuleNotFoundError as exc:
+        raise ImproperlyConfigured(
+            "DATABASE_URL terdeteksi, tapi paket 'dj-database-url' belum terpasang."
+        ) from exc
+    DATABASES = {
+        "default": db_url_module.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=not DEBUG,
+        )
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -106,7 +129,18 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+if _HAS_WHITENOISE:
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"

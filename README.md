@@ -252,3 +252,53 @@ Included tests:
 9. Open `/scraping/`, use API key + query, fetch tweets, then verify preview + pagination appears.
 10. Try invalid API key and confirm error handling.
 11. Verify `/download/<filename>/` blocks invalid filename/path attempts.
+
+## 9) Deploy (Render Free)
+
+Catatan: paket free biasanya sleep saat idle (cold start saat dibuka lagi).
+
+### A. Persiapan repo
+
+1. Pastikan file model ada di repo:
+   - `sentiment_site/models/knn_model.joblib`
+   - `sentiment_site/models/svm_rbf_model.joblib`
+2. Pastikan push terbaru sudah masuk (termasuk `requirements.txt`).
+
+### B. Buat Web Service di Render
+
+1. Render dashboard -> `New +` -> `Web Service` -> connect repo GitHub.
+2. Isi command:
+   - Build Command:
+     - `pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate`
+   - Start Command:
+     - `gunicorn sentiment_site.wsgi:application --bind 0.0.0.0:$PORT`
+
+### C. Environment variables (Render)
+
+Set minimal berikut:
+
+- `DJANGO_SECRET_KEY`: string acak panjang
+- `DJANGO_DEBUG`: `0`
+- `DJANGO_ALLOWED_HOSTS`: domain render kamu, contoh `nama-app.onrender.com`
+- `DJANGO_CSRF_TRUSTED_ORIGINS`: contoh `https://nama-app.onrender.com`
+- `DJANGO_SESSION_COOKIE_SECURE`: `1`
+- `DJANGO_CSRF_COOKIE_SECURE`: `1`
+- `DJANGO_SECURE_SSL_REDIRECT`: `1`
+- `DJANGO_SECURE_HSTS_SECONDS`: `31536000`
+- `DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS`: `1`
+- `DJANGO_SECURE_HSTS_PRELOAD`: `1`
+
+Opsional database PostgreSQL:
+
+- Buat PostgreSQL service di Render, lalu set `DATABASE_URL` dari credential Render.
+- Jika `DATABASE_URL` kosong, aplikasi fallback ke SQLite.
+
+### D. Buat akun admin pertama
+
+Setelah deploy sukses, buka Render Shell dan jalankan:
+
+```bash
+python manage.py createsuperuser
+```
+
+Lalu login ke `/admin/` atau `/login/`.
