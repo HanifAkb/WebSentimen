@@ -1,0 +1,35 @@
+{% extends "sentiment_app/base.html" %}
+
+{% block content %}
+<div class="card shadow-sm panel-card">
+    <div class="card-body p-4">
+        <h1 class="h4 fw-semibold mb-2">Login Sistem</h1>
+        <p class="text-muted small mb-3">Masuk menggunakan akun yang sudah didaftarkan admin.</p>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="mb-3">
+                <label class="form-label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+                {{ form.username }}
+                {% if form.username.errors %}
+                    <div class="text-danger small">{{ form.username.errors }}</div>
+                {% endif %}
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+                {{ form.password }}
+                {% if form.password.errors %}
+                    <div class="text-danger small">{{ form.password.errors }}</div>
+                {% endif %}
+            </div>
+
+            <button class="btn btn-primary w-100" type="submit">Login</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

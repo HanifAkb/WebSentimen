@@ -1,0 +1,90 @@
+{% load static %}
+<!doctype html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Analisis Sentimen</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{% static 'sentiment_app/css/styles.css' %}" rel="stylesheet">
+</head>
+<body class="app-shell">
+    <div class="{% if user.is_authenticated %}container-fluid{% else %}container py-5{% endif %}">
+        <div class="{% if user.is_authenticated %}row min-vh-100 g-0{% else %}row justify-content-center{% endif %}">
+            {% if user.is_authenticated %}
+                <aside class="col-12 sidebar-column sidebar-panel p-3 p-md-4 d-flex flex-column">
+                    <div class="sidebar-brand mb-4">
+                        <a class="sidebar-logo text-decoration-none" href="{% url 'home' %}">
+                            <span class="sidebar-logo-kicker">Muhammad Hanif Akbar</span>
+                            <span class="sidebar-logo-text">Situs Sentimen Analisis</span>
+                        </a>
+                        <p class="sidebar-subtitle mb-0">Klasifikasi sentimen dengan KNN dan SVM.</p>
+                    </div>
+
+                    <nav class="nav flex-row flex-md-column gap-2 mb-4 sidebar-nav">
+                        <a class="nav-link sidebar-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}" href="{% url 'home' %}">
+                            <span class="sidebar-link-icon">
+                                <img class="sidebar-link-icon-img" src="{% static 'sentiment_app/icons/home.svg' %}" alt="Ikon Beranda">
+                            </span>
+                            <span class="sidebar-link-text">Beranda</span>
+                            <span class="sidebar-link-arrow">&gt;</span>
+                        </a>
+                        <a class="nav-link sidebar-link {% if request.resolver_match.url_name == 'predict' %}active{% endif %}" href="{% url 'predict' %}">
+                            <span class="sidebar-link-icon">
+                                <img class="sidebar-link-icon-img" src="{% static 'sentiment_app/icons/ai.svg' %}" alt="Ikon Prediksi">
+                            </span>
+                            <span class="sidebar-link-text">Buat Prediksi</span>
+                            <span class="sidebar-link-arrow">&gt;</span>
+                        </a>
+                        <a class="nav-link sidebar-link {% if request.resolver_match.url_name == 'twitter_fetch' %}active{% endif %}" href="{% url 'twitter_fetch' %}">
+                            <span class="sidebar-link-icon">
+                                <img class="sidebar-link-icon-img" src="{% static 'sentiment_app/icons/twitter.svg' %}" alt="Ikon Twitter">
+                            </span>
+                            <span class="sidebar-link-text">Scraping Web X</span>
+                            <span class="sidebar-link-arrow">&gt;</span>
+                        </a>
+                        <a class="nav-link sidebar-link {% if request.resolver_match.url_name == 'history_list' or request.resolver_match.url_name == 'history_detail' %}active{% endif %}" href="{% url 'history_list' %}">
+                            <span class="sidebar-link-icon">
+                                <img class="sidebar-link-icon-img" src="{% static 'sentiment_app/icons/history.svg' %}" alt="Ikon Riwayat">
+                            </span>
+                            <span class="sidebar-link-text">Riwayat</span>
+                            <span class="sidebar-link-arrow">&gt;</span>
+                        </a>
+                        {% if user.is_superuser %}
+                            <a class="nav-link sidebar-link {% if request.resolver_match.url_name == 'register_user' %}active{% endif %}" href="{% url 'register_user' %}">
+                                <span class="sidebar-link-icon">
+                                    <img class="sidebar-link-icon-img" src="{% static 'sentiment_app/icons/newacc.svg' %}" alt="Ikon Registrasi">
+                                </span>
+                                <span class="sidebar-link-text">Tambah Akun</span>
+                                <span class="sidebar-link-arrow">&gt;</span>
+                            </a>
+                        {% endif %}
+                    </nav>
+
+                    <div class="mt-auto pt-3 border-top border-light-subtle">
+                        <div class="small text-light mb-2">Login sebagai: <strong>{{ user.username }}</strong></div>
+                        <form method="post" action="{% url 'logout' %}">
+                            {% csrf_token %}
+                            <button class="btn btn-outline-light btn-sm w-100" type="submit">Logout</button>
+                        </form>
+                    </div>
+                </aside>
+            {% endif %}
+
+            <main class="{% if user.is_authenticated %}col-12 main-column p-4 content-panel{% else %}col-12 col-md-7 col-lg-5{% endif %}">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

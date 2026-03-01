@@ -1,0 +1,49 @@
+{% extends "sentiment_app/base.html" %}
+
+{% block content %}
+<div class="row g-4 app-page">
+    <div class="col-12">
+        <div class="card shadow-sm panel-card">
+            <div class="card-body">
+                <h1 class="h4 fw-semibold mb-2">Riwayat Scraping</h1>
+                <p class="text-muted small mb-3">Daftar hasil scraping yang pernah Anda jalankan.</p>
+
+                {% if histories %}
+                    <div class="table-responsive">
+                        <table class="table table-striped align-middle">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Waktu</th>
+                                    <th>Kueri</th>
+                                    <th>Bahasa</th>
+                                    <th>Rentang Tanggal</th>
+                                    <th>Jumlah Tweet</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in histories %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>{{ item.created_at|date:"d/m/Y H:i" }}</td>
+                                        <td class="text-break">{{ item.query }}</td>
+                                        <td>{{ item.language|default:"-" }}</td>
+                                        <td>{{ item.start_date|date:"d/m/Y" }} - {{ item.end_date|date:"d/m/Y" }}</td>
+                                        <td>{{ item.tweet_count }}</td>
+                                        <td>
+                                            <a class="btn btn-sm btn-outline-primary" href="{% url 'history_detail' item.id %}">Lihat</a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info mb-0">Belum ada riwayat scraping.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

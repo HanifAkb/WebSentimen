@@ -1,0 +1,268 @@
+{% extends "sentiment_app/base.html" %}
+
+{% block content %}
+<div class="row g-4 app-page">
+    <div class="col-12">
+        <div class="card shadow-sm panel-card">
+            <div class="card-body">
+                <h1 class="h4 mb-2 fw-semibold">Buat Prediksi Sentimen</h1>
+                <p class="text-muted mb-4">
+                    Kirim satu kalimat atau unggah CSV/TXT untuk prediksi kalimat yang banyak. Model KNN dan SVM akan dijalankan bersamaan.
+                </p>
+
+                <ul class="nav nav-tabs" id="predictTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button
+                            class="nav-link {% if active_tab != 'file' %}active{% endif %}"
+                            id="single-tab"
+                            data-bs-toggle="tab"
+                            data-bs-target="#single-pane"
+                            type="button"
+                            role="tab"
+                            aria-controls="single-pane"
+                            aria-selected="{% if active_tab != 'file' %}true{% else %}false{% endif %}"
+                        >
+                            Kalimat Tunggal
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button
+                            class="nav-link {% if active_tab == 'file' %}active{% endif %}"
+                            id="file-tab"
+                            data-bs-toggle="tab"
+                            data-bs-target="#file-pane"
+                            type="button"
+                            role="tab"
+                            aria-controls="file-pane"
+                            aria-selected="{% if active_tab == 'file' %}true{% else %}false{% endif %}"
+                        >
+                            CSV / TXT
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content border border-top-0 rounded-bottom panel-inner p-3" id="predictTabsContent">
+                    <div
+                        class="tab-pane fade {% if active_tab != 'file' %}show active{% endif %}"
+                        id="single-pane"
+                        role="tabpanel"
+                        aria-labelledby="single-tab"
+                        tabindex="0"
+                    >
+                        <form method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <input type="hidden" name="input_mode" value="single">
+                            {% if form.non_field_errors and active_tab != 'file' %}
+                                <div class="alert alert-danger py-2">
+                                    {{ form.non_field_errors }}
+                                </div>
+                            {% endif %}
+                            <div class="mb-3">
+                                <label class="form-label" for="{{ form.text_input.id_for_label }}">{{ form.text_input.label }}</label>
+                                {{ form.text_input }}
+                                {% if form.text_input.errors %}
+                                    <div class="text-danger small">{{ form.text_input.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <button class="btn btn-primary px-4" type="submit">Jalankan Prediksi</button>
+                        </form>
+                    </div>
+
+                    <div
+                        class="tab-pane fade {% if active_tab == 'file' %}show active{% endif %}"
+                        id="file-pane"
+                        role="tabpanel"
+                        aria-labelledby="file-tab"
+                        tabindex="0"
+                    >
+                        <form method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <input type="hidden" name="input_mode" value="file">
+                            {% if form.non_field_errors and active_tab == 'file' %}
+                                <div class="alert alert-danger py-2">
+                                    {{ form.non_field_errors }}
+                                </div>
+                            {% endif %}
+                            <div class="row g-3">
+                                <div class="col-md-7">
+                                    <label class="form-label" for="{{ form.upload_file.id_for_label }}">{{ form.upload_file.label }}</label>
+                                    {{ form.upload_file }}
+                                    <div class="form-text">{{ form.upload_file.help_text }}</div>
+                                    {% if form.upload_file.errors %}
+                                        <div class="text-danger small">{{ form.upload_file.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label" for="{{ form.text_column.id_for_label }}">{{ form.text_column.label }}</label>
+                                    {{ form.text_column }}
+                                    <div class="form-text">{{ form.text_column.help_text }}</div>
+                                    {% if form.text_column.errors %}
+                                        <div class="text-danger small">{{ form.text_column.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="form-text d-flex flex-wrap align-items-center gap-1 mt-2">
+                                <span>Perlu panduan format CSV/TXT?</span>
+                                <button
+                                    class="query-help-inline"
+                                    type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#fileHelpPanel"
+                                    aria-expanded="false"
+                                    aria-controls="fileHelpPanel"
+                                >
+                                    Klik di sini untuk bantuan format file.
+                                </button>
+                            </div>
+
+                            <div class="collapse mt-3" id="fileHelpPanel">
+                                <div class="card border border-2 panel-inner">
+                                    <div class="card-body pt-3 pb-2">
+                                        <h2 class="h6 fw-semibold mb-2">Panduan Format CSV / TXT</h2>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm align-middle mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th style="width: 24%;">Jenis File</th>
+                                                        <th style="width: 18%;">Perlu Header?</th>
+                                                        <th style="width: 30%;">Aturan Isi</th>
+                                                        <th>Contoh</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td><code>.txt</code></td>
+                                                        <td>Tidak</td>
+                                                        <td>Setiap baris = 1 teks. Baris kosong diabaikan.</td>
+                                                        <td><code>Saya suka layanan ini.</code><br><code>Produk ini buruk.</code></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>.csv</code></td>
+                                                        <td>Ya</td>
+                                                        <td>Harus punya kolom teks. Bisa auto-detect (<code>text</code>, <code>tweet</code>, <code>content</code>, <code>sentence</code>) atau isi manual kolom teks.</td>
+                                                        <td><code>id,text</code><br><code>1,Saya suka</code><br><code>2,Tidak puas</code></td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div class="small text-muted mt-2">
+                                            Catatan: {{ form.upload_file.help_text }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4">
+                                <button class="btn btn-primary px-4" type="submit">Jalankan Prediksi</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if single_result %}
+        <div class="col-12">
+            <div class="card shadow-sm panel-card">
+                <div class="card-body">
+                    <h2 class="h5 mb-3 fw-semibold">Hasil Teks Tunggal</h2>
+                    <div class="mb-3">
+                        <span class="fw-semibold">Masukan:</span>
+                        <div class="mt-1 p-3 result-box rounded border">{{ single_result.text }}</div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="p-3 border rounded result-box">
+                                <div class="fw-semibold mb-2">KNN</div>
+                                <span class="badge {% if single_result.knn_label == 'Positive' %}text-bg-success{% else %}text-bg-danger{% endif %}">
+                                    {% if single_result.knn_label == "Positive" %}Positif{% elif single_result.knn_label == "Negative" %}Negatif{% else %}{{ single_result.knn_label }}{% endif %}
+                                </span>
+                                <div class="text-muted small mt-2">
+                                    Skor:
+                                    {% if single_result.knn_score is not None %}
+                                        {{ single_result.knn_score|floatformat:4 }}
+                                    {% else %}
+                                        Tidak tersedia
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 border rounded result-box">
+                                <div class="fw-semibold mb-2">SVM</div>
+                                <span class="badge {% if single_result.svm_label == 'Positive' %}text-bg-success{% else %}text-bg-danger{% endif %}">
+                                    {% if single_result.svm_label == "Positive" %}Positif{% elif single_result.svm_label == "Negative" %}Negatif{% else %}{{ single_result.svm_label }}{% endif %}
+                                </span>
+                                <div class="text-muted small mt-2">
+                                    Skor:
+                                    {% if single_result.svm_score is not None %}
+                                        {{ single_result.svm_score|floatformat:4 }}
+                                    {% else %}
+                                        Tidak tersedia
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if batch_preview_rows %}
+        <div class="col-12">
+            <div class="card shadow-sm panel-card">
+                <div class="card-body">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <div>
+                            <h2 class="h5 mb-0 fw-semibold">Hasil Batch</h2>
+                            <div class="text-muted small">
+                                Total baris: {{ batch_count }}{% if detected_column %}, Kolom sumber: {{ detected_column }}{% endif %}
+                            </div>
+                        </div>
+                        {% if download_url %}
+                            <a class="btn btn-outline-primary btn-sm px-3" href="{{ download_url }}">Unduh CSV Lengkap</a>
+                        {% endif %}
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    {% for header in batch_preview_headers %}
+                                        <th>{{ header }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in batch_preview_rows %}
+                                    <tr>
+                                        <td>{{ row.index }}</td>
+                                        {% for cell in row.cells %}
+                                            <td class="text-break">
+                                                {% if cell.type == "label" %}
+                                                    <span class="badge {% if cell.value == 'Positive' %}text-bg-success{% else %}text-bg-danger{% endif %}">
+                                                        {% if cell.value == "Positive" %}Positif{% elif cell.value == "Negative" %}Negatif{% else %}{{ cell.value }}{% endif %}
+                                                    </span>
+                                                {% elif cell.type == "score" %}
+                                                    {% if cell.value is not None and cell.value != "" %}{{ cell.value|floatformat:4 }}{% endif %}
+                                                {% else %}
+                                                    {{ cell.value }}
+                                                {% endif %}
+                                            </td>
+                                        {% endfor %}
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="text-muted small">Pratinjau dibatasi 20 baris pertama.</div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
