@@ -71,16 +71,6 @@ body {
     margin-bottom: 0.35rem;
 }
 
-.sidebar-logo-kicker {
-    display: block;
-    margin-bottom: 0.2rem;
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: rgba(224, 238, 255, 0.78);
-}
-
 .sidebar-logo-text {
     display: block;
     font-size: 1.1rem;
@@ -93,6 +83,39 @@ body {
     color: rgba(224, 238, 255, 0.92);
     font-size: 0.8rem;
     line-height: 1.35;
+}
+
+.sidebar-copyright {
+    color: #ffffff !important;
+    font-weight: 500;
+}
+
+.sidebar-logout-form {
+    display: inline-flex;
+}
+
+.sidebar-logout-btn {
+    width: auto;
+    padding: 0.28rem 0.68rem;
+    border-radius: 0.6rem;
+    font-size: 0.78rem;
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.2);
+    background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+}
+
+.sidebar-logout-btn:hover,
+.sidebar-logout-btn:focus {
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.35);
+    background: linear-gradient(135deg, #f87171 0%, #dc2626 100%);
+}
+
+.sidebar-logout-icon {
+    width: 0.82rem;
+    height: 0.82rem;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
 }
 
 .sidebar-nav {
@@ -518,10 +541,6 @@ body {
     .sidebar-brand {
         margin-bottom: 0.9rem !important;
         padding: 0.85rem;
-    }
-
-    .sidebar-logo-kicker {
-        font-size: 0.62rem;
     }
 
     .sidebar-logo-text {

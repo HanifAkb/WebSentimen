@@ -1,35 +1,51 @@
 {% extends "sentiment_app/base.html" %}
+{% load static %}
 
 {% block content %}
-<div class="card shadow-sm panel-card">
-    <div class="card-body p-4">
-        <h1 class="h4 fw-semibold mb-2">Login Sistem</h1>
-        <p class="text-muted small mb-3">Masuk menggunakan akun yang sudah didaftarkan admin.</p>
-
-        <form method="post" novalidate>
-            {% csrf_token %}
-            {% if form.non_field_errors %}
-                <div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>
-            {% endif %}
-
-            <div class="mb-3">
-                <label class="form-label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
-                {{ form.username }}
-                {% if form.username.errors %}
-                    <div class="text-danger small">{{ form.username.errors }}</div>
-                {% endif %}
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
-                {{ form.password }}
-                {% if form.password.errors %}
-                    <div class="text-danger small">{{ form.password.errors }}</div>
-                {% endif %}
-            </div>
-
-            <button class="btn btn-primary w-100" type="submit">Login</button>
-        </form>
+<div class="d-flex flex-column min-vh-100">
+    <div class="mb-3 text-center">
+        <img
+            src="{% static 'sentiment_app/icons/icon.svg' %}"
+            alt="Ikon Prediksi Sentimen"
+            width="72"
+            height="72"
+            class="mb-2"
+        >
+        <h1 class="h3 fw-bold text-primary mb-1">Prediksi Sentimen</h1>
+        <p class="text-muted small mb-0">Masuk untuk mengakses dashboard aplikasi.</p>
     </div>
+
+    <div class="card shadow-sm panel-card">
+        <div class="card-body p-4">
+            <h2 class="h4 fw-semibold mb-2">Login Sistem</h2>
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>
+                {% endif %}
+
+                <div class="mb-3">
+                    <label class="form-label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+                    {{ form.username }}
+                    {% if form.username.errors %}
+                        <div class="text-danger small">{{ form.username.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+                    {{ form.password }}
+                    {% if form.password.errors %}
+                        <div class="text-danger small">{{ form.password.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <button class="btn btn-primary w-100" type="submit">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="mt-auto pt-4 text-center text-muted small">©Muhammad Hanif Akbar</div>
 </div>
 {% endblock %}
