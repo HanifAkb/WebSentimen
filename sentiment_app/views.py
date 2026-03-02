@@ -149,6 +149,17 @@ def _normalize_per_page(value: object, default: int = DEFAULT_PER_PAGE) -> int:
     return min(parsed, MAX_PER_PAGE)
 
 
+def _is_truthy_flag(value: object) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _build_url_with_dashboard_flag(request: HttpRequest) -> str:
+    query_params = request.GET.copy()
+    query_params["dashboard"] = "1"
+    encoded = query_params.urlencode()
+    return f"{request.path}?{encoded}" if encoded else request.path
+
+
 def _paginate_rows(
     rows: list[dict[str, object]],
     page: int,
@@ -617,6 +628,7 @@ def _apply_scraping_context(
     per_page: int,
     start_date_value: object,
     end_date_value: object,
+    dashboard_enabled: bool = False,
 ) -> bool:
     page_rows, total_rows, current_page, total_pages = _paginate_rows(rows, requested_page, per_page)
     if total_rows <= 0:
@@ -630,6 +642,12 @@ def _apply_scraping_context(
     context["total_pages"] = total_pages
     context["page_numbers"] = range(page_start, page_end + 1)
     context["per_page"] = per_page
+    context["dashboard_enabled"] = bool(dashboard_enabled)
+    if not dashboard_enabled:
+        context["dashboard"] = None
+        context["dashboard_error"] = ""
+        return True
+
     try:
         context["dashboard"] = _build_scraping_dashboard(
             rows,
@@ -1117,6 +1135,8 @@ def history_detail_view(request: HttpRequest, history_id: int) -> HttpResponse:
     resume_done_days, resume_total_days, resume_progress_pct = _history_resume_progress(history)
     requested_page = _safe_positive_int(request.GET.get("page"), 1)
     per_page = _normalize_per_page(request.GET.get("per_page"), DEFAULT_PER_PAGE)
+    dashboard_requested = _is_truthy_flag(request.GET.get("dashboard"))
+    dashboard_enabled = bool(dashboard_requested or history.is_complete)
     rows = _load_scrape_rows(history)
 
     context: dict[str, object] = {
@@ -1129,6 +1149,9 @@ def history_detail_view(request: HttpRequest, history_id: int) -> HttpResponse:
         "resume_progress_pct": resume_progress_pct,
         "resume_next_url": request.get_full_path(),
         "auto_resume_default": str(request.GET.get("auto", "")).strip() == "1",
+        "dashboard_enabled": dashboard_enabled,
+        "dashboard_query_suffix": "&dashboard=1" if dashboard_enabled else "",
+        "dashboard_toggle_url": _build_url_with_dashboard_flag(request),
     }
     if not _apply_scraping_context(
         context,
@@ -1138,6 +1161,7 @@ def history_detail_view(request: HttpRequest, history_id: int) -> HttpResponse:
         per_page,
         history.start_date.isoformat(),
         history.end_date.isoformat(),
+        dashboard_enabled=dashboard_enabled,
     ):
         messages.warning(request, "Data riwayat scraping kosong.")
 
@@ -1580,13 +1604,21 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
             return redirect("twitter_fetch")
 
     form = TwitterFetchForm()
+    dashboard_requested = _is_truthy_flag(request.GET.get("dashboard"))
+    dashboard_enabled = bool(dashboard_requested)
     context: dict[str, object] = {
         "form": form,
+        "dashboard_enabled": dashboard_enabled,
+        "dashboard_query_suffix": "&dashboard=1" if dashboard_enabled else "",
+        "dashboard_toggle_url": _build_url_with_dashboard_flag(request),
     }
 
     history_id = _safe_positive_int(request.GET.get("history"), 0)
     if history_id:
         history = get_object_or_404(ScrapeHistory, id=history_id, user=request.user)
+        dashboard_enabled = bool(dashboard_requested or history.is_complete)
+        context["dashboard_enabled"] = dashboard_enabled
+        context["dashboard_query_suffix"] = "&dashboard=1" if dashboard_enabled else ""
         resume_done_days, resume_total_days, resume_progress_pct = _history_resume_progress(history)
         context["history_mode"] = True
         context["history"] = history
@@ -1607,6 +1639,7 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
             per_page,
             history.start_date.isoformat(),
             history.end_date.isoformat(),
+            dashboard_enabled=dashboard_enabled,
         )
         return render(request, "sentiment_app/twitter.html", context)
 
@@ -1657,6 +1690,7 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
         per_page,
         saved_history.start_date.isoformat(),
         saved_history.end_date.isoformat(),
+        dashboard_enabled=dashboard_enabled,
     ):
         request.session.pop(TWITTER_RESULT_SESSION_KEY, None)
         return render(request, "sentiment_app/twitter.html", context)

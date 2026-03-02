@@ -230,12 +230,19 @@
     </div>
 
     {% if classified_preview %}
-        {% if dashboard_error %}
+        {% if not dashboard_enabled %}
+            <div class="col-12">
+                <div class="d-flex justify-content-end">
+                    <a class="btn btn-outline-primary btn-sm" href="{{ dashboard_toggle_url }}">Tampilkan Dashboard</a>
+                </div>
+            </div>
+        {% endif %}
+        {% if dashboard_enabled and dashboard_error %}
             <div class="col-12">
                 <div class="alert alert-warning py-2 mb-0">{{ dashboard_error }}</div>
             </div>
         {% endif %}
-        {% if dashboard %}
+        {% if dashboard_enabled and dashboard %}
             <div class="col-12">
                 <div class="card shadow-sm panel-card">
                     <div class="card-body">
@@ -415,6 +422,9 @@
                                 {% if not history_mode %}
                                     <input type="hidden" name="show" value="1">
                                 {% endif %}
+                                {% if dashboard_enabled %}
+                                    <input type="hidden" name="dashboard" value="1">
+                                {% endif %}
                                 <label class="small text-muted" for="per-page-input">Per halaman</label>
                                 <input
                                     id="per-page-input"
@@ -444,25 +454,25 @@
                                 <ul class="pagination pagination-sm mb-0">
                                     <li class="page-item {% if current_page <= 1 %}disabled{% endif %}">
                                         {% if history_mode and history %}
-                                            <a class="page-link" href="{% url 'history_detail' history.id %}?page={{ current_page|add:'-1' }}&per_page={{ per_page }}">Sebelumnya</a>
+                                            <a class="page-link" href="{% url 'history_detail' history.id %}?page={{ current_page|add:'-1' }}&per_page={{ per_page }}{{ dashboard_query_suffix }}">Sebelumnya</a>
                                         {% else %}
-                                            <a class="page-link" href="?show=1&page={{ current_page|add:'-1' }}&per_page={{ per_page }}">Sebelumnya</a>
+                                            <a class="page-link" href="?show=1&page={{ current_page|add:'-1' }}&per_page={{ per_page }}{{ dashboard_query_suffix }}">Sebelumnya</a>
                                         {% endif %}
                                     </li>
                                     {% for page_num in page_numbers %}
                                         <li class="page-item {% if page_num == current_page %}active{% endif %}">
                                             {% if history_mode and history %}
-                                                <a class="page-link" href="{% url 'history_detail' history.id %}?page={{ page_num }}&per_page={{ per_page }}">{{ page_num }}</a>
+                                                <a class="page-link" href="{% url 'history_detail' history.id %}?page={{ page_num }}&per_page={{ per_page }}{{ dashboard_query_suffix }}">{{ page_num }}</a>
                                             {% else %}
-                                                <a class="page-link" href="?show=1&page={{ page_num }}&per_page={{ per_page }}">{{ page_num }}</a>
+                                                <a class="page-link" href="?show=1&page={{ page_num }}&per_page={{ per_page }}{{ dashboard_query_suffix }}">{{ page_num }}</a>
                                             {% endif %}
                                         </li>
                                     {% endfor %}
                                     <li class="page-item {% if current_page >= total_pages %}disabled{% endif %}">
                                         {% if history_mode and history %}
-                                            <a class="page-link" href="{% url 'history_detail' history.id %}?page={{ current_page|add:'1' }}&per_page={{ per_page }}">Berikutnya</a>
+                                            <a class="page-link" href="{% url 'history_detail' history.id %}?page={{ current_page|add:'1' }}&per_page={{ per_page }}{{ dashboard_query_suffix }}">Berikutnya</a>
                                         {% else %}
-                                            <a class="page-link" href="?show=1&page={{ current_page|add:'1' }}&per_page={{ per_page }}">Berikutnya</a>
+                                            <a class="page-link" href="?show=1&page={{ current_page|add:'1' }}&per_page={{ per_page }}{{ dashboard_query_suffix }}">Berikutnya</a>
                                         {% endif %}
                                     </li>
                                 </ul>
@@ -574,25 +584,25 @@
                                 <ul class="pagination pagination-sm mb-0">
                                     <li class="page-item {% if current_page <= 1 %}disabled{% endif %}">
                                         {% if history_mode and history %}
-                                            <a class="page-link" href="{% url 'history_detail' history.id %}?page={{ current_page|add:'-1' }}&per_page={{ per_page }}">Sebelumnya</a>
+                                            <a class="page-link" href="{% url 'history_detail' history.id %}?page={{ current_page|add:'-1' }}&per_page={{ per_page }}{{ dashboard_query_suffix }}">Sebelumnya</a>
                                         {% else %}
-                                            <a class="page-link" href="?show=1&page={{ current_page|add:'-1' }}&per_page={{ per_page }}">Sebelumnya</a>
+                                            <a class="page-link" href="?show=1&page={{ current_page|add:'-1' }}&per_page={{ per_page }}{{ dashboard_query_suffix }}">Sebelumnya</a>
                                         {% endif %}
                                     </li>
                                     {% for page_num in page_numbers %}
                                         <li class="page-item {% if page_num == current_page %}active{% endif %}">
                                             {% if history_mode and history %}
-                                                <a class="page-link" href="{% url 'history_detail' history.id %}?page={{ page_num }}&per_page={{ per_page }}">{{ page_num }}</a>
+                                                <a class="page-link" href="{% url 'history_detail' history.id %}?page={{ page_num }}&per_page={{ per_page }}{{ dashboard_query_suffix }}">{{ page_num }}</a>
                                             {% else %}
-                                                <a class="page-link" href="?show=1&page={{ page_num }}&per_page={{ per_page }}">{{ page_num }}</a>
+                                                <a class="page-link" href="?show=1&page={{ page_num }}&per_page={{ per_page }}{{ dashboard_query_suffix }}">{{ page_num }}</a>
                                             {% endif %}
                                         </li>
                                     {% endfor %}
                                     <li class="page-item {% if current_page >= total_pages %}disabled{% endif %}">
                                         {% if history_mode and history %}
-                                            <a class="page-link" href="{% url 'history_detail' history.id %}?page={{ current_page|add:'1' }}&per_page={{ per_page }}">Berikutnya</a>
+                                            <a class="page-link" href="{% url 'history_detail' history.id %}?page={{ current_page|add:'1' }}&per_page={{ per_page }}{{ dashboard_query_suffix }}">Berikutnya</a>
                                         {% else %}
-                                            <a class="page-link" href="?show=1&page={{ current_page|add:'1' }}&per_page={{ per_page }}">Berikutnya</a>
+                                            <a class="page-link" href="?show=1&page={{ current_page|add:'1' }}&per_page={{ per_page }}{{ dashboard_query_suffix }}">Berikutnya</a>
                                         {% endif %}
                                     </li>
                                 </ul>
