@@ -257,62 +257,69 @@ Included tests:
 10. Try invalid API key and confirm error handling.
 11. Verify `/download/<filename>/` blocks invalid filename/path attempts.
 
-## 9) Deploy (Render Free)
+## 9) Deploy (Railway Manual)
 
-Catatan: paket free biasanya sleep saat idle (cold start saat dibuka lagi).
+Catatan: Railway menggunakan model free trial/credit, lalu berbayar setelah limit tercapai.
 
 ### A. Persiapan repo
 
 1. Pastikan file model ada di repo:
    - `sentiment_site/models/knn_model.joblib`
    - `sentiment_site/models/svm_rbf_model.joblib`
-2. Pastikan push terbaru sudah masuk (termasuk `requirements.txt`, `render.yaml`, `build.sh`, `runtime.txt`).
+2. Pastikan push terbaru sudah masuk (termasuk `requirements.txt`, `Procfile`, `build.sh`).
 
-### B. Deploy via Blueprint (`render.yaml`) - direkomendasikan
+### B. Buat project dan service
 
-1. Render dashboard -> `New +` -> `Blueprint`.
-2. Pilih repo GitHub project ini.
-3. Render akan membaca `render.yaml` dan membuat:
-   - 1 web service (`prediksi-sentimen-web`)
-   - 1 PostgreSQL free database (`prediksi-sentimen-db`)
-4. Klik `Apply`.
+1. Buka Railway Dashboard -> `New Project`.
+2. Pilih `Deploy from GitHub Repo`, lalu pilih repo ini.
+3. Setelah service web terbentuk, tambah database:
+   - `New` -> `Database` -> `Add PostgreSQL`.
 
-### C. Environment variables (Render)
+### C. Konfigurasi web service (Settings)
 
-Set variabel berikut di service web (Environment):
+Set command berikut di service web:
 
-- `DJANGO_SECRET_KEY` (boleh auto-generate)
-- `DJANGO_DEBUG=0`
-- `DJANGO_ALLOWED_HOSTS=.onrender.com` (default di `render.yaml`)
-- `DJANGO_CSRF_TRUSTED_ORIGINS=https://*.onrender.com` (default di `render.yaml`)
-- `DJANGO_SESSION_COOKIE_SECURE=1`
-- `DJANGO_CSRF_COOKIE_SECURE=1`
-- `DJANGO_SECURE_SSL_REDIRECT=1`
-- `DJANGO_SECURE_HSTS_SECONDS=31536000`
-- `DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS=1`
-- `DJANGO_SECURE_HSTS_PRELOAD=1`
+- Build Command:
+  - `bash build.sh`
+- Start Command:
+  - `gunicorn sentiment_site.wsgi:application --bind 0.0.0.0:$PORT`
+- Pre-Deploy Command:
+  - `python manage.py migrate --noinput`
 
-`DATABASE_URL` akan otomatis terhubung dari database service jika deploy lewat `render.yaml`.
+### D. Environment variables (Variables tab)
 
-### D. Pertama kali deploy
+Set variabel berikut di service web:
 
-1. Tunggu build selesai.
-2. Buka URL render app.
-3. Jika status sehat (`Live`), lanjut buat akun admin.
+- `DJANGO_SECRET_KEY` = string acak panjang
+- `DJANGO_DEBUG` = `0`
+- `DJANGO_SESSION_COOKIE_SECURE` = `1`
+- `DJANGO_CSRF_COOKIE_SECURE` = `1`
+- `DJANGO_SECURE_SSL_REDIRECT` = `1`
+- `DJANGO_SECURE_HSTS_SECONDS` = `31536000`
+- `DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS` = `1`
+- `DJANGO_SECURE_HSTS_PRELOAD` = `1`
 
-### E. Buat akun admin pertama
+Untuk database:
 
-Setelah deploy sukses, buka Render Shell dan jalankan:
+1. Buat env `DATABASE_URL`.
+2. Klik `Add Reference` -> pilih service PostgreSQL -> pilih `DATABASE_URL`.
+
+`DJANGO_ALLOWED_HOSTS` dan `DJANGO_CSRF_TRUSTED_ORIGINS` bisa dikosongkan di Railway karena aplikasi otomatis membaca `RAILWAY_PUBLIC_DOMAIN`.
+
+### E. Deploy pertama
+
+1. Trigger deploy (otomatis saat push, atau klik `Deploy` manual).
+2. Tunggu status `Success`.
+3. Buka domain yang diberikan Railway.
+
+### F. Buat akun admin pertama (superuser)
+
+Gunakan Railway CLI dari lokal:
 
 ```bash
-python manage.py createsuperuser
+railway login
+railway link
+railway run python manage.py createsuperuser
 ```
 
 Lalu login ke `/admin/` atau `/login/`.
-
-### F. Alternatif manual (tanpa Blueprint)
-
-Jika tidak pakai `render.yaml`, buat Web Service biasa lalu isi:
-
-- Build Command: `bash build.sh`
-- Start Command: `gunicorn sentiment_site.wsgi:application --bind 0.0.0.0:$PORT`

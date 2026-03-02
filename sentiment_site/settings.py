@@ -35,6 +35,10 @@ DEFAULT_SECRET_KEY = "django-insecure-change-this-key"
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", DEFAULT_SECRET_KEY)
 DEBUG = _env_bool("DJANGO_DEBUG", True)
 ALLOWED_HOSTS: list[str] = _env_list("DJANGO_ALLOWED_HOSTS")
+RAILWAY_PUBLIC_DOMAIN = (os.getenv("RAILWAY_PUBLIC_DOMAIN") or "").strip()
+
+if RAILWAY_PUBLIC_DOMAIN and RAILWAY_PUBLIC_DOMAIN not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(RAILWAY_PUBLIC_DOMAIN)
 
 if not DEBUG and SECRET_KEY == DEFAULT_SECRET_KEY:
     raise ImproperlyConfigured("Set DJANGO_SECRET_KEY for production.")
@@ -173,6 +177,10 @@ CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = _env_bool("DJANGO_CSRF_COOKIE_SECURE", not DEBUG)
 CSRF_TRUSTED_ORIGINS = _env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
+if RAILWAY_PUBLIC_DOMAIN:
+    railway_csrf_origin = f"https://{RAILWAY_PUBLIC_DOMAIN}"
+    if railway_csrf_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(railway_csrf_origin)
 
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
