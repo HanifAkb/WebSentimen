@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from sentiment_app.services.twitter_client import fetch_tweets
+from sentiment_app.services.twitter_client import TwitterAPIError, _fetch_window_tweets, fetch_tweets
 
 
 class TwitterClientServiceTests(SimpleTestCase):
@@ -55,3 +55,20 @@ class TwitterClientServiceTests(SimpleTestCase):
 
         self.assertEqual(len(tweets), 1)
         self.assertEqual(tweets[0]["id"], "A")
+
+    @patch("sentiment_app.services.twitter_client.time.sleep", return_value=None)
+    def test_fetch_window_tweets_raises_on_rate_limit_after_retries(self, _mock_sleep):
+        class DummyResponse:
+            status_code = 429
+
+            @staticmethod
+            def json():
+                return {"message": "rate limit"}
+
+        with patch("sentiment_app.services.twitter_client.requests.get", return_value=DummyResponse()):
+            with self.assertRaises(TwitterAPIError):
+                _fetch_window_tweets(
+                    api_key="dummy",
+                    query="kendaraan listrik",
+                    max_tweets_per_window=5,
+                )

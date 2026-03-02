@@ -13,8 +13,10 @@ REQUEST_TIMEOUT_SECONDS = (5, 20)
 WINDOW_DAYS = 1
 MAX_TWEETS_PER_WINDOW = 500
 MAX_TOTAL_TWEETS = 4000
-PAGE_SLEEP_SECONDS = 0.15
-WINDOW_SLEEP_SECONDS = 0.1
+PAGE_SLEEP_SECONDS = 0.35
+WINDOW_SLEEP_SECONDS = 0.25
+RATE_LIMIT_MAX_RETRIES = 3
+RATE_LIMIT_BACKOFF_SECONDS = 1.5
 
 
 class TwitterAPIError(RuntimeError):
@@ -241,6 +243,7 @@ def _fetch_window_tweets(
     cursor = ""
     fetched: list[dict[str, Any]] = []
     tweet_count = 0
+    rate_limit_retry_count = 0
     while tweet_count < max_tweets_per_window:
         params: dict[str, Any] = {
             "query": query,
@@ -257,9 +260,30 @@ def _fetch_window_tweets(
         if response.status_code in (401, 403):
             raise TwitterAPIError("API key tidak valid atau akses tidak diizinkan.")
         if response.status_code == 429:
-            break
+            if rate_limit_retry_count < RATE_LIMIT_MAX_RETRIES:
+                sleep_seconds = RATE_LIMIT_BACKOFF_SECONDS * (rate_limit_retry_count + 1)
+                rate_limit_retry_count += 1
+                time.sleep(sleep_seconds)
+                continue
+            raise TwitterAPIError("Batas permintaan tercapai. Coba lagi dalam beberapa menit.")
         if response.status_code >= 400:
-            break
+            error_message = ""
+            try:
+                payload_error = response.json()
+                if isinstance(payload_error, dict):
+                    error_message = str(
+                        payload_error.get("message")
+                        or payload_error.get("error")
+                        or payload_error.get("detail")
+                        or ""
+                    ).strip()
+            except ValueError:
+                error_message = ""
+            if not error_message:
+                error_message = f"HTTP {response.status_code}"
+            raise TwitterAPIError(f"Twitter API mengembalikan error: {error_message}")
+
+        rate_limit_retry_count = 0
 
         try:
             payload = response.json()
