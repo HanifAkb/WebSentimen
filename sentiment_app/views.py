@@ -11,6 +11,7 @@ from django.conf import settings
 from django.contrib.auth import login as auth_login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.db import models
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404
@@ -38,6 +39,7 @@ except Exception:
 SAFE_OUTPUT_RE = re.compile(r"^[A-Za-z0-9_-]+\.csv$")
 DEFAULT_PER_PAGE = 10
 MAX_PER_PAGE = 200
+HISTORY_PER_PAGE = 10
 TWITTER_RESULT_SESSION_KEY = "twitter_last_result"
 PREDICTION_COLUMNS = ["knn_label", "knn_score", "svm_label", "svm_score"]
 PREDICTION_HEADERS = {
@@ -1102,7 +1104,7 @@ def register_user_view(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def history_list_view(request: HttpRequest) -> HttpResponse:
-    scrape_histories = ScrapeHistory.objects.filter(user=request.user).only(
+    scrape_histories_qs = ScrapeHistory.objects.filter(user=request.user).only(
         "id",
         "query",
         "language",
@@ -1112,7 +1114,7 @@ def history_list_view(request: HttpRequest) -> HttpResponse:
         "is_complete",
         "created_at",
     )
-    prediction_histories = PredictionHistory.objects.filter(user=request.user).only(
+    prediction_histories_qs = PredictionHistory.objects.filter(user=request.user).only(
         "id",
         "input_type",
         "source_name",
@@ -1120,9 +1122,18 @@ def history_list_view(request: HttpRequest) -> HttpResponse:
         "sample_count",
         "created_at",
     )
+
+    scrape_page_number = _safe_positive_int(request.GET.get("scrape_page"), 1)
+    prediction_page_number = _safe_positive_int(request.GET.get("pred_page"), 1)
+
+    scrape_page_obj = Paginator(scrape_histories_qs, HISTORY_PER_PAGE).get_page(scrape_page_number)
+    prediction_page_obj = Paginator(prediction_histories_qs, HISTORY_PER_PAGE).get_page(prediction_page_number)
+
     context = {
-        "scrape_histories": scrape_histories,
-        "prediction_histories": prediction_histories,
+        "scrape_histories": scrape_page_obj.object_list,
+        "prediction_histories": prediction_page_obj.object_list,
+        "scrape_page_obj": scrape_page_obj,
+        "prediction_page_obj": prediction_page_obj,
     }
     return render(request, "sentiment_app/history.html", context)
 

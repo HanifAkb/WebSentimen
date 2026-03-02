@@ -35,7 +35,7 @@
                             <tbody>
                                 {% for item in scrape_histories %}
                                     <tr>
-                                        <td>{{ forloop.counter }}</td>
+                                        <td>{{ scrape_page_obj.start_index|add:forloop.counter0 }}</td>
                                         <td>{{ item.created_at|date:"d/m/Y H:i" }}</td>
                                         <td class="text-break">{{ item.query }}</td>
                                         <td>{{ item.language|default:"-" }}</td>
@@ -56,6 +56,31 @@
                             </tbody>
                         </table>
                     </div>
+                    {% if scrape_page_obj.paginator.num_pages > 1 %}
+                        <nav class="mt-2" aria-label="Navigasi halaman riwayat scraping">
+                            <ul class="pagination pagination-sm mb-0">
+                                <li class="page-item {% if not scrape_page_obj.has_previous %}disabled{% endif %}">
+                                    {% if scrape_page_obj.has_previous %}
+                                        <a class="page-link" href="?scrape_page={{ scrape_page_obj.previous_page_number }}&pred_page={{ prediction_page_obj.number }}">Sebelumnya</a>
+                                    {% else %}
+                                        <span class="page-link">Sebelumnya</span>
+                                    {% endif %}
+                                </li>
+                                {% for page_num in scrape_page_obj.paginator.page_range %}
+                                    <li class="page-item {% if page_num == scrape_page_obj.number %}active{% endif %}">
+                                        <a class="page-link" href="?scrape_page={{ page_num }}&pred_page={{ prediction_page_obj.number }}">{{ page_num }}</a>
+                                    </li>
+                                {% endfor %}
+                                <li class="page-item {% if not scrape_page_obj.has_next %}disabled{% endif %}">
+                                    {% if scrape_page_obj.has_next %}
+                                        <a class="page-link" href="?scrape_page={{ scrape_page_obj.next_page_number }}&pred_page={{ prediction_page_obj.number }}">Berikutnya</a>
+                                    {% else %}
+                                        <span class="page-link">Berikutnya</span>
+                                    {% endif %}
+                                </li>
+                            </ul>
+                        </nav>
+                    {% endif %}
                 {% else %}
                     <div class="alert alert-info mb-0">Belum ada riwayat scraping.</div>
                 {% endif %}
@@ -86,7 +111,7 @@
                             <tbody>
                                 {% for item in prediction_histories %}
                                     <tr>
-                                        <td>{{ forloop.counter }}</td>
+                                        <td>{{ prediction_page_obj.start_index|add:forloop.counter0 }}</td>
                                         <td>{{ item.created_at|date:"d/m/Y H:i" }}</td>
                                         <td>
                                             {% if item.input_type == "single" %}
@@ -112,6 +137,31 @@
                             </tbody>
                         </table>
                     </div>
+                    {% if prediction_page_obj.paginator.num_pages > 1 %}
+                        <nav class="mt-2" aria-label="Navigasi halaman riwayat prediksi">
+                            <ul class="pagination pagination-sm mb-0">
+                                <li class="page-item {% if not prediction_page_obj.has_previous %}disabled{% endif %}">
+                                    {% if prediction_page_obj.has_previous %}
+                                        <a class="page-link" href="?scrape_page={{ scrape_page_obj.number }}&pred_page={{ prediction_page_obj.previous_page_number }}">Sebelumnya</a>
+                                    {% else %}
+                                        <span class="page-link">Sebelumnya</span>
+                                    {% endif %}
+                                </li>
+                                {% for page_num in prediction_page_obj.paginator.page_range %}
+                                    <li class="page-item {% if page_num == prediction_page_obj.number %}active{% endif %}">
+                                        <a class="page-link" href="?scrape_page={{ scrape_page_obj.number }}&pred_page={{ page_num }}">{{ page_num }}</a>
+                                    </li>
+                                {% endfor %}
+                                <li class="page-item {% if not prediction_page_obj.has_next %}disabled{% endif %}">
+                                    {% if prediction_page_obj.has_next %}
+                                        <a class="page-link" href="?scrape_page={{ scrape_page_obj.number }}&pred_page={{ prediction_page_obj.next_page_number }}">Berikutnya</a>
+                                    {% else %}
+                                        <span class="page-link">Berikutnya</span>
+                                    {% endif %}
+                                </li>
+                            </ul>
+                        </nav>
+                    {% endif %}
                 {% else %}
                     <div class="alert alert-info mb-0">Belum ada riwayat prediksi.</div>
                 {% endif %}

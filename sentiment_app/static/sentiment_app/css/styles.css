@@ -216,6 +216,44 @@ body {
         flex: 0 0 300px;
         width: 300px;
         max-width: 300px;
+        position: sticky;
+        top: 0;
+        align-self: flex-start;
+        height: 100vh;
+    }
+
+    .sidebar-panel {
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .sidebar-brand {
+        position: sticky;
+        top: 0.25rem;
+        z-index: 6;
+        backdrop-filter: blur(2px);
+    }
+
+    .sidebar-nav {
+        position: sticky;
+        top: 8.9rem;
+        z-index: 5;
+        max-height: calc(100vh - 18rem);
+        overflow-y: auto;
+        padding-right: 0.2rem;
+    }
+
+    .sidebar-user-panel {
+        position: sticky;
+        bottom: 0.25rem;
+        z-index: 7;
+        border-radius: 0.85rem;
+        background: linear-gradient(
+            180deg,
+            rgba(17, 38, 72, 0.82) 0%,
+            rgba(14, 31, 60, 0.93) 100%
+        );
+        backdrop-filter: blur(3px);
     }
 
     .main-column {
@@ -722,6 +760,7 @@ span.flatpickr-weekday {
         border-bottom: 0;
         border-radius: 0 0 1rem 1rem;
         box-shadow: 0 8px 18px rgba(15, 23, 42, 0.2);
+        overflow: hidden;
     }
 
     .sidebar-panel::before,
@@ -732,6 +771,8 @@ span.flatpickr-weekday {
     .sidebar-brand {
         margin-bottom: 0.9rem !important;
         padding: 0.85rem;
+        position: relative;
+        top: auto;
     }
 
     .sidebar-logo-text {
@@ -747,10 +788,22 @@ span.flatpickr-weekday {
         display: flex !important;
         flex-direction: column !important;
         gap: 0.5rem !important;
+        position: static;
+        top: auto;
+        max-height: none;
+        overflow: visible;
+        padding-right: 0;
     }
 
     .sidebar-nav .sidebar-link:last-child {
         grid-column: auto;
+    }
+
+    .sidebar-user-panel {
+        position: static;
+        bottom: auto;
+        border-radius: 0;
+        background: transparent;
     }
 
     .sidebar-link {

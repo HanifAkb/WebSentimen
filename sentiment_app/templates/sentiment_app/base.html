@@ -62,7 +62,7 @@
                         {% endif %}
                     </nav>
 
-                    <div class="mt-auto pt-3 border-top border-light-subtle">
+                    <div class="mt-auto pt-3 border-top border-light-subtle sidebar-user-panel">
                         <div class="small text-light mb-2">Login sebagai: <strong>{{ user.username }}</strong></div>
                         <form method="post" action="{% url 'logout' %}" class="sidebar-logout-form">
                             {% csrf_token %}
