@@ -24,6 +24,10 @@ class TwitterAPIError(RuntimeError):
     pass
 
 
+class TwitterRateLimitError(TwitterAPIError):
+    pass
+
+
 def _clean_query(query: str) -> str:
     cleaned = query.strip()
     cleaned = re.sub(r"(?i)\b(?:since|until):\S+", " ", cleaned)
@@ -284,13 +288,13 @@ def _fetch_window_tweets(
                 sleep_seconds = RATE_LIMIT_BACKOFF_SECONDS * (rate_limit_retry_count + 1)
                 rate_limit_retry_count += 1
                 if deadline_ts is not None and (time.monotonic() + sleep_seconds) >= deadline_ts:
-                    raise TwitterAPIError(
+                    raise TwitterRateLimitError(
                         "Batas permintaan API tercapai dan waktu proses hampir habis. "
                         "Coba lagi dengan rentang tanggal lebih pendek."
                     )
                 time.sleep(sleep_seconds)
                 continue
-            raise TwitterAPIError("Batas permintaan tercapai. Coba lagi dalam beberapa menit.")
+            raise TwitterRateLimitError("Batas permintaan tercapai. Coba lagi dalam beberapa menit.")
         if response.status_code >= 400:
             error_message = ""
             try:
@@ -349,6 +353,7 @@ def fetch_tweets(
     window_days: int = WINDOW_DAYS,
     on_window: Callable[[list[dict[str, Any]]], None] | None = None,
     max_runtime_seconds: int = MAX_RUNTIME_SECONDS,
+    return_meta: bool = False,
 ) -> list[dict[str, Any]]:
     if not api_key:
         raise TwitterAPIError("API key wajib diisi.")
@@ -368,6 +373,10 @@ def fetch_tweets(
     max_total_tweets = max(1, int(max_total_tweets))
     max_runtime_seconds = max(5, int(max_runtime_seconds))
     deadline_ts = time.monotonic() + max_runtime_seconds
+    meta = {
+        "rate_limited": False,
+        "truncated": False,
+    }
     if max_range_days is not None:
         max_range_days = max(1, int(max_range_days))
         selected_days = (parsed_end - parsed_start).days + 1
@@ -402,12 +411,18 @@ def fetch_tweets(
         until_str = next_window.strftime("%Y-%m-%d")
         window_query = f"{base_query} since:{since_str} until:{until_str}"
 
-        raw_window_tweets = _fetch_window_tweets(
-            api_key=api_key,
-            query=window_query,
-            max_tweets_per_window=max_tweets_per_window,
-            deadline_ts=deadline_ts,
-        )
+        try:
+            raw_window_tweets = _fetch_window_tweets(
+                api_key=api_key,
+                query=window_query,
+                max_tweets_per_window=max_tweets_per_window,
+                deadline_ts=deadline_ts,
+            )
+        except TwitterRateLimitError:
+            if kept_total > 0:
+                meta["rate_limited"] = True
+                break
+            raise
         total_raw_tweets += len(raw_window_tweets)
         normalized_window_tweets = normalize_tweets(raw_window_tweets, week_start=since_str, week_end=until_str)
         kept_in_window: list[dict[str, Any]] = []
@@ -452,6 +467,7 @@ def fetch_tweets(
                 all_tweets.extend(kept_in_window)
 
         if kept_total >= max_total_tweets:
+            meta["truncated"] = True
             break
 
         window_cursor = next_window
@@ -468,5 +484,9 @@ def fetch_tweets(
         )
 
     if on_window is not None:
+        if return_meta:
+            return [], meta
         return []
+    if return_meta:
+        return all_tweets, meta
     return all_tweets

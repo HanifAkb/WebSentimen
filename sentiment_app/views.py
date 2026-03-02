@@ -990,8 +990,14 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
         temp_db_threshold_days = _setting_positive_int("SENTIMENT_TWITTER_TEMP_DB_THRESHOLD_DAYS", 90)
         selected_days = (end_date - start_date).days + 1 if start_date and end_date else 1
         use_temp_db_mode = selected_days > temp_db_threshold_days
-        # Keep daily windows for accuracy of date boundaries with twitterapi.io.
-        window_days = 1
+        if selected_days <= 7:
+            window_days = 1
+        elif selected_days <= 31:
+            window_days = 2
+        elif selected_days <= 90:
+            window_days = 3
+        else:
+            window_days = 4
 
         if not api_key:
             messages.error(request, "API key wajib diisi.")
@@ -1034,7 +1040,7 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                     temp_chunk_index += 1
                     temp_rows_count += len(serialized_rows)
 
-                fetch_tweets(
+                fetch_result = fetch_tweets(
                     api_key=api_key,
                     query=query,
                     language=language,
@@ -1046,7 +1052,11 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                     window_days=window_days,
                     max_runtime_seconds=max_runtime_seconds,
                     on_window=_handle_window,
+                    return_meta=True,
                 )
+                fetch_meta: dict[str, object] = {"rate_limited": False, "truncated": False}
+                if isinstance(fetch_result, tuple) and len(fetch_result) == 2 and isinstance(fetch_result[1], dict):
+                    fetch_meta = fetch_result[1]
 
                 if temp_rows_count <= 0:
                     history_item.delete()
@@ -1060,7 +1070,12 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                 history_item.tweet_count = temp_rows_count
                 history_item.save(update_fields=["tweet_count"])
 
-                if temp_rows_count >= max_total_tweets:
+                if bool(fetch_meta.get("rate_limited")):
+                    messages.warning(
+                        request,
+                        "Sebagian data berhasil diambil, tetapi proses berhenti karena batas permintaan API.",
+                    )
+                if temp_rows_count >= max_total_tweets or bool(fetch_meta.get("truncated")):
                     messages.warning(
                         request,
                         f"Hasil dibatasi maksimal {max_total_tweets} tweet per scraping agar aplikasi tetap stabil.",
@@ -1079,7 +1094,7 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                 request.session.modified = True
                 return redirect(f"{reverse('history_detail', args=[history_item.id])}?page=1&per_page={per_page}")
 
-            tweets = fetch_tweets(
+            fetch_result = fetch_tweets(
                 api_key=api_key,
                 query=query,
                 language=language,
@@ -1090,7 +1105,14 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                 max_range_days=max_range_days,
                 window_days=window_days,
                 max_runtime_seconds=max_runtime_seconds,
+                return_meta=True,
             )
+            fetch_meta: dict[str, object] = {"rate_limited": False, "truncated": False}
+            if isinstance(fetch_result, tuple) and len(fetch_result) == 2 and isinstance(fetch_result[1], dict):
+                tweets = fetch_result[0]
+                fetch_meta = fetch_result[1]
+            else:
+                tweets = fetch_result  # type: ignore[assignment]
             if not tweets:
                 messages.warning(request, "Tidak ada tweet yang ditemukan untuk permintaan ini.")
                 request.session.pop(TWITTER_RESULT_SESSION_KEY, None)
@@ -1122,7 +1144,12 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                 rows=history_rows,
             )
 
-            if len(history_rows) >= max_total_tweets:
+            if bool(fetch_meta.get("rate_limited")):
+                messages.warning(
+                    request,
+                    "Sebagian data berhasil diambil, tetapi proses berhenti karena batas permintaan API.",
+                )
+            if len(history_rows) >= max_total_tweets or bool(fetch_meta.get("truncated")):
                 messages.warning(
                     request,
                     f"Hasil dibatasi maksimal {max_total_tweets} tweet per scraping agar aplikasi tetap stabil.",
