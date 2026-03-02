@@ -4,7 +4,7 @@ import base64
 import io
 import re
 from collections import Counter
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from django.conf import settings
@@ -297,9 +297,24 @@ def _parse_created_at_date(value: object) -> date | None:
     if value in (None, ""):
         return None
 
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(float(value), timezone.utc).date()
+        except (OverflowError, OSError, ValueError):
+            return None
+
     raw = str(value).strip()
     if not raw:
         return None
+
+    if raw.isdigit():
+        try:
+            timestamp = float(raw)
+            if timestamp > 10_000_000_000:
+                timestamp = timestamp / 1000.0
+            return datetime.fromtimestamp(timestamp, timezone.utc).date()
+        except (OverflowError, OSError, ValueError):
+            return None
 
     normalized = raw.replace("Z", "+00:00")
     try:
@@ -700,6 +715,10 @@ def _filter_rows_by_date_range(
     for row in rows:
         created_date = _parse_created_at_date(row.get("CreatedAt"))
         if created_date is None:
+            created_date = _safe_parse_iso_date(row.get("_week_start"))
+        if created_date is None:
+            # Fallback: keep row to avoid dropping valid tweets due to format variation.
+            filtered_rows.append(row)
             continue
         if start_date and created_date < start_date:
             continue
@@ -970,12 +989,8 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
         temp_db_threshold_days = _setting_positive_int("SENTIMENT_TWITTER_TEMP_DB_THRESHOLD_DAYS", 90)
         selected_days = (end_date - start_date).days + 1 if start_date and end_date else 1
         use_temp_db_mode = selected_days > temp_db_threshold_days
-        if selected_days <= 14:
-            window_days = 1
-        elif selected_days <= 60:
-            window_days = 3
-        else:
-            window_days = 7
+        # Keep daily windows for accuracy of date boundaries with twitterapi.io.
+        window_days = 1
 
         if not api_key:
             messages.error(request, "API key wajib diisi.")

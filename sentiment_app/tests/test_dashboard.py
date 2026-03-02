@@ -20,3 +20,11 @@ class ScrapingDashboardTests(SimpleTestCase):
         self.assertEqual(charts["trend_values"], [2, 1, 1])
         self.assertEqual(len(charts["trend_labels"]), 3)
         self.assertTrue(str(charts["trend_labels"][0]).startswith("01 "))
+
+    def test_dashboard_accepts_unix_timestamp_created_at(self):
+        rows = [
+            {"CreatedAt": "1706745600", "text": "a", "knn_label": "Positive", "svm_label": "Positive"},
+        ]
+        dashboard = _build_scraping_dashboard(rows, date(2024, 2, 1), date(2024, 2, 1))
+        charts = dashboard["charts"]
+        self.assertEqual(charts["trend_values"], [1])

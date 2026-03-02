@@ -93,9 +93,11 @@ class TwitterFetchForm(forms.Form):
         widget=forms.DateInput(
             format="%Y-%m-%d",
             attrs={
-                "type": "date",
+                "type": "text",
                 "placeholder": "dd/mm/yyyy",
-                "lang": "id",
+                "class": "form-control js-flatpickr-date",
+                "data-date-alt-format": "d/m/Y",
+                "data-date-format": "Y-m-d",
                 "autocomplete": "off",
             },
         ),
@@ -108,9 +110,11 @@ class TwitterFetchForm(forms.Form):
         widget=forms.DateInput(
             format="%Y-%m-%d",
             attrs={
-                "type": "date",
+                "type": "text",
                 "placeholder": "dd/mm/yyyy",
-                "lang": "id",
+                "class": "form-control js-flatpickr-date",
+                "data-date-alt-format": "d/m/Y",
+                "data-date-format": "Y-m-d",
                 "autocomplete": "off",
             },
         ),
@@ -121,7 +125,9 @@ class TwitterFetchForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
-            field.widget.attrs["class"] = "form-control"
+            existing_class = (field.widget.attrs.get("class") or "").strip()
+            classes = f"{existing_class} form-control".strip()
+            field.widget.attrs["class"] = " ".join(dict.fromkeys(classes.split()))
         max_days = _twitter_max_range_days()
         self.fields["end_date"].help_text = f"Maksimal rentang scraping: {max_days} hari."
 

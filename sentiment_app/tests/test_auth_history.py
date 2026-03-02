@@ -82,7 +82,7 @@ class AuthAndHistoryTests(TestCase):
             }
         ]
 
-        with patch("sentiment_app.views.fetch_tweets", return_value=mocked_tweets), patch(
+        with patch("sentiment_app.views.fetch_tweets", return_value=mocked_tweets) as mocked_fetch, patch(
             "sentiment_app.views.predict_batch_in_chunks",
             return_value=mocked_predictions,
         ):
@@ -96,6 +96,7 @@ class AuthAndHistoryTests(TestCase):
                     "end_date": "02/01/2026",
                 },
             )
+        self.assertEqual(mocked_fetch.call_args.kwargs.get("window_days"), 1)
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(ScrapeHistory.objects.count(), 1)
