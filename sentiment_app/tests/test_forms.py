@@ -1,4 +1,4 @@
-from django.test import SimpleTestCase, override_settings
+from django.test import SimpleTestCase
 
 from sentiment_app.forms import TwitterFetchForm
 
@@ -16,19 +16,18 @@ class TwitterFetchFormTests(SimpleTestCase):
         )
         self.assertTrue(form.is_valid(), form.errors)
 
-    @override_settings(SENTIMENT_TWITTER_MAX_RANGE_DAYS=7)
-    def test_rejects_range_over_limit(self):
+    def test_rejects_when_start_date_after_end_date(self):
         form = TwitterFetchForm(
             data={
                 "api_key": "dummy",
                 "query": "mobil listrik",
                 "language": "in",
-                "start_date": "01/01/2026",
+                "start_date": "10/01/2026",
                 "end_date": "09/01/2026",
             }
         )
         self.assertFalse(form.is_valid())
-        self.assertIn("Maksimal 7 hari", str(form.non_field_errors()))
+        self.assertIn("Tanggal mulai tidak boleh lebih besar", str(form.non_field_errors()))
 
     def test_accepts_iso_date_format_from_native_date_input(self):
         form = TwitterFetchForm(

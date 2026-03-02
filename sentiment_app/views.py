@@ -984,7 +984,8 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
         end_date = form.cleaned_data.get("end_date")
         max_total_tweets = _setting_positive_int("SENTIMENT_TWITTER_MAX_TOTAL_TWEETS", 4000)
         max_tweets_per_window = _setting_positive_int("SENTIMENT_TWITTER_MAX_TWEETS_PER_WINDOW", 500)
-        max_range_days = _setting_positive_int("SENTIMENT_TWITTER_MAX_RANGE_DAYS", 180)
+        max_tweets_per_request = _setting_positive_int("SENTIMENT_TWITTER_MAX_TWEETS_PER_REQUEST", 1500)
+        min_tweets_per_window = _setting_positive_int("SENTIMENT_TWITTER_MIN_TWEETS_PER_WINDOW", 80)
         max_runtime_seconds = _setting_positive_int("SENTIMENT_TWITTER_MAX_RUNTIME_SECONDS", 22)
         predict_chunk_size = _setting_positive_int("SENTIMENT_TWITTER_PREDICT_CHUNK_SIZE", 300)
         temp_db_threshold_days = _setting_positive_int("SENTIMENT_TWITTER_TEMP_DB_THRESHOLD_DAYS", 90)
@@ -998,6 +999,12 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
             window_days = 3
         else:
             window_days = 4
+        total_windows = max(1, (selected_days + window_days - 1) // window_days)
+        effective_total_tweets = min(max_total_tweets, max_tweets_per_request)
+        effective_tweets_per_window = min(
+            max_tweets_per_window,
+            max(min_tweets_per_window, (effective_total_tweets + total_windows - 1) // total_windows),
+        )
 
         if not api_key:
             messages.error(request, "API key wajib diisi.")
@@ -1046,9 +1053,8 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                     language=language,
                     start_date=start_date.isoformat() if start_date else None,
                     end_date=end_date.isoformat() if end_date else None,
-                    max_tweets_per_window=max_tweets_per_window,
-                    max_total_tweets=max_total_tweets,
-                    max_range_days=max_range_days,
+                    max_tweets_per_window=effective_tweets_per_window,
+                    max_total_tweets=effective_total_tweets,
                     window_days=window_days,
                     max_runtime_seconds=max_runtime_seconds,
                     on_window=_handle_window,
@@ -1075,10 +1081,15 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                         request,
                         "Sebagian data berhasil diambil, tetapi proses berhenti karena batas permintaan API.",
                     )
-                if temp_rows_count >= max_total_tweets or bool(fetch_meta.get("truncated")):
+                if temp_rows_count >= effective_total_tweets or bool(fetch_meta.get("truncated")):
                     messages.warning(
                         request,
-                        f"Hasil dibatasi maksimal {max_total_tweets} tweet per scraping agar aplikasi tetap stabil.",
+                        f"Hasil dibatasi maksimal {effective_total_tweets} tweet per scraping agar aplikasi tetap stabil.",
+                    )
+                if effective_total_tweets < max_total_tweets:
+                    messages.info(
+                        request,
+                        f"Untuk stabilitas server, rentang ini diproses dengan sampling maksimal {effective_total_tweets} tweet.",
                     )
                 messages.info(
                     request,
@@ -1100,9 +1111,8 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                 language=language,
                 start_date=start_date.isoformat() if start_date else None,
                 end_date=end_date.isoformat() if end_date else None,
-                max_tweets_per_window=max_tweets_per_window,
-                max_total_tweets=max_total_tweets,
-                max_range_days=max_range_days,
+                max_tweets_per_window=effective_tweets_per_window,
+                max_total_tweets=effective_total_tweets,
                 window_days=window_days,
                 max_runtime_seconds=max_runtime_seconds,
                 return_meta=True,
@@ -1149,10 +1159,15 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                     request,
                     "Sebagian data berhasil diambil, tetapi proses berhenti karena batas permintaan API.",
                 )
-            if len(history_rows) >= max_total_tweets or bool(fetch_meta.get("truncated")):
+            if len(history_rows) >= effective_total_tweets or bool(fetch_meta.get("truncated")):
                 messages.warning(
                     request,
-                    f"Hasil dibatasi maksimal {max_total_tweets} tweet per scraping agar aplikasi tetap stabil.",
+                    f"Hasil dibatasi maksimal {effective_total_tweets} tweet per scraping agar aplikasi tetap stabil.",
+                )
+            if effective_total_tweets < max_total_tweets:
+                messages.info(
+                    request,
+                    f"Untuk stabilitas server, rentang ini diproses dengan sampling maksimal {effective_total_tweets} tweet.",
                 )
 
             request.session[TWITTER_RESULT_SESSION_KEY] = {
