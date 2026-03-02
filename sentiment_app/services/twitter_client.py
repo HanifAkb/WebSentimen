@@ -15,8 +15,8 @@ MAX_TWEETS_PER_WINDOW = 500
 MAX_TOTAL_TWEETS = 4000
 PAGE_SLEEP_SECONDS = 0.35
 WINDOW_SLEEP_SECONDS = 0.25
-RATE_LIMIT_MAX_RETRIES = 1
-RATE_LIMIT_BACKOFF_SECONDS = 0.5
+RATE_LIMIT_MAX_RETRIES = 3
+RATE_LIMIT_BACKOFF_SECONDS = 1.0
 MAX_RUNTIME_SECONDS = 22
 
 
@@ -288,12 +288,17 @@ def _fetch_window_tweets(
                 sleep_seconds = RATE_LIMIT_BACKOFF_SECONDS * (rate_limit_retry_count + 1)
                 rate_limit_retry_count += 1
                 if deadline_ts is not None and (time.monotonic() + sleep_seconds) >= deadline_ts:
+                    if fetched:
+                        return fetched
                     raise TwitterRateLimitError(
                         "Batas permintaan API tercapai dan waktu proses hampir habis. "
                         "Coba lagi dengan rentang tanggal lebih pendek."
                     )
                 time.sleep(sleep_seconds)
                 continue
+            if fetched:
+                # Keep partial data from current window instead of failing whole scraping.
+                return fetched
             raise TwitterRateLimitError("Batas permintaan tercapai. Coba lagi dalam beberapa menit.")
         if response.status_code >= 400:
             error_message = ""

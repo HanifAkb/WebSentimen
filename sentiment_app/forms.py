@@ -124,7 +124,6 @@ class TwitterFetchForm(forms.Form):
             existing_class = (field.widget.attrs.get("class") or "").strip()
             classes = f"{existing_class} form-control".strip()
             field.widget.attrs["class"] = " ".join(dict.fromkeys(classes.split()))
-        self.fields["end_date"].help_text = "Pilih tanggal akhir rentang scraping."
 
     def clean(self):
         cleaned_data = super().clean()
