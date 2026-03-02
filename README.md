@@ -154,6 +154,10 @@ http://127.0.0.1:8000/
   - hasil scraping bersifat sementara (tidak disimpan ke `media/outputs`)
   - refresh pada halaman hasil akan membersihkan output
   - setiap scraping yang berhasil otomatis disimpan ke riwayat user yang login
+  - untuk menjaga stabilitas server:
+    - rentang tanggal maksimum default `180` hari (`SENTIMENT_TWITTER_MAX_RANGE_DAYS`)
+    - total tweet yang diproses per scraping maksimum default `4000` (`SENTIMENT_TWITTER_MAX_TOTAL_TWEETS`)
+    - klasifikasi dilakukan bertahap (chunk) default `300` baris per batch (`SENTIMENT_TWITTER_PREDICT_CHUNK_SIZE`)
 
 ### Riwayat (`/history/`)
 
@@ -198,6 +202,13 @@ Catatan: rentang tanggal sudah diatur dari field tanggal pada form, jadi tidak p
   - `DJANGO_SECRET_KEY` wajib diisi
   - `DJANGO_ALLOWED_HOSTS` wajib diisi
   - opsi cookie/SSL/HSTS ada di `.env.example`
+- Tuning performa scraping:
+  - `SENTIMENT_TWITTER_MAX_RANGE_DAYS`
+  - `SENTIMENT_TWITTER_MAX_TOTAL_TWEETS`
+  - `SENTIMENT_TWITTER_MAX_TWEETS_PER_WINDOW`
+  - `SENTIMENT_TWITTER_PREDICT_CHUNK_SIZE`
+  - `SENTIMENT_WORDCLOUD_MAX_TEXTS_PER_LABEL`
+  - `SENTIMENT_WORDCLOUD_MAX_CHARS_PER_LABEL`
 
 ## 5) Twitter API Endpoint Notes
 

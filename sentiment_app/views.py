@@ -23,7 +23,8 @@ from .services.file_service import (
     generate_classification_csv,
     parse_uploaded_file,
 )
-from .services.model_service import ModelServiceError, predict_batch, predict_single
+from .services.model_service import ModelServiceError, predict_batch, predict_batch_in_chunks, predict_single
+from .services.preprocess import preprocess_text
 from .services.twitter_client import TwitterAPIError, fetch_tweets
 
 try:
@@ -123,6 +124,15 @@ WORDCLOUD_STOPWORDS = {
     "you",
     "your",
 }
+
+
+def _setting_positive_int(name: str, default: int) -> int:
+    raw_value = getattr(settings, name, default)
+    try:
+        parsed = int(raw_value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
 
 
 def _safe_positive_int(value: object, default: int) -> int:
@@ -381,9 +391,8 @@ def _normalize_sentiment_label(value: object) -> str:
 
 
 def _clean_text_for_wordcloud(text: str) -> str:
-    cleaned = text.lower()
-    cleaned = re.sub(r"https?://\S+|www\.\S+", " ", cleaned)
-    cleaned = re.sub(r"[@#]\w+", " ", cleaned)
+    # Align with model preprocessing so WordCloud reflects the same cleaned language space.
+    cleaned = preprocess_text(str(text or ""))
     cleaned = re.sub(r"[^0-9a-zA-Z_\s]", " ", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned)
     return cleaned.strip()
@@ -393,9 +402,18 @@ def _build_wordcloud_image(texts: list[str], colormap: str) -> str | None:
     if WordCloud is None:
         return None
 
-    cleaned_texts = [_clean_text_for_wordcloud(str(text or "")) for text in texts if str(text or "").strip()]
-    combined_text = " ".join(text for text in cleaned_texts if text)
-    if not combined_text:
+    bigram_counter: Counter[str] = Counter()
+    for raw_text in texts:
+        cleaned_text = _clean_text_for_wordcloud(str(raw_text or ""))
+        if not cleaned_text:
+            continue
+        tokens = [token for token in cleaned_text.split() if token]
+        if len(tokens) < 2:
+            continue
+        for idx in range(len(tokens) - 1):
+            bigram_counter[f"{tokens[idx]} {tokens[idx + 1]}"] += 1
+
+    if not bigram_counter:
         return None
 
     stopwords = set(WORDCLOUD_BASE_STOPWORDS) | WORDCLOUD_STOPWORDS
@@ -410,9 +428,9 @@ def _build_wordcloud_image(texts: list[str], colormap: str) -> str | None:
         min_font_size=10,
         max_font_size=96,
         relative_scaling=0.35,
-        prefer_horizontal=0.95,
+        prefer_horizontal=1.0,
         colormap=colormap,
-    ).generate(combined_text)
+    ).generate_from_frequencies(bigram_counter)
 
     buffer = io.BytesIO()
     cloud.to_image().save(buffer, format="PNG")
@@ -435,10 +453,17 @@ def _build_scraping_dashboard(
     start_date: date | None = None,
     end_date: date | None = None,
 ) -> dict[str, object]:
+    max_texts_per_label = _setting_positive_int("SENTIMENT_WORDCLOUD_MAX_TEXTS_PER_LABEL", 1200)
+    max_chars_per_label = _setting_positive_int("SENTIMENT_WORDCLOUD_MAX_CHARS_PER_LABEL", 160000)
+
     knn_positive_texts: list[str] = []
     knn_negative_texts: list[str] = []
     svm_positive_texts: list[str] = []
     svm_negative_texts: list[str] = []
+    knn_positive_chars = 0
+    knn_negative_chars = 0
+    svm_positive_chars = 0
+    svm_negative_chars = 0
     knn_counts: Counter[str] = Counter()
     svm_counts: Counter[str] = Counter()
     row_dates: list[date] = []
@@ -453,14 +478,26 @@ def _build_scraping_dashboard(
 
         if text:
             if knn_label == "Positive":
-                knn_positive_texts.append(text)
+                if len(knn_positive_texts) < max_texts_per_label and knn_positive_chars < max_chars_per_label:
+                    clipped_text = text[: max(1, max_chars_per_label - knn_positive_chars)]
+                    knn_positive_chars += len(clipped_text)
+                    knn_positive_texts.append(clipped_text)
             elif knn_label == "Negative":
-                knn_negative_texts.append(text)
+                if len(knn_negative_texts) < max_texts_per_label and knn_negative_chars < max_chars_per_label:
+                    clipped_text = text[: max(1, max_chars_per_label - knn_negative_chars)]
+                    knn_negative_chars += len(clipped_text)
+                    knn_negative_texts.append(clipped_text)
 
             if svm_label == "Positive":
-                svm_positive_texts.append(text)
+                if len(svm_positive_texts) < max_texts_per_label and svm_positive_chars < max_chars_per_label:
+                    clipped_text = text[: max(1, max_chars_per_label - svm_positive_chars)]
+                    svm_positive_chars += len(clipped_text)
+                    svm_positive_texts.append(clipped_text)
             elif svm_label == "Negative":
-                svm_negative_texts.append(text)
+                if len(svm_negative_texts) < max_texts_per_label and svm_negative_chars < max_chars_per_label:
+                    clipped_text = text[: max(1, max_chars_per_label - svm_negative_chars)]
+                    svm_negative_chars += len(clipped_text)
+                    svm_negative_texts.append(clipped_text)
 
         created_date = _parse_created_at_date(row.get("CreatedAt"))
         if created_date is None:
@@ -848,6 +885,10 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
         )
         start_date = form.cleaned_data.get("start_date")
         end_date = form.cleaned_data.get("end_date")
+        max_total_tweets = _setting_positive_int("SENTIMENT_TWITTER_MAX_TOTAL_TWEETS", 4000)
+        max_tweets_per_window = _setting_positive_int("SENTIMENT_TWITTER_MAX_TWEETS_PER_WINDOW", 500)
+        max_range_days = _setting_positive_int("SENTIMENT_TWITTER_MAX_RANGE_DAYS", 180)
+        predict_chunk_size = _setting_positive_int("SENTIMENT_TWITTER_PREDICT_CHUNK_SIZE", 300)
 
         if not api_key:
             messages.error(request, "API key wajib diisi.")
@@ -860,13 +901,19 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                 language=language,
                 start_date=start_date.isoformat() if start_date else None,
                 end_date=end_date.isoformat() if end_date else None,
+                max_tweets_per_window=max_tweets_per_window,
+                max_total_tweets=max_total_tweets,
+                max_range_days=max_range_days,
             )
             if not tweets:
                 messages.warning(request, "Tidak ada tweet yang ditemukan untuk permintaan ini.")
                 request.session.pop(TWITTER_RESULT_SESSION_KEY, None)
                 return redirect("twitter_fetch")
 
-            predictions = predict_batch([tweet["text"] for tweet in tweets])
+            predictions = predict_batch_in_chunks(
+                [tweet["text"] for tweet in tweets],
+                chunk_size=predict_chunk_size,
+            )
 
             classified_rows = []
             for tweet, prediction in zip(tweets, predictions):
@@ -927,12 +974,15 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                 rows=history_rows,
             )
 
+            if len(history_rows) >= max_total_tweets:
+                messages.warning(
+                    request,
+                    f"Hasil dibatasi maksimal {max_total_tweets} tweet per scraping agar aplikasi tetap stabil.",
+                )
+
             request.session[TWITTER_RESULT_SESSION_KEY] = {
-                "rows": history_rows,
-                "tweet_count": len(history_rows),
-                "start_date": start_date.isoformat() if start_date else "",
-                "end_date": end_date.isoformat() if end_date else "",
                 "history_id": history_item.id,
+                "tweet_count": len(history_rows),
                 "last_page": 0,
                 "last_per_page": 0,
             }
@@ -976,12 +1026,27 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
         return render(request, "sentiment_app/twitter.html", context)
 
     saved_result = request.session.get(TWITTER_RESULT_SESSION_KEY) or {}
-    saved_rows = saved_result.get("rows")
     saved_count = _safe_positive_int(saved_result.get("tweet_count"), 0)
     last_page = _safe_positive_int(saved_result.get("last_page"), 0)
     last_per_page = _normalize_per_page(saved_result.get("last_per_page"), 0)
+    saved_history_id = _safe_positive_int(saved_result.get("history_id"), 0)
 
-    if not isinstance(saved_rows, list) or not saved_rows:
+    if not saved_history_id:
+        request.session.pop(TWITTER_RESULT_SESSION_KEY, None)
+        return render(request, "sentiment_app/twitter.html", context)
+
+    saved_history = ScrapeHistory.objects.filter(id=saved_history_id, user=request.user).only(
+        "rows",
+        "tweet_count",
+        "start_date",
+        "end_date",
+    ).first()
+    if saved_history is None:
+        request.session.pop(TWITTER_RESULT_SESSION_KEY, None)
+        return render(request, "sentiment_app/twitter.html", context)
+
+    saved_rows = saved_history.rows if isinstance(saved_history.rows, list) else []
+    if not saved_rows:
         request.session.pop(TWITTER_RESULT_SESSION_KEY, None)
         return render(request, "sentiment_app/twitter.html", context)
 
@@ -998,11 +1063,11 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
     if not _apply_scraping_context(
         context,
         saved_rows,
-        saved_count,
+        saved_count or int(saved_history.tweet_count or 0),
         requested_page,
         per_page,
-        saved_result.get("start_date"),
-        saved_result.get("end_date"),
+        saved_history.start_date.isoformat(),
+        saved_history.end_date.isoformat(),
     ):
         request.session.pop(TWITTER_RESULT_SESSION_KEY, None)
         return render(request, "sentiment_app/twitter.html", context)

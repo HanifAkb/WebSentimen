@@ -10,6 +10,10 @@ def _upload_limit_mb() -> int:
     return max(1, (max_size + one_mb - 1) // one_mb)
 
 
+def _twitter_max_range_days() -> int:
+    return max(1, int(getattr(settings, "SENTIMENT_TWITTER_MAX_RANGE_DAYS", 180)))
+
+
 class PredictForm(forms.Form):
     text_input = forms.CharField(
         required=False,
@@ -116,16 +120,25 @@ class TwitterFetchForm(forms.Form):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs["class"] = "form-control"
+        max_days = _twitter_max_range_days()
+        self.fields["end_date"].help_text = f"Maksimal rentang scraping: {max_days} hari."
 
     def clean(self):
         cleaned_data = super().clean()
         query = (cleaned_data.get("query") or "").strip()
         start_date = cleaned_data.get("start_date")
         end_date = cleaned_data.get("end_date")
+        max_days = _twitter_max_range_days()
         if not query:
             raise forms.ValidationError("Isi kueri.")
         if start_date and end_date and start_date > end_date:
             raise forms.ValidationError("Tanggal mulai tidak boleh lebih besar dari tanggal selesai.")
+        if start_date and end_date:
+            total_days = (end_date - start_date).days + 1
+            if total_days > max_days:
+                raise forms.ValidationError(
+                    f"Rentang tanggal terlalu panjang ({total_days} hari). Maksimal {max_days} hari per scraping."
+                )
         cleaned_data["query"] = query
         return cleaned_data
 

@@ -260,6 +260,19 @@ def predict_batch(texts: Iterable[str]) -> list[dict[str, Any]]:
     return rows
 
 
+def predict_batch_in_chunks(texts: Iterable[str], chunk_size: int = 300) -> list[dict[str, Any]]:
+    texts_list = [str(text or "").strip() for text in texts]
+    if not texts_list:
+        return []
+
+    normalized_chunk_size = max(1, int(chunk_size))
+    rows: list[dict[str, Any]] = []
+    for start_index in range(0, len(texts_list), normalized_chunk_size):
+        chunk = texts_list[start_index : start_index + normalized_chunk_size]
+        rows.extend(predict_batch(chunk))
+    return rows
+
+
 def predict_single(text: str) -> dict[str, Any]:
     predictions = predict_batch([text])
     if not predictions:

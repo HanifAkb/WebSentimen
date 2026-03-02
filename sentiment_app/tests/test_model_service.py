@@ -2,7 +2,12 @@ import numpy as np
 from django.test import SimpleTestCase
 from unittest.mock import patch
 
-from sentiment_app.services.model_service import ModelArtifacts, ModelServiceError, predict_batch
+from sentiment_app.services.model_service import (
+    ModelArtifacts,
+    ModelServiceError,
+    predict_batch,
+    predict_batch_in_chunks,
+)
 
 
 class PipelineLikeModel:
@@ -84,3 +89,18 @@ class ModelServiceTests(SimpleTestCase):
         with patch("sentiment_app.services.model_service._load_artifacts", return_value=artifacts):
             with self.assertRaises(ModelServiceError):
                 predict_batch(["text"])
+
+    def test_predict_batch_in_chunks_matches_full_prediction(self):
+        artifacts = ModelArtifacts(
+            knn_model=PipelineLikeModel(),
+            svm_model=PipelineLikeModel(),
+            vectorizer=None,
+            label_encoder=None,
+        )
+
+        values = ["good one", "bad one", "good two", "bad two", "good three"]
+        with patch("sentiment_app.services.model_service._load_artifacts", return_value=artifacts):
+            expected = predict_batch(values)
+            actual = predict_batch_in_chunks(values, chunk_size=2)
+
+        self.assertEqual(actual, expected)

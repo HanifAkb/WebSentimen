@@ -11,7 +11,8 @@ BASE_URL = "https://api.twitterapi.io"
 SEARCH_ENDPOINT = "/twitter/tweet/advanced_search"
 REQUEST_TIMEOUT_SECONDS = (5, 20)
 WINDOW_DAYS = 1
-MAX_TWEETS_PER_WINDOW = 100000
+MAX_TWEETS_PER_WINDOW = 500
+MAX_TOTAL_TWEETS = 4000
 PAGE_SLEEP_SECONDS = 0.5
 WINDOW_SLEEP_SECONDS = 0.35
 
@@ -291,6 +292,9 @@ def fetch_tweets(
     language: str | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
+    max_tweets_per_window: int = MAX_TWEETS_PER_WINDOW,
+    max_total_tweets: int = MAX_TOTAL_TWEETS,
+    max_range_days: int | None = None,
 ) -> list[dict[str, Any]]:
     if not api_key:
         raise TwitterAPIError("API key wajib diisi.")
@@ -304,6 +308,17 @@ def fetch_tweets(
 
     if parsed_start >= parsed_end_exclusive:
         raise TwitterAPIError("Tanggal mulai harus lebih kecil dari tanggal selesai.")
+
+    max_tweets_per_window = max(1, int(max_tweets_per_window))
+    max_total_tweets = max(1, int(max_total_tweets))
+    if max_range_days is not None:
+        max_range_days = max(1, int(max_range_days))
+        selected_days = (parsed_end - parsed_start).days + 1
+        if selected_days > max_range_days:
+            raise TwitterAPIError(
+                f"Rentang scraping terlalu panjang ({selected_days} hari). "
+                f"Maksimal {max_range_days} hari per permintaan."
+            )
 
     base_query = _clean_query(query)
     if not base_query:
@@ -327,12 +342,14 @@ def fetch_tweets(
         raw_window_tweets = _fetch_window_tweets(
             api_key=api_key,
             query=window_query,
-            max_tweets_per_window=MAX_TWEETS_PER_WINDOW,
+            max_tweets_per_window=max_tweets_per_window,
         )
         total_raw_tweets += len(raw_window_tweets)
         normalized_window_tweets = normalize_tweets(raw_window_tweets, week_start=since_str, week_end=until_str)
 
         for tweet in normalized_window_tweets:
+            if len(all_tweets) >= max_total_tweets:
+                break
             created_date = _parse_created_at_date(tweet.get("CreatedAt"))
             if created_date is None:
                 total_unparseable_date += 1
@@ -354,6 +371,9 @@ def fetch_tweets(
                 continue
             seen_keys.add(dedup_key)
             all_tweets.append(tweet)
+
+        if len(all_tweets) >= max_total_tweets:
+            break
 
         window_cursor = next_window
         time.sleep(WINDOW_SLEEP_SECONDS)

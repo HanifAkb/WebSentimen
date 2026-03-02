@@ -83,7 +83,7 @@ class AuthAndHistoryTests(TestCase):
         ]
 
         with patch("sentiment_app.views.fetch_tweets", return_value=mocked_tweets), patch(
-            "sentiment_app.views.predict_batch",
+            "sentiment_app.views.predict_batch_in_chunks",
             return_value=mocked_predictions,
         ):
             response = self.client.post(
