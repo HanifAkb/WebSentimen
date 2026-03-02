@@ -138,6 +138,26 @@ class TwitterFetchForm(forms.Form):
         return cleaned_data
 
 
+class ResumeScrapeForm(forms.Form):
+    api_key = forms.CharField(
+        label="API key twitterapi.io",
+        widget=forms.PasswordInput(
+            attrs={
+                "placeholder": "Masukkan API key untuk melanjutkan scraping",
+                "autocomplete": "off",
+            },
+            render_value=False,
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            existing_class = (field.widget.attrs.get("class") or "").strip()
+            classes = f"{existing_class} form-control".strip()
+            field.widget.attrs["class"] = " ".join(dict.fromkeys(classes.split()))
+
+
 class LoginForm(AuthenticationForm):
     username = forms.CharField(
         label="Username",

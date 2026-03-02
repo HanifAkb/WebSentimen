@@ -28,6 +28,7 @@
                                     <th>Bahasa</th>
                                     <th>Rentang Tanggal</th>
                                     <th>Jumlah Tweet</th>
+                                    <th>Status</th>
                                     <th>Aksi</th>
                                 </tr>
                             </thead>
@@ -40,6 +41,13 @@
                                         <td>{{ item.language|default:"-" }}</td>
                                         <td>{{ item.start_date|date:"d/m/Y" }} - {{ item.end_date|date:"d/m/Y" }}</td>
                                         <td>{{ item.tweet_count }}</td>
+                                        <td>
+                                            {% if item.is_complete %}
+                                                <span class="badge text-bg-success">Selesai</span>
+                                            {% else %}
+                                                <span class="badge text-bg-warning text-dark">Belum selesai</span>
+                                            {% endif %}
+                                        </td>
                                         <td>
                                             <a class="btn btn-sm btn-outline-primary" href="{% url 'history_detail' item.id %}">Lihat</a>
                                         </td>

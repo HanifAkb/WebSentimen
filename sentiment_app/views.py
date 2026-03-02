@@ -11,12 +11,13 @@ from django.conf import settings
 from django.contrib.auth import login as auth_login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db import models
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect, render
 from django.urls import reverse
 
-from .forms import AdminCreateUserForm, LoginForm, PredictForm, TwitterFetchForm
+from .forms import AdminCreateUserForm, LoginForm, PredictForm, ResumeScrapeForm, TwitterFetchForm
 from .models import PredictionHistory, ScrapeHistory, ScrapeTempChunk
 from .services.file_service import (
     FileValidationError,
@@ -730,14 +731,164 @@ def _filter_rows_by_date_range(
 
 def _load_scrape_rows(history: ScrapeHistory) -> list[dict[str, object]]:
     stored_rows = history.rows if isinstance(history.rows, list) else []
-    if stored_rows:
-        return stored_rows
-
-    rows: list[dict[str, object]] = []
+    rows: list[dict[str, object]] = list(stored_rows)
     for chunk_rows in history.temp_chunks.order_by("chunk_index", "id").values_list("rows", flat=True):
         if isinstance(chunk_rows, list):
             rows.extend(chunk_rows)
     return rows
+
+
+def _tweet_dedup_key(row: dict[str, object]) -> str:
+    tweet_id = str(row.get("id", "")).strip()
+    if tweet_id:
+        return f"id:{tweet_id}"
+
+    dedup_user = str(row.get("userName", "")).strip().lower()
+    dedup_created = str(row.get("CreatedAt", "")).strip()
+    dedup_text = str(row.get("text", "")).strip().lower()
+    return f"fallback:{dedup_user}|{dedup_created}|{dedup_text[:180]}"
+
+
+def _build_existing_scrape_keys(history: ScrapeHistory) -> set[str]:
+    return {_tweet_dedup_key(row) for row in _load_scrape_rows(history)}
+
+
+def _next_chunk_index(history: ScrapeHistory) -> int:
+    current_max = history.temp_chunks.aggregate(models.Max("chunk_index")).get("chunk_index__max")
+    if current_max is None:
+        return 0
+    return int(current_max) + 1
+
+
+def _append_rows_to_history_chunks(
+    history: ScrapeHistory,
+    rows: list[dict[str, object]],
+    seen_keys: set[str],
+    chunk_index: int,
+) -> tuple[int, int]:
+    deduped_rows: list[dict[str, object]] = []
+    for row in rows:
+        dedup_key = _tweet_dedup_key(row)
+        if dedup_key in seen_keys:
+            continue
+        seen_keys.add(dedup_key)
+        deduped_rows.append(row)
+
+    if not deduped_rows:
+        return 0, chunk_index
+
+    ScrapeTempChunk.objects.create(
+        history=history,
+        chunk_index=chunk_index,
+        rows=_serialize_history_rows(deduped_rows),
+    )
+    return len(deduped_rows), chunk_index + 1
+
+
+def _next_fetch_start_date(
+    fetch_meta: dict[str, object],
+    fallback_start_date: date,
+) -> date:
+    parsed = _safe_parse_iso_date(fetch_meta.get("next_start_date"))
+    if parsed is None:
+        return fallback_start_date
+    return parsed
+
+
+def _apply_history_progress_meta(
+    history: ScrapeHistory,
+    fetch_meta: dict[str, object],
+    end_date: date,
+    fallback_start_date: date,
+    window_days: int,
+) -> None:
+    next_start_date = _next_fetch_start_date(fetch_meta, fallback_start_date)
+    timed_out = bool(fetch_meta.get("timed_out"))
+    rate_limited = bool(fetch_meta.get("rate_limited"))
+    truncated = bool(fetch_meta.get("truncated"))
+    is_finished = next_start_date > end_date and not (timed_out or rate_limited or truncated)
+
+    history.window_days = max(1, int(window_days))
+    history.is_complete = bool(is_finished)
+    history.resume_next_date = None if history.is_complete else min(next_start_date, end_date)
+    if history.is_complete:
+        history.stop_reason = ""
+    elif timed_out:
+        history.stop_reason = "timed_out"
+    elif rate_limited:
+        history.stop_reason = "rate_limited"
+    elif truncated:
+        history.stop_reason = "truncated"
+    else:
+        history.stop_reason = "partial"
+
+
+def _add_fetch_meta_messages(
+    request: HttpRequest,
+    fetch_meta: dict[str, object],
+    current_count: int,
+    effective_total_tweets: int,
+    max_total_tweets: int,
+) -> None:
+    if bool(fetch_meta.get("rate_limited")):
+        messages.warning(
+            request,
+            "Sebagian data berhasil diambil, tetapi proses berhenti karena batas permintaan API.",
+        )
+    if bool(fetch_meta.get("timed_out")):
+        messages.warning(
+            request,
+            "Sebagian data berhasil diambil, tetapi proses berhenti karena batas waktu server.",
+        )
+    if current_count >= effective_total_tweets or bool(fetch_meta.get("truncated")):
+        messages.warning(
+            request,
+            f"Hasil dibatasi maksimal {effective_total_tweets} tweet per scraping agar aplikasi tetap stabil.",
+        )
+    if effective_total_tweets < max_total_tweets:
+        messages.info(
+            request,
+            f"Untuk stabilitas server, rentang ini diproses dengan sampling maksimal {effective_total_tweets} tweet.",
+        )
+
+
+def _build_scrape_runtime_config(start_date: date, end_date: date) -> dict[str, int | bool]:
+    max_total_tweets = _setting_positive_int("SENTIMENT_TWITTER_MAX_TOTAL_TWEETS", 4000)
+    max_tweets_per_window = _setting_positive_int("SENTIMENT_TWITTER_MAX_TWEETS_PER_WINDOW", 500)
+    max_tweets_per_request = _setting_positive_int("SENTIMENT_TWITTER_MAX_TWEETS_PER_REQUEST", 1500)
+    min_tweets_per_window = _setting_positive_int("SENTIMENT_TWITTER_MIN_TWEETS_PER_WINDOW", 80)
+    max_runtime_seconds = _setting_positive_int("SENTIMENT_TWITTER_MAX_RUNTIME_SECONDS", 22)
+    predict_chunk_size = _setting_positive_int("SENTIMENT_TWITTER_PREDICT_CHUNK_SIZE", 300)
+    temp_db_threshold_days = _setting_positive_int("SENTIMENT_TWITTER_TEMP_DB_THRESHOLD_DAYS", 90)
+
+    selected_days = (end_date - start_date).days + 1
+    use_temp_db_mode = selected_days > temp_db_threshold_days
+    if selected_days <= 7:
+        window_days = 1
+    elif selected_days <= 31:
+        window_days = 2
+    elif selected_days <= 90:
+        window_days = 3
+    else:
+        window_days = 4
+
+    total_windows = max(1, (selected_days + window_days - 1) // window_days)
+    effective_total_tweets = min(max_total_tweets, max_tweets_per_request)
+    effective_tweets_per_window = min(
+        max_tweets_per_window,
+        max(min_tweets_per_window, (effective_total_tweets + total_windows - 1) // total_windows),
+    )
+
+    return {
+        "selected_days": selected_days,
+        "use_temp_db_mode": use_temp_db_mode,
+        "window_days": window_days,
+        "effective_total_tweets": effective_total_tweets,
+        "effective_tweets_per_window": effective_tweets_per_window,
+        "max_total_tweets": max_total_tweets,
+        "max_runtime_seconds": max_runtime_seconds,
+        "predict_chunk_size": predict_chunk_size,
+    }
 
 
 def login_view(request: HttpRequest) -> HttpResponse:
@@ -786,6 +937,7 @@ def history_list_view(request: HttpRequest) -> HttpResponse:
         "start_date",
         "end_date",
         "tweet_count",
+        "is_complete",
         "created_at",
     )
     prediction_histories = PredictionHistory.objects.filter(user=request.user).only(
@@ -807,12 +959,14 @@ def history_list_view(request: HttpRequest) -> HttpResponse:
 def history_detail_view(request: HttpRequest, history_id: int) -> HttpResponse:
     history = get_object_or_404(ScrapeHistory, id=history_id, user=request.user)
     form = TwitterFetchForm()
+    resume_form = ResumeScrapeForm()
     requested_page = _safe_positive_int(request.GET.get("page"), 1)
     per_page = _normalize_per_page(request.GET.get("per_page"), DEFAULT_PER_PAGE)
     rows = _load_scrape_rows(history)
 
     context: dict[str, object] = {
         "form": form,
+        "resume_form": resume_form,
         "history_mode": True,
         "history": history,
     }
@@ -828,6 +982,134 @@ def history_detail_view(request: HttpRequest, history_id: int) -> HttpResponse:
         messages.warning(request, "Data riwayat scraping kosong.")
 
     return render(request, "sentiment_app/twitter.html", context)
+
+
+@login_required
+def resume_scrape_view(request: HttpRequest, history_id: int) -> HttpResponse:
+    if request.method != "POST":
+        return redirect("history_detail", history_id=history_id)
+
+    history = get_object_or_404(ScrapeHistory, id=history_id, user=request.user)
+    form = ResumeScrapeForm(request.POST)
+    if not form.is_valid():
+        for field_name, field_errors in form.errors.items():
+            label = form.fields.get(field_name).label if field_name in form.fields else field_name
+            for field_error in field_errors:
+                messages.error(request, f"{label}: {field_error}")
+        return redirect("history_detail", history_id=history.id)
+
+    if history.is_complete:
+        messages.info(request, "Riwayat scraping ini sudah selesai.")
+        return redirect("history_detail", history_id=history.id)
+
+    api_key = (form.cleaned_data.get("api_key") or "").strip()
+    if not api_key:
+        messages.error(request, "API key wajib diisi.")
+        return redirect("history_detail", history_id=history.id)
+
+    resume_start_date = history.resume_next_date or history.start_date
+    if resume_start_date > history.end_date:
+        history.is_complete = True
+        history.resume_next_date = None
+        history.stop_reason = ""
+        history.save(update_fields=["is_complete", "resume_next_date", "stop_reason"])
+        messages.success(request, "Scraping sudah selesai.")
+        return redirect("history_detail", history_id=history.id)
+
+    runtime_config = _build_scrape_runtime_config(resume_start_date, history.end_date)
+    effective_total_tweets = int(runtime_config["effective_total_tweets"])
+    effective_tweets_per_window = int(runtime_config["effective_tweets_per_window"])
+    max_total_tweets = int(runtime_config["max_total_tweets"])
+    max_runtime_seconds = int(runtime_config["max_runtime_seconds"])
+    predict_chunk_size = int(runtime_config["predict_chunk_size"])
+    default_window_days = int(runtime_config["window_days"])
+    window_days = int(history.window_days or default_window_days)
+    window_days = max(1, window_days)
+
+    seen_keys = _build_existing_scrape_keys(history)
+    chunk_index = _next_chunk_index(history)
+    appended_count = 0
+
+    def _handle_window(window_tweets: list[dict[str, object]]) -> None:
+        nonlocal chunk_index, appended_count
+        if not window_tweets:
+            return
+
+        predictions = predict_batch_in_chunks(
+            [str(tweet.get("text", "")) for tweet in window_tweets],
+            chunk_size=predict_chunk_size,
+        )
+        classified_rows = _combine_tweet_predictions(window_tweets, predictions)
+        filtered_rows = _filter_rows_by_date_range(classified_rows, history.start_date, history.end_date)
+        if not filtered_rows:
+            return
+
+        new_count, next_chunk_index = _append_rows_to_history_chunks(
+            history,
+            filtered_rows,
+            seen_keys,
+            chunk_index,
+        )
+        chunk_index = next_chunk_index
+        appended_count += new_count
+
+    try:
+        fetch_result = fetch_tweets(
+            api_key=api_key,
+            query=history.query,
+            language=history.language,
+            start_date=resume_start_date.isoformat(),
+            end_date=history.end_date.isoformat(),
+            max_tweets_per_window=effective_tweets_per_window,
+            max_total_tweets=effective_total_tweets,
+            window_days=window_days,
+            max_runtime_seconds=max_runtime_seconds,
+            on_window=_handle_window,
+            return_meta=True,
+        )
+    except (TwitterAPIError, ModelServiceError, FileValidationError) as exc:
+        messages.error(request, str(exc))
+        return redirect("history_detail", history_id=history.id)
+    except Exception as exc:
+        messages.error(request, f"Terjadi kesalahan tak terduga saat melanjutkan scraping: {exc}")
+        return redirect("history_detail", history_id=history.id)
+
+    fetch_meta: dict[str, object] = {
+        "rate_limited": False,
+        "truncated": False,
+        "timed_out": False,
+        "next_start_date": resume_start_date.isoformat(),
+    }
+    if isinstance(fetch_result, tuple) and len(fetch_result) == 2 and isinstance(fetch_result[1], dict):
+        fetch_meta = fetch_result[1]
+
+    total_rows = _load_scrape_rows(history)
+    history.tweet_count = len(total_rows)
+    _apply_history_progress_meta(history, fetch_meta, history.end_date, resume_start_date, window_days)
+    history.save(update_fields=["tweet_count", "is_complete", "resume_next_date", "stop_reason", "window_days"])
+
+    _add_fetch_meta_messages(
+        request,
+        fetch_meta,
+        appended_count,
+        effective_total_tweets,
+        max_total_tweets,
+    )
+    if appended_count > 0:
+        messages.success(request, f"Berhasil menambahkan {appended_count} tweet baru ke riwayat.")
+    else:
+        messages.info(request, "Tidak ada tweet baru yang ditambahkan pada proses lanjutan ini.")
+
+    if history.is_complete:
+        messages.success(request, "Scraping sudah selesai untuk seluruh rentang tanggal.")
+    elif history.resume_next_date:
+        messages.info(
+            request,
+            f"Proses belum selesai. Lanjutkan lagi dari {history.resume_next_date.strftime('%d/%m/%Y')}.",
+        )
+
+    per_page = _normalize_per_page(request.POST.get("per_page"), DEFAULT_PER_PAGE)
+    return redirect(f"{reverse('history_detail', args=[history.id])}?page=1&per_page={per_page}")
 
 
 @login_required
@@ -982,29 +1264,14 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
         )
         start_date = form.cleaned_data.get("start_date")
         end_date = form.cleaned_data.get("end_date")
-        max_total_tweets = _setting_positive_int("SENTIMENT_TWITTER_MAX_TOTAL_TWEETS", 4000)
-        max_tweets_per_window = _setting_positive_int("SENTIMENT_TWITTER_MAX_TWEETS_PER_WINDOW", 500)
-        max_tweets_per_request = _setting_positive_int("SENTIMENT_TWITTER_MAX_TWEETS_PER_REQUEST", 1500)
-        min_tweets_per_window = _setting_positive_int("SENTIMENT_TWITTER_MIN_TWEETS_PER_WINDOW", 80)
-        max_runtime_seconds = _setting_positive_int("SENTIMENT_TWITTER_MAX_RUNTIME_SECONDS", 22)
-        predict_chunk_size = _setting_positive_int("SENTIMENT_TWITTER_PREDICT_CHUNK_SIZE", 300)
-        temp_db_threshold_days = _setting_positive_int("SENTIMENT_TWITTER_TEMP_DB_THRESHOLD_DAYS", 90)
-        selected_days = (end_date - start_date).days + 1 if start_date and end_date else 1
-        use_temp_db_mode = selected_days > temp_db_threshold_days
-        if selected_days <= 7:
-            window_days = 1
-        elif selected_days <= 31:
-            window_days = 2
-        elif selected_days <= 90:
-            window_days = 3
-        else:
-            window_days = 4
-        total_windows = max(1, (selected_days + window_days - 1) // window_days)
-        effective_total_tweets = min(max_total_tweets, max_tweets_per_request)
-        effective_tweets_per_window = min(
-            max_tweets_per_window,
-            max(min_tweets_per_window, (effective_total_tweets + total_windows - 1) // total_windows),
-        )
+        runtime_config = _build_scrape_runtime_config(start_date, end_date)
+        use_temp_db_mode = bool(runtime_config["use_temp_db_mode"])
+        window_days = int(runtime_config["window_days"])
+        effective_total_tweets = int(runtime_config["effective_total_tweets"])
+        effective_tweets_per_window = int(runtime_config["effective_tweets_per_window"])
+        max_total_tweets = int(runtime_config["max_total_tweets"])
+        max_runtime_seconds = int(runtime_config["max_runtime_seconds"])
+        predict_chunk_size = int(runtime_config["predict_chunk_size"])
 
         if not api_key:
             messages.error(request, "API key wajib diisi.")
@@ -1020,9 +1287,14 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                     end_date=end_date,
                     tweet_count=0,
                     rows=[],
+                    is_complete=False,
+                    resume_next_date=start_date,
+                    stop_reason="partial",
+                    window_days=window_days,
                 )
                 temp_rows_count = 0
-                temp_chunk_index = 0
+                temp_chunk_index = _next_chunk_index(history_item)
+                seen_keys: set[str] = set()
 
                 def _handle_window(window_tweets: list[dict[str, object]]) -> None:
                     nonlocal temp_rows_count, temp_chunk_index
@@ -1038,14 +1310,14 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                     if not filtered_rows:
                         return
 
-                    serialized_rows = _serialize_history_rows(filtered_rows)
-                    ScrapeTempChunk.objects.create(
-                        history=history_item,
-                        chunk_index=temp_chunk_index,
-                        rows=serialized_rows,
+                    appended_count, next_chunk_index = _append_rows_to_history_chunks(
+                        history_item,
+                        filtered_rows,
+                        seen_keys,
+                        temp_chunk_index,
                     )
-                    temp_chunk_index += 1
-                    temp_rows_count += len(serialized_rows)
+                    temp_chunk_index = next_chunk_index
+                    temp_rows_count += appended_count
 
                 fetch_result = fetch_tweets(
                     api_key=api_key,
@@ -1060,7 +1332,12 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                     on_window=_handle_window,
                     return_meta=True,
                 )
-                fetch_meta: dict[str, object] = {"rate_limited": False, "truncated": False}
+                fetch_meta: dict[str, object] = {
+                    "rate_limited": False,
+                    "truncated": False,
+                    "timed_out": False,
+                    "next_start_date": start_date.isoformat(),
+                }
                 if isinstance(fetch_result, tuple) and len(fetch_result) == 2 and isinstance(fetch_result[1], dict):
                     fetch_meta = fetch_result[1]
 
@@ -1074,27 +1351,27 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                     return redirect("twitter_fetch")
 
                 history_item.tweet_count = temp_rows_count
-                history_item.save(update_fields=["tweet_count"])
+                _apply_history_progress_meta(history_item, fetch_meta, end_date, start_date, window_days)
+                history_item.save(
+                    update_fields=["tweet_count", "is_complete", "resume_next_date", "stop_reason", "window_days"]
+                )
 
-                if bool(fetch_meta.get("rate_limited")):
-                    messages.warning(
-                        request,
-                        "Sebagian data berhasil diambil, tetapi proses berhenti karena batas permintaan API.",
-                    )
-                if temp_rows_count >= effective_total_tweets or bool(fetch_meta.get("truncated")):
-                    messages.warning(
-                        request,
-                        f"Hasil dibatasi maksimal {effective_total_tweets} tweet per scraping agar aplikasi tetap stabil.",
-                    )
-                if effective_total_tweets < max_total_tweets:
-                    messages.info(
-                        request,
-                        f"Untuk stabilitas server, rentang ini diproses dengan sampling maksimal {effective_total_tweets} tweet.",
-                    )
+                _add_fetch_meta_messages(
+                    request,
+                    fetch_meta,
+                    temp_rows_count,
+                    effective_total_tweets,
+                    max_total_tweets,
+                )
                 messages.info(
                     request,
                     "Rentang scraping lebih dari 3 bulan diproses menggunakan penyimpanan sementara di database.",
                 )
+                if not history_item.is_complete and history_item.resume_next_date:
+                    messages.info(
+                        request,
+                        "Scraping belum selesai. Klik 'Lanjutkan Scraping' pada halaman riwayat untuk melanjutkan.",
+                    )
 
                 request.session[TWITTER_RESULT_SESSION_KEY] = {
                     "history_id": history_item.id,
@@ -1117,7 +1394,12 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                 max_runtime_seconds=max_runtime_seconds,
                 return_meta=True,
             )
-            fetch_meta: dict[str, object] = {"rate_limited": False, "truncated": False}
+            fetch_meta: dict[str, object] = {
+                "rate_limited": False,
+                "truncated": False,
+                "timed_out": False,
+                "next_start_date": start_date.isoformat(),
+            }
             if isinstance(fetch_result, tuple) and len(fetch_result) == 2 and isinstance(fetch_result[1], dict):
                 tweets = fetch_result[0]
                 fetch_meta = fetch_result[1]
@@ -1152,22 +1434,26 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                 end_date=end_date,
                 tweet_count=len(history_rows),
                 rows=history_rows,
+                is_complete=True,
+                resume_next_date=None,
+                stop_reason="",
+                window_days=window_days,
             )
+            _apply_history_progress_meta(history_item, fetch_meta, end_date, start_date, window_days)
+            history_item.tweet_count = len(history_rows)
+            history_item.save(update_fields=["tweet_count", "is_complete", "resume_next_date", "stop_reason", "window_days"])
 
-            if bool(fetch_meta.get("rate_limited")):
-                messages.warning(
-                    request,
-                    "Sebagian data berhasil diambil, tetapi proses berhenti karena batas permintaan API.",
-                )
-            if len(history_rows) >= effective_total_tweets or bool(fetch_meta.get("truncated")):
-                messages.warning(
-                    request,
-                    f"Hasil dibatasi maksimal {effective_total_tweets} tweet per scraping agar aplikasi tetap stabil.",
-                )
-            if effective_total_tweets < max_total_tweets:
+            _add_fetch_meta_messages(
+                request,
+                fetch_meta,
+                len(history_rows),
+                effective_total_tweets,
+                max_total_tweets,
+            )
+            if not history_item.is_complete and history_item.resume_next_date:
                 messages.info(
                     request,
-                    f"Untuk stabilitas server, rentang ini diproses dengan sampling maksimal {effective_total_tweets} tweet.",
+                    "Scraping belum selesai. Klik 'Lanjutkan Scraping' pada halaman riwayat untuk melanjutkan.",
                 )
 
             request.session[TWITTER_RESULT_SESSION_KEY] = {
@@ -1197,6 +1483,7 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
         history = get_object_or_404(ScrapeHistory, id=history_id, user=request.user)
         context["history_mode"] = True
         context["history"] = history
+        context["resume_form"] = ResumeScrapeForm()
         requested_page = _safe_positive_int(request.GET.get("page"), 1)
         per_page = _normalize_per_page(request.GET.get("per_page"), DEFAULT_PER_PAGE)
         rows = _load_scrape_rows(history)

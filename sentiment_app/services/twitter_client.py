@@ -28,6 +28,10 @@ class TwitterRateLimitError(TwitterAPIError):
     pass
 
 
+class TwitterTimeoutError(TwitterAPIError):
+    pass
+
+
 def _clean_query(query: str) -> str:
     cleaned = query.strip()
     cleaned = re.sub(r"(?i)\b(?:since|until):\S+", " ", cleaned)
@@ -252,7 +256,9 @@ def _fetch_window_tweets(
     rate_limit_retry_count = 0
     while tweet_count < max_tweets_per_window:
         if deadline_ts is not None and time.monotonic() >= deadline_ts:
-            raise TwitterAPIError(
+            if fetched:
+                return fetched
+            raise TwitterTimeoutError(
                 "Proses scraping melebihi batas waktu server. "
                 "Persempit rentang tanggal atau kueri, lalu coba lagi."
             )
@@ -268,7 +274,9 @@ def _fetch_window_tweets(
         if deadline_ts is not None:
             remaining_seconds = deadline_ts - time.monotonic()
             if remaining_seconds <= 2:
-                raise TwitterAPIError(
+                if fetched:
+                    return fetched
+                raise TwitterTimeoutError(
                     "Proses scraping melebihi batas waktu server. "
                     "Persempit rentang tanggal atau kueri, lalu coba lagi."
                 )
@@ -381,6 +389,8 @@ def fetch_tweets(
     meta = {
         "rate_limited": False,
         "truncated": False,
+        "timed_out": False,
+        "next_start_date": parsed_start.isoformat(),
     }
     if max_range_days is not None:
         max_range_days = max(1, int(max_range_days))
@@ -407,7 +417,11 @@ def fetch_tweets(
     window_cursor = parsed_start
     while window_cursor < parsed_end_exclusive:
         if time.monotonic() >= deadline_ts:
-            raise TwitterAPIError(
+            if kept_total > 0:
+                meta["timed_out"] = True
+                meta["next_start_date"] = window_cursor.isoformat()
+                break
+            raise TwitterTimeoutError(
                 "Proses scraping melebihi batas waktu server. "
                 "Persempit rentang tanggal atau kueri, lalu coba lagi."
             )
@@ -423,9 +437,16 @@ def fetch_tweets(
                 max_tweets_per_window=max_tweets_per_window,
                 deadline_ts=deadline_ts,
             )
+        except TwitterTimeoutError:
+            if kept_total > 0:
+                meta["timed_out"] = True
+                meta["next_start_date"] = window_cursor.isoformat()
+                break
+            raise
         except TwitterRateLimitError:
             if kept_total > 0:
                 meta["rate_limited"] = True
+                meta["next_start_date"] = window_cursor.isoformat()
                 break
             raise
         total_raw_tweets += len(raw_window_tweets)
@@ -473,9 +494,11 @@ def fetch_tweets(
 
         if kept_total >= max_total_tweets:
             meta["truncated"] = True
+            meta["next_start_date"] = window_cursor.isoformat()
             break
 
         window_cursor = next_window
+        meta["next_start_date"] = window_cursor.isoformat()
         if time.monotonic() + WINDOW_SLEEP_SECONDS >= deadline_ts:
             break
         time.sleep(WINDOW_SLEEP_SECONDS)

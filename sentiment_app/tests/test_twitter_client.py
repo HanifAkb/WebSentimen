@@ -74,13 +74,34 @@ class TwitterClientServiceTests(SimpleTestCase):
                 )
 
     @patch("sentiment_app.services.twitter_client.time.sleep", return_value=None)
-    def test_fetch_tweets_stops_with_runtime_budget_message(self, _mock_sleep):
+    def test_fetch_tweets_returns_partial_when_timeout_after_some_data(self, _mock_sleep):
         with patch(
             "sentiment_app.services.twitter_client._fetch_window_tweets",
             side_effect=lambda *args, **kwargs: [{"id": "x", "text": "tweet"}],
         ), patch(
             "sentiment_app.services.twitter_client.time.monotonic",
             side_effect=[0.0, 0.0, 0.0, 100.0],
+        ):
+            tweets, meta = fetch_tweets(
+                api_key="dummy",
+                query="kendaraan listrik",
+                start_date="2026-02-01",
+                end_date="2026-02-15",
+                window_days=1,
+                max_tweets_per_window=10,
+                max_total_tweets=100,
+                max_runtime_seconds=10,
+                return_meta=True,
+            )
+
+        self.assertEqual(len(tweets), 1)
+        self.assertTrue(bool(meta.get("timed_out")))
+
+    @patch("sentiment_app.services.twitter_client.time.sleep", return_value=None)
+    def test_fetch_tweets_raises_when_timeout_before_any_data(self, _mock_sleep):
+        with patch(
+            "sentiment_app.services.twitter_client.time.monotonic",
+            side_effect=[0.0, 100.0],
         ):
             with self.assertRaises(TwitterAPIError):
                 fetch_tweets(

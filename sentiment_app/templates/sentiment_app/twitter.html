@@ -18,6 +18,31 @@
                         <strong>{{ history.created_at|date:"d/m/Y H:i" }}</strong>
                         ({{ history.start_date|date:"d/m/Y" }} - {{ history.end_date|date:"d/m/Y" }}).
                     </div>
+                    {% if history.is_complete %}
+                        <div class="alert alert-success py-2 mb-3">
+                            Status scraping: <strong>Selesai</strong>.
+                        </div>
+                    {% elif resume_form %}
+                        <div class="alert alert-warning py-2 mb-3">
+                            <div class="mb-2">
+                                Status scraping: <strong>Belum selesai</strong>.
+                                {% if history.resume_next_date %}
+                                    Lanjut dari tanggal <strong>{{ history.resume_next_date|date:"d/m/Y" }}</strong>.
+                                {% endif %}
+                            </div>
+                            <form method="post" action="{% url 'resume_scrape' history.id %}" class="row g-2 align-items-end">
+                                {% csrf_token %}
+                                <div class="col-12 col-md-7 col-lg-6">
+                                    <label class="form-label mb-1" for="{{ resume_form.api_key.id_for_label }}">{{ resume_form.api_key.label }}</label>
+                                    {{ resume_form.api_key }}
+                                </div>
+                                <div class="col-12 col-md-auto">
+                                    <input type="hidden" name="per_page" value="{{ per_page|default:10 }}">
+                                    <button class="btn btn-warning" type="submit">Lanjutkan Scraping</button>
+                                </div>
+                            </form>
+                        </div>
+                    {% endif %}
                 {% endif %}
 
                 <form method="post" action="{% url 'twitter_fetch' %}">

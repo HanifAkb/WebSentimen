@@ -14,6 +14,10 @@ class ScrapeHistory(models.Model):
     end_date = models.DateField()
     tweet_count = models.PositiveIntegerField(default=0)
     rows = models.JSONField(default=list)
+    is_complete = models.BooleanField(default=True)
+    resume_next_date = models.DateField(null=True, blank=True)
+    stop_reason = models.CharField(max_length=32, blank=True)
+    window_days = models.PositiveSmallIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

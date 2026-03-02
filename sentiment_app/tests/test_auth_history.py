@@ -288,3 +288,115 @@ class AuthAndHistoryTests(TestCase):
         self.assertEqual(history.rows, [])
         self.assertEqual(ScrapeTempChunk.objects.filter(history=history).count(), 1)
         self.assertIn(reverse("history_detail", args=[history.id]), response.url)
+
+    def test_scraping_marks_history_incomplete_when_partial_timeout(self):
+        self.client.force_login(self.user)
+        mocked_tweets = [
+            {
+                "id": "111",
+                "text": "uji timeout parsial",
+                "CreatedAt": "2026-01-01T10:00:00+00:00",
+            }
+        ]
+        mocked_predictions = [
+            {
+                "text": "uji timeout parsial",
+                "knn_label": "Positive",
+                "knn_score": 0.9,
+                "svm_label": "Positive",
+                "svm_score": 0.8,
+            }
+        ]
+        mocked_meta = {
+            "rate_limited": False,
+            "timed_out": True,
+            "truncated": False,
+            "next_start_date": "2026-01-02",
+        }
+
+        with patch("sentiment_app.views.fetch_tweets", return_value=(mocked_tweets, mocked_meta)), patch(
+            "sentiment_app.views.predict_batch_in_chunks",
+            return_value=mocked_predictions,
+        ):
+            response = self.client.post(
+                reverse("twitter_fetch"),
+                {
+                    "api_key": "dummy_api_key",
+                    "query": "mobil listrik",
+                    "language": "in",
+                    "start_date": "01/01/2026",
+                    "end_date": "03/01/2026",
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        history = ScrapeHistory.objects.get()
+        self.assertFalse(history.is_complete)
+        self.assertEqual(str(history.resume_next_date), "2026-01-02")
+        self.assertEqual(history.stop_reason, "timed_out")
+
+    def test_resume_scrape_appends_rows_and_can_complete(self):
+        self.client.force_login(self.user)
+        history = ScrapeHistory.objects.create(
+            user=self.user,
+            query="mobil listrik",
+            language="in",
+            start_date="2026-01-01",
+            end_date="2026-01-03",
+            tweet_count=1,
+            rows=[
+                {
+                    "id": "seed-1",
+                    "text": "data awal",
+                    "CreatedAt": "2026-01-01T10:00:00+00:00",
+                    "knn_label": "Positive",
+                    "svm_label": "Positive",
+                }
+            ],
+            is_complete=False,
+            resume_next_date="2026-01-02",
+            stop_reason="timed_out",
+            window_days=1,
+        )
+
+        window_rows = [
+            {
+                "id": "seed-2",
+                "text": "data lanjutan",
+                "CreatedAt": "2026-01-02T11:00:00+00:00",
+            }
+        ]
+        window_predictions = [
+            {
+                "text": "data lanjutan",
+                "knn_label": "Negative",
+                "knn_score": 0.2,
+                "svm_label": "Negative",
+                "svm_score": 0.3,
+            }
+        ]
+
+        def _fake_fetch_tweets(*args, **kwargs):
+            callback = kwargs.get("on_window")
+            if callback:
+                callback(window_rows)
+            return [], {"next_start_date": "2026-01-04", "rate_limited": False, "timed_out": False, "truncated": False}
+
+        with patch("sentiment_app.views.fetch_tweets", side_effect=_fake_fetch_tweets), patch(
+            "sentiment_app.views.predict_batch_in_chunks",
+            return_value=window_predictions,
+        ):
+            response = self.client.post(
+                reverse("resume_scrape", args=[history.id]),
+                {
+                    "api_key": "dummy_api_key",
+                    "per_page": 10,
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        history.refresh_from_db()
+        self.assertTrue(history.is_complete)
+        self.assertIsNone(history.resume_next_date)
+        self.assertEqual(history.tweet_count, 2)
+        self.assertEqual(ScrapeTempChunk.objects.filter(history=history).count(), 1)
