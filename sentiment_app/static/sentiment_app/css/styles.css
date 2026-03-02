@@ -223,8 +223,7 @@ body {
     }
 
     .sidebar-panel {
-        overflow-y: auto;
-        overflow-x: hidden;
+        overflow: hidden;
     }
 
     .sidebar-brand {
@@ -238,22 +237,18 @@ body {
         position: sticky;
         top: 8.9rem;
         z-index: 5;
-        max-height: calc(100vh - 18rem);
-        overflow-y: auto;
-        padding-right: 0.2rem;
+        max-height: none;
+        overflow: visible;
+        padding-right: 0;
     }
 
     .sidebar-user-panel {
         position: sticky;
         bottom: 0.25rem;
         z-index: 7;
-        border-radius: 0.85rem;
-        background: linear-gradient(
-            180deg,
-            rgba(17, 38, 72, 0.82) 0%,
-            rgba(14, 31, 60, 0.93) 100%
-        );
-        backdrop-filter: blur(3px);
+        border-radius: 0;
+        background: transparent;
+        backdrop-filter: none;
     }
 
     .main-column {
