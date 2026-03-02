@@ -92,8 +92,8 @@ class AuthAndHistoryTests(TestCase):
                     "api_key": "dummy_api_key",
                     "query": "mobil listrik",
                     "language": "in",
-                    "start_date": "2026-01-01",
-                    "end_date": "2026-01-02",
+                    "start_date": "01/01/2026",
+                    "end_date": "02/01/2026",
                 },
             )
 

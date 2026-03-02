@@ -91,28 +91,32 @@ class TwitterFetchForm(forms.Form):
         required=True,
         label="Tanggal mulai",
         widget=forms.DateInput(
-            format="%Y-%m-%d",
+            format="%d/%m/%Y",
             attrs={
-                "type": "date",
+                "type": "text",
                 "placeholder": "dd/mm/yyyy",
+                "pattern": r"\d{2}/\d{2}/\d{4}",
+                "inputmode": "numeric",
                 "autocomplete": "off",
             },
         ),
-        input_formats=["%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d"],
+        input_formats=["%d/%m/%Y", "%d-%m-%Y"],
         error_messages={"invalid": "Format tanggal harus dd/mm/yyyy."},
     )
     end_date = forms.DateField(
         required=True,
         label="Tanggal selesai",
         widget=forms.DateInput(
-            format="%Y-%m-%d",
+            format="%d/%m/%Y",
             attrs={
-                "type": "date",
+                "type": "text",
                 "placeholder": "dd/mm/yyyy",
+                "pattern": r"\d{2}/\d{2}/\d{4}",
+                "inputmode": "numeric",
                 "autocomplete": "off",
             },
         ),
-        input_formats=["%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d"],
+        input_formats=["%d/%m/%Y", "%d-%m-%Y"],
         error_messages={"invalid": "Format tanggal harus dd/mm/yyyy."},
     )
 
