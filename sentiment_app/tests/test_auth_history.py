@@ -97,6 +97,7 @@ class AuthAndHistoryTests(TestCase):
                 },
             )
         self.assertEqual(mocked_fetch.call_args.kwargs.get("window_days"), 1)
+        self.assertLessEqual(mocked_fetch.call_args.kwargs.get("max_total_tweets"), 1500)
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(ScrapeHistory.objects.count(), 1)

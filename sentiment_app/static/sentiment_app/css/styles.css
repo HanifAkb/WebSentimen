@@ -546,8 +546,10 @@ body {
 }
 
 .flatpickr-current-month .flatpickr-monthDropdown-months,
-.flatpickr-current-month input.cur-year {
-    color: #ffffff;
+.flatpickr-current-month input.cur-year,
+.flatpickr-current-month .numInput.cur-year {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff;
     font-weight: 700;
     border-radius: 0.35rem;
     padding-inline: 0.2rem;
@@ -555,9 +557,13 @@ body {
 
 .flatpickr-current-month .flatpickr-monthDropdown-months:hover,
 .flatpickr-current-month input.cur-year:hover,
+.flatpickr-current-month .numInput.cur-year:hover,
 .flatpickr-current-month .flatpickr-monthDropdown-months:focus,
-.flatpickr-current-month input.cur-year:focus {
+.flatpickr-current-month input.cur-year:focus,
+.flatpickr-current-month .numInput.cur-year:focus {
     background: rgba(255, 255, 255, 0.16);
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff;
 }
 
 .flatpickr-prev-month,
