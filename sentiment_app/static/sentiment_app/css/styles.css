@@ -441,35 +441,6 @@ body {
     animation: resumeDots 1.1s steps(4, end) infinite;
 }
 
-.login-title-animated {
-    display: inline-block;
-    transform-origin: center;
-    animation: loginTitleIdle 3.4s ease-in-out infinite;
-    transition: transform 0.2s ease, text-shadow 0.2s ease, filter 0.2s ease;
-}
-
-.login-title-animated:hover {
-    animation-play-state: paused;
-    transform: translateY(-2px) scale(1.03);
-    text-shadow: 0 10px 22px rgba(37, 99, 235, 0.3);
-    filter: saturate(1.08);
-}
-
-@keyframes loginTitleIdle {
-    0% {
-        transform: translateY(0) scale(1);
-        text-shadow: 0 0 0 rgba(37, 99, 235, 0);
-    }
-    50% {
-        transform: translateY(-1px) scale(1.012);
-        text-shadow: 0 7px 18px rgba(37, 99, 235, 0.2);
-    }
-    100% {
-        transform: translateY(0) scale(1);
-        text-shadow: 0 0 0 rgba(37, 99, 235, 0);
-    }
-}
-
 @keyframes resumeDots {
     0% {
         width: 0;
