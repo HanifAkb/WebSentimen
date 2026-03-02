@@ -50,27 +50,20 @@
                                 id="resumeScrapeForm"
                                 method="post"
                                 action="{% url 'resume_scrape' history.id %}"
-                                class="row g-2 align-items-end"
+                                class="d-flex flex-wrap align-items-center gap-2"
                                 data-auto-default="{% if auto_resume_default %}1{% else %}0{% endif %}"
-                                data-scrape-start-epoch="{{ history.created_at|date:'U' }}"
                             >
                                 {% csrf_token %}
-                                <div class="col-12 col-md-7 col-lg-6">
-                                    <label class="form-label mb-1" for="{{ resume_form.api_key.id_for_label }}">{{ resume_form.api_key.label }}</label>
-                                    {{ resume_form.api_key }}
-                                </div>
                                 <input type="hidden" name="per_page" value="{{ per_page|default:10 }}">
                                 <input type="hidden" name="next_url" value="{{ resume_next_url|default:'' }}">
-                                <div class="col-12 col-md-auto">
-                                    <button
-                                        id="resumeAutoButton"
-                                        class="btn btn-outline-dark"
-                                        type="button"
-                                        data-running="0"
-                                    >
-                                        Lanjutan Scraping
-                                    </button>
-                                </div>
+                                <button
+                                    id="resumeAutoButton"
+                                    class="btn resume-action-btn"
+                                    type="button"
+                                    data-running="0"
+                                >
+                                    <span class="resume-btn-label">Lanjutkan Scrap</span><span class="resume-btn-dots" aria-hidden="true"></span>
+                                </button>
                             </form>
                         </div>
                     {% endif %}
@@ -642,8 +635,8 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     const twitterFetchForm = document.getElementById("twitterFetchForm");
+    const fetchApiKeyInput = twitterFetchForm ? twitterFetchForm.querySelector('input[name="api_key"]') : null;
     if (twitterFetchForm) {
-        const fetchApiKeyInput = twitterFetchForm.querySelector('input[name="api_key"]');
         if (fetchApiKeyInput) {
             const storedApiKey = window.sessionStorage.getItem(SCRAPE_API_KEY_STORAGE) || "";
             if (!fetchApiKeyInput.value && storedApiKey) {
@@ -681,20 +674,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (resumeForm && resumeAutoButton && resumeProgressBar && resumeProgressText && resumeProgressLabel) {
         const csrfInput = resumeForm.querySelector('input[name="csrfmiddlewaretoken"]');
-        const apiKeyInput = resumeForm.querySelector('input[name="api_key"]');
+        const resumeLabel = resumeAutoButton.querySelector(".resume-btn-label");
         const perPageInput = resumeForm.querySelector('input[name="per_page"]');
         const nextUrlInput = resumeForm.querySelector('input[name="next_url"]');
-        const scrapeStartEpoch = Number(resumeForm.dataset.scrapeStartEpoch || "0");
-        const storedApiKey = window.sessionStorage.getItem(SCRAPE_API_KEY_STORAGE) || "";
-        if (apiKeyInput && !apiKeyInput.value && storedApiKey) {
-            apiKeyInput.value = storedApiKey;
-        }
 
         const autoDefault = resumeForm.dataset.autoDefault === "1";
         let autoRunning = false;
         let noProgressCount = 0;
         let lastProgress = Number(resumeProgressBar.getAttribute("aria-valuenow") || "0");
-        const fallbackStartMs = Date.now();
+        let stopwatchIntervalId = null;
+        let stopwatchStartedAtMs = 0;
+        let stopwatchElapsedMs = 0;
 
         const formatDuration = function (totalSeconds) {
             const safeSeconds = Math.max(0, Math.floor(Number(totalSeconds || 0)));
@@ -710,19 +700,45 @@ document.addEventListener("DOMContentLoaded", function () {
             );
         };
 
-        const updateStopwatch = function () {
+        const renderStopwatch = function () {
             if (!resumeStopwatch) {
                 return;
             }
-            const nowSeconds = Math.floor(Date.now() / 1000);
-            const elapsedSeconds =
-                scrapeStartEpoch > 0
-                    ? Math.max(0, nowSeconds - scrapeStartEpoch)
-                    : Math.max(0, Math.floor((Date.now() - fallbackStartMs) / 1000));
+            const elapsedSeconds = Math.floor(stopwatchElapsedMs / 1000);
             resumeStopwatch.textContent = formatDuration(elapsedSeconds);
         };
-        updateStopwatch();
-        window.setInterval(updateStopwatch, 1000);
+
+        const stopStopwatch = function () {
+            if (stopwatchStartedAtMs > 0) {
+                stopwatchElapsedMs = Math.max(0, Date.now() - stopwatchStartedAtMs);
+            }
+            if (stopwatchIntervalId !== null) {
+                window.clearInterval(stopwatchIntervalId);
+                stopwatchIntervalId = null;
+            }
+            stopwatchStartedAtMs = 0;
+            renderStopwatch();
+        };
+
+        const startStopwatch = function () {
+            if (!resumeStopwatch || stopwatchIntervalId !== null) {
+                return;
+            }
+            stopwatchStartedAtMs = Date.now() - stopwatchElapsedMs;
+            stopwatchIntervalId = window.setInterval(function () {
+                stopwatchElapsedMs = Math.max(0, Date.now() - stopwatchStartedAtMs);
+                renderStopwatch();
+            }, 1000);
+            renderStopwatch();
+        };
+
+        const resetStopwatch = function () {
+            stopStopwatch();
+            stopwatchElapsedMs = 0;
+            renderStopwatch();
+        };
+
+        resetStopwatch();
 
         const setProgress = function (pct, doneDays, totalDays) {
             const bounded = Math.max(0, Math.min(100, Number(pct || 0)));
@@ -737,20 +753,27 @@ document.addEventListener("DOMContentLoaded", function () {
         const setButtonState = function (running) {
             autoRunning = running;
             resumeAutoButton.dataset.running = running ? "1" : "0";
-            resumeAutoButton.textContent = running ? "Memproses..." : "Lanjutan Scraping";
+            resumeAutoButton.classList.toggle("is-running", running);
+            if (resumeLabel) {
+                resumeLabel.textContent = running ? "Memproses" : "Lanjutkan Scrap";
+            }
             resumeAutoButton.disabled = running;
         };
 
         const runAutoStep = async function () {
-            if (!csrfInput || !apiKeyInput) {
+            if (!csrfInput) {
                 console.warn("Form tidak lengkap untuk auto continue.");
+                stopStopwatch();
                 setButtonState(false);
                 return;
             }
 
-            const apiKey = String(apiKeyInput.value || "").trim();
+            const apiKey = fetchApiKeyInput
+                ? String(fetchApiKeyInput.value || "").trim()
+                : String(window.sessionStorage.getItem(SCRAPE_API_KEY_STORAGE) || "").trim();
             if (!apiKey) {
                 console.warn("Isi API key dulu untuk menjalankan auto continue.");
+                stopStopwatch();
                 setButtonState(false);
                 return;
             }
@@ -779,6 +802,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 payload = await response.json();
             } catch (error) {
                 console.warn("Gagal menghubungi server saat auto continue.");
+                stopStopwatch();
                 setButtonState(false);
                 return;
             }
@@ -786,6 +810,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!response.ok || !payload || !payload.ok) {
                 const message = payload && payload.error ? payload.error : "Auto continue gagal.";
                 console.warn(String(message));
+                stopStopwatch();
                 setButtonState(false);
                 return;
             }
@@ -802,6 +827,7 @@ document.addEventListener("DOMContentLoaded", function () {
             lastProgress = currentProgress;
 
             if (payload.complete) {
+                stopStopwatch();
                 setButtonState(false);
                 window.setTimeout(function () {
                     window.location.reload();
@@ -811,6 +837,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (noProgressCount >= 2) {
                 console.warn("Progress belum bertambah. Coba lagi beberapa menit lagi.");
+                stopStopwatch();
                 setButtonState(false);
                 return;
             }
@@ -823,7 +850,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
             noProgressCount = 0;
+            resetStopwatch();
             setButtonState(true);
+            startStopwatch();
             runAutoStep();
         };
 
@@ -832,7 +861,10 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         if (autoDefault) {
-            if (apiKeyInput && String(apiKeyInput.value || "").trim()) {
+            const availableApiKey = fetchApiKeyInput
+                ? String(fetchApiKeyInput.value || "").trim()
+                : String(window.sessionStorage.getItem(SCRAPE_API_KEY_STORAGE) || "").trim();
+            if (availableApiKey) {
                 window.setTimeout(function () {
                     startAutoResume();
                 }, 350);
