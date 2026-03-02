@@ -1478,11 +1478,6 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                     request,
                     "Rentang scraping lebih dari 3 bulan diproses menggunakan penyimpanan sementara di database.",
                 )
-                if not history_item.is_complete and history_item.resume_next_date:
-                    messages.info(
-                        request,
-                        "Scraping belum selesai. Proses lanjutan otomatis dijalankan di halaman ini.",
-                    )
 
                 request.session[TWITTER_RESULT_SESSION_KEY] = {
                     "history_id": history_item.id,
@@ -1565,11 +1560,6 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                 effective_total_tweets,
                 max_total_tweets,
             )
-            if not history_item.is_complete and history_item.resume_next_date:
-                messages.info(
-                    request,
-                    "Scraping belum selesai. Proses lanjutan otomatis dijalankan di halaman ini.",
-                )
 
             request.session[TWITTER_RESULT_SESSION_KEY] = {
                 "history_id": history_item.id,

@@ -26,9 +26,6 @@
                         <div class="alert alert-warning py-2 mb-3">
                             <div class="mb-2">
                                 Status scraping: <strong>Belum selesai</strong>.
-                                {% if history.resume_next_date %}
-                                    Lanjut dari tanggal <strong>{{ history.resume_next_date|date:"d/m/Y" }}</strong>.
-                                {% endif %}
                             </div>
                             <div class="mb-2 small">
                                 Progress rentang tanggal: <strong id="resumeProgressLabel">{{ resume_done_days|default:0 }}/{{ resume_total_days|default:1 }} hari</strong>
@@ -46,24 +43,24 @@
                                     <span id="resumeProgressText">{{ resume_progress_pct|default:0 }}%</span>
                                 </div>
                             </div>
-                            <div id="resumeAutoStatus" class="small mb-2 text-dark"></div>
+                            <div class="small mb-2 text-dark">
+                                Durasi scraping: <strong id="resumeStopwatch">00:00:00</strong>
+                            </div>
                             <form
                                 id="resumeScrapeForm"
                                 method="post"
                                 action="{% url 'resume_scrape' history.id %}"
                                 class="row g-2 align-items-end"
                                 data-auto-default="{% if auto_resume_default %}1{% else %}0{% endif %}"
+                                data-scrape-start-epoch="{{ history.created_at|date:'U' }}"
                             >
                                 {% csrf_token %}
                                 <div class="col-12 col-md-7 col-lg-6">
                                     <label class="form-label mb-1" for="{{ resume_form.api_key.id_for_label }}">{{ resume_form.api_key.label }}</label>
                                     {{ resume_form.api_key }}
                                 </div>
-                                <div class="col-12 col-md-auto">
-                                    <input type="hidden" name="per_page" value="{{ per_page|default:10 }}">
-                                    <input type="hidden" name="next_url" value="{{ resume_next_url|default:'' }}">
-                                    <button class="btn btn-warning" type="submit">Lanjutkan Scraping</button>
-                                </div>
+                                <input type="hidden" name="per_page" value="{{ per_page|default:10 }}">
+                                <input type="hidden" name="next_url" value="{{ resume_next_url|default:'' }}">
                                 <div class="col-12 col-md-auto">
                                     <button
                                         id="resumeAutoButton"
@@ -71,7 +68,7 @@
                                         type="button"
                                         data-running="0"
                                     >
-                                        Auto Continue
+                                        Lanjutan Scraping
                                     </button>
                                 </div>
                             </form>
@@ -680,13 +677,14 @@ document.addEventListener("DOMContentLoaded", function () {
     const resumeProgressBar = document.getElementById("resumeProgressBar");
     const resumeProgressText = document.getElementById("resumeProgressText");
     const resumeProgressLabel = document.getElementById("resumeProgressLabel");
-    const resumeAutoStatus = document.getElementById("resumeAutoStatus");
+    const resumeStopwatch = document.getElementById("resumeStopwatch");
 
     if (resumeForm && resumeAutoButton && resumeProgressBar && resumeProgressText && resumeProgressLabel) {
         const csrfInput = resumeForm.querySelector('input[name="csrfmiddlewaretoken"]');
         const apiKeyInput = resumeForm.querySelector('input[name="api_key"]');
         const perPageInput = resumeForm.querySelector('input[name="per_page"]');
         const nextUrlInput = resumeForm.querySelector('input[name="next_url"]');
+        const scrapeStartEpoch = Number(resumeForm.dataset.scrapeStartEpoch || "0");
         const storedApiKey = window.sessionStorage.getItem(SCRAPE_API_KEY_STORAGE) || "";
         if (apiKeyInput && !apiKeyInput.value && storedApiKey) {
             apiKeyInput.value = storedApiKey;
@@ -696,15 +694,35 @@ document.addEventListener("DOMContentLoaded", function () {
         let autoRunning = false;
         let noProgressCount = 0;
         let lastProgress = Number(resumeProgressBar.getAttribute("aria-valuenow") || "0");
+        const fallbackStartMs = Date.now();
 
-        const setAutoStatus = function (text, isError) {
-            if (!resumeAutoStatus) {
+        const formatDuration = function (totalSeconds) {
+            const safeSeconds = Math.max(0, Math.floor(Number(totalSeconds || 0)));
+            const hours = Math.floor(safeSeconds / 3600);
+            const minutes = Math.floor((safeSeconds % 3600) / 60);
+            const seconds = safeSeconds % 60;
+            return (
+                String(hours).padStart(2, "0") +
+                ":" +
+                String(minutes).padStart(2, "0") +
+                ":" +
+                String(seconds).padStart(2, "0")
+            );
+        };
+
+        const updateStopwatch = function () {
+            if (!resumeStopwatch) {
                 return;
             }
-            resumeAutoStatus.classList.remove("text-danger", "text-dark");
-            resumeAutoStatus.classList.add(isError ? "text-danger" : "text-dark");
-            resumeAutoStatus.textContent = text;
+            const nowSeconds = Math.floor(Date.now() / 1000);
+            const elapsedSeconds =
+                scrapeStartEpoch > 0
+                    ? Math.max(0, nowSeconds - scrapeStartEpoch)
+                    : Math.max(0, Math.floor((Date.now() - fallbackStartMs) / 1000));
+            resumeStopwatch.textContent = formatDuration(elapsedSeconds);
         };
+        updateStopwatch();
+        window.setInterval(updateStopwatch, 1000);
 
         const setProgress = function (pct, doneDays, totalDays) {
             const bounded = Math.max(0, Math.min(100, Number(pct || 0)));
@@ -719,20 +737,20 @@ document.addEventListener("DOMContentLoaded", function () {
         const setButtonState = function (running) {
             autoRunning = running;
             resumeAutoButton.dataset.running = running ? "1" : "0";
-            resumeAutoButton.textContent = running ? "Memproses..." : "Auto Continue";
+            resumeAutoButton.textContent = running ? "Memproses..." : "Lanjutan Scraping";
             resumeAutoButton.disabled = running;
         };
 
         const runAutoStep = async function () {
             if (!csrfInput || !apiKeyInput) {
-                setAutoStatus("Form tidak lengkap untuk auto continue.", true);
+                console.warn("Form tidak lengkap untuk auto continue.");
                 setButtonState(false);
                 return;
             }
 
             const apiKey = String(apiKeyInput.value || "").trim();
             if (!apiKey) {
-                setAutoStatus("Isi API key dulu untuk menjalankan auto continue.", true);
+                console.warn("Isi API key dulu untuk menjalankan auto continue.");
                 setButtonState(false);
                 return;
             }
@@ -760,14 +778,14 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
                 payload = await response.json();
             } catch (error) {
-                setAutoStatus("Gagal menghubungi server saat auto continue.", true);
+                console.warn("Gagal menghubungi server saat auto continue.");
                 setButtonState(false);
                 return;
             }
 
             if (!response.ok || !payload || !payload.ok) {
                 const message = payload && payload.error ? payload.error : "Auto continue gagal.";
-                setAutoStatus(String(message), true);
+                console.warn(String(message));
                 setButtonState(false);
                 return;
             }
@@ -784,7 +802,6 @@ document.addEventListener("DOMContentLoaded", function () {
             lastProgress = currentProgress;
 
             if (payload.complete) {
-                setAutoStatus("Scraping selesai. Memuat ulang halaman...", false);
                 setButtonState(false);
                 window.setTimeout(function () {
                     window.location.reload();
@@ -793,15 +810,9 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             if (noProgressCount >= 2) {
-                setAutoStatus("Progress belum bertambah. Coba lagi beberapa menit lagi.", true);
+                console.warn("Progress belum bertambah. Coba lagi beberapa menit lagi.");
                 setButtonState(false);
                 return;
-            }
-
-            if (payload.resume_next_date) {
-                setAutoStatus("Melanjutkan dari " + payload.resume_next_date + "...", false);
-            } else {
-                setAutoStatus("Melanjutkan scraping...", false);
             }
 
             window.setTimeout(runAutoStep, 250);
@@ -812,7 +823,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
             noProgressCount = 0;
-            setAutoStatus("Memulai auto continue...", false);
             setButtonState(true);
             runAutoStep();
         };
@@ -827,7 +837,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     startAutoResume();
                 }, 350);
             } else {
-                setAutoStatus("Auto continue aktif, tetapi API key tidak tersedia di sesi browser.", true);
+                console.warn("Auto continue aktif, tetapi API key tidak tersedia di sesi browser.");
             }
         }
     }
