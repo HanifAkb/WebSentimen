@@ -23,6 +23,23 @@ class ScrapeHistory(models.Model):
         return f"{self.user} | {self.start_date} - {self.end_date} ({self.tweet_count})"
 
 
+class ScrapeTempChunk(models.Model):
+    history = models.ForeignKey(
+        ScrapeHistory,
+        on_delete=models.CASCADE,
+        related_name="temp_chunks",
+    )
+    chunk_index = models.PositiveIntegerField(default=0)
+    rows = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["chunk_index", "id"]
+
+    def __str__(self) -> str:
+        return f"TempChunk history={self.history_id} idx={self.chunk_index}"
+
+
 class PredictionHistory(models.Model):
     class InputType(models.TextChoices):
         SINGLE = "single", "Kalimat Tunggal"

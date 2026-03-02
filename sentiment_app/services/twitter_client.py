@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import time
 from datetime import date, datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Callable
 
 import requests
 
@@ -13,8 +13,8 @@ REQUEST_TIMEOUT_SECONDS = (5, 20)
 WINDOW_DAYS = 1
 MAX_TWEETS_PER_WINDOW = 500
 MAX_TOTAL_TWEETS = 4000
-PAGE_SLEEP_SECONDS = 0.5
-WINDOW_SLEEP_SECONDS = 0.35
+PAGE_SLEEP_SECONDS = 0.15
+WINDOW_SLEEP_SECONDS = 0.1
 
 
 class TwitterAPIError(RuntimeError):
@@ -295,6 +295,8 @@ def fetch_tweets(
     max_tweets_per_window: int = MAX_TWEETS_PER_WINDOW,
     max_total_tweets: int = MAX_TOTAL_TWEETS,
     max_range_days: int | None = None,
+    window_days: int = WINDOW_DAYS,
+    on_window: Callable[[list[dict[str, Any]]], None] | None = None,
 ) -> list[dict[str, Any]]:
     if not api_key:
         raise TwitterAPIError("API key wajib diisi.")
@@ -302,8 +304,9 @@ def fetch_tweets(
         raise TwitterAPIError("Isi kueri.")
 
     today = date.today()
+    window_days = max(1, int(window_days))
     parsed_end = _parse_date(end_date) if end_date else today
-    parsed_start = _parse_date(start_date) if start_date else (parsed_end - timedelta(days=WINDOW_DAYS))
+    parsed_start = _parse_date(start_date) if start_date else (parsed_end - timedelta(days=window_days))
     parsed_end_exclusive = parsed_end + timedelta(days=1)
 
     if parsed_start >= parsed_end_exclusive:
@@ -332,9 +335,10 @@ def fetch_tweets(
     total_raw_tweets = 0
     total_out_of_range = 0
     total_unparseable_date = 0
+    kept_total = 0
     window_cursor = parsed_start
     while window_cursor < parsed_end_exclusive:
-        next_window = min(window_cursor + timedelta(days=WINDOW_DAYS), parsed_end_exclusive)
+        next_window = min(window_cursor + timedelta(days=window_days), parsed_end_exclusive)
         since_str = window_cursor.strftime("%Y-%m-%d")
         until_str = next_window.strftime("%Y-%m-%d")
         window_query = f"{base_query} since:{since_str} until:{until_str}"
@@ -346,9 +350,10 @@ def fetch_tweets(
         )
         total_raw_tweets += len(raw_window_tweets)
         normalized_window_tweets = normalize_tweets(raw_window_tweets, week_start=since_str, week_end=until_str)
+        kept_in_window: list[dict[str, Any]] = []
 
         for tweet in normalized_window_tweets:
-            if len(all_tweets) >= max_total_tweets:
+            if kept_total >= max_total_tweets:
                 break
             created_date = _parse_created_at_date(tweet.get("CreatedAt"))
             if created_date is None:
@@ -370,15 +375,22 @@ def fetch_tweets(
             if dedup_key in seen_keys:
                 continue
             seen_keys.add(dedup_key)
-            all_tweets.append(tweet)
+            kept_in_window.append(tweet)
+            kept_total += 1
 
-        if len(all_tweets) >= max_total_tweets:
+        if kept_in_window:
+            if on_window is not None:
+                on_window(kept_in_window)
+            else:
+                all_tweets.extend(kept_in_window)
+
+        if kept_total >= max_total_tweets:
             break
 
         window_cursor = next_window
         time.sleep(WINDOW_SLEEP_SECONDS)
 
-    if not all_tweets and total_raw_tweets > 0:
+    if kept_total == 0 and total_raw_tweets > 0:
         raise TwitterAPIError(
             "API mengembalikan data di luar rentang tanggal yang dipilih, "
             "atau format tanggal tweet tidak bisa dibaca. "
@@ -386,4 +398,6 @@ def fetch_tweets(
             "Coba rentang tanggal yang lebih baru, dan cek dukungan histori pada plan twitterapi.io Anda."
         )
 
+    if on_window is not None:
+        return []
     return all_tweets

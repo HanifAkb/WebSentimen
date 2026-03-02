@@ -207,6 +207,7 @@ Catatan: rentang tanggal sudah diatur dari field tanggal pada form, jadi tidak p
   - `SENTIMENT_TWITTER_MAX_TOTAL_TWEETS`
   - `SENTIMENT_TWITTER_MAX_TWEETS_PER_WINDOW`
   - `SENTIMENT_TWITTER_PREDICT_CHUNK_SIZE`
+  - `SENTIMENT_TWITTER_TEMP_DB_THRESHOLD_DAYS` (default `90`, hasil > 3 bulan diproses bertahap via DB sementara)
   - `SENTIMENT_WORDCLOUD_MAX_TEXTS_PER_LABEL`
   - `SENTIMENT_WORDCLOUD_MAX_CHARS_PER_LABEL`
 

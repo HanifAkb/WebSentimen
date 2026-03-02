@@ -2,10 +2,10 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from sentiment_app.models import PredictionHistory, ScrapeHistory
+from sentiment_app.models import PredictionHistory, ScrapeHistory, ScrapeTempChunk
 
 
 class AuthAndHistoryTests(TestCase):
@@ -236,3 +236,53 @@ class AuthAndHistoryTests(TestCase):
         self.assertEqual(response.status_code, 200)
         forbidden_detail = self.client.get(reverse("prediction_history_detail", args=[other_history.id]))
         self.assertEqual(forbidden_detail.status_code, 404)
+
+    @override_settings(SENTIMENT_TWITTER_TEMP_DB_THRESHOLD_DAYS=30)
+    def test_scraping_long_range_uses_temp_db_chunks(self):
+        self.client.force_login(self.user)
+        mocked_window_tweets = [
+            {
+                "id": "201",
+                "text": "mobil listrik hemat energi",
+                "CreatedAt": "2026-01-15T12:00:00+00:00",
+                "url": "https://x.com/test/status/201",
+            }
+        ]
+        mocked_predictions = [
+            {
+                "text": "mobil listrik hemat energi",
+                "knn_label": "Positive",
+                "knn_score": 0.9,
+                "svm_label": "Positive",
+                "svm_score": 0.85,
+            }
+        ]
+
+        def _fake_fetch_tweets(*args, **kwargs):
+            callback = kwargs.get("on_window")
+            if callback:
+                callback(mocked_window_tweets)
+            return []
+
+        with patch("sentiment_app.views.fetch_tweets", side_effect=_fake_fetch_tweets), patch(
+            "sentiment_app.views.predict_batch_in_chunks",
+            return_value=mocked_predictions,
+        ):
+            response = self.client.post(
+                reverse("twitter_fetch"),
+                {
+                    "api_key": "dummy_api_key",
+                    "query": "mobil listrik",
+                    "language": "in",
+                    "start_date": "01/01/2026",
+                    "end_date": "05/03/2026",
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(ScrapeHistory.objects.count(), 1)
+        history = ScrapeHistory.objects.get()
+        self.assertEqual(history.tweet_count, 1)
+        self.assertEqual(history.rows, [])
+        self.assertEqual(ScrapeTempChunk.objects.filter(history=history).count(), 1)
+        self.assertIn(reverse("history_detail", args=[history.id]), response.url)

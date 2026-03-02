@@ -17,7 +17,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 
 from .forms import AdminCreateUserForm, LoginForm, PredictForm, TwitterFetchForm
-from .models import PredictionHistory, ScrapeHistory
+from .models import PredictionHistory, ScrapeHistory, ScrapeTempChunk
 from .services.file_service import (
     FileValidationError,
     generate_classification_csv,
@@ -528,13 +528,19 @@ def _build_scraping_dashboard(
         bucket_cursor = _next_bucket(bucket_cursor, granularity)
 
     wordcloud_error = ""
+    max_wordcloud_rows = _setting_positive_int("SENTIMENT_WORDCLOUD_MAX_ROWS", 1500)
     wordclouds: dict[str, str | None] = {
         "knn_positive_image": None,
         "knn_negative_image": None,
         "svm_positive_image": None,
         "svm_negative_image": None,
     }
-    if WordCloud is None:
+    if len(rows) > max_wordcloud_rows:
+        wordcloud_error = (
+            f"WordCloud dinonaktifkan otomatis untuk data lebih dari {max_wordcloud_rows} baris "
+            "agar proses tetap stabil."
+        )
+    elif WordCloud is None:
         wordcloud_error = (
             "Library `wordcloud` belum terpasang. Jalankan `pip install wordcloud` "
             "lalu restart server untuk menampilkan WordCloud."
@@ -608,11 +614,19 @@ def _apply_scraping_context(
     context["total_pages"] = total_pages
     context["page_numbers"] = range(page_start, page_end + 1)
     context["per_page"] = per_page
-    context["dashboard"] = _build_scraping_dashboard(
-        rows,
-        _safe_parse_iso_date(start_date_value),
-        _safe_parse_iso_date(end_date_value),
-    )
+    try:
+        context["dashboard"] = _build_scraping_dashboard(
+            rows,
+            _safe_parse_iso_date(start_date_value),
+            _safe_parse_iso_date(end_date_value),
+        )
+        context["dashboard_error"] = ""
+    except Exception:
+        context["dashboard"] = None
+        context["dashboard_error"] = (
+            "Dashboard tidak dapat ditampilkan untuk hasil ini. "
+            "Silakan gunakan rentang tanggal lebih pendek atau periksa data scraping."
+        )
     return True
 
 
@@ -641,6 +655,70 @@ def _serialize_history_rows(rows: list[dict[str, object]]) -> list[dict[str, obj
     for row in rows:
         serialized.append({str(key): _json_safe_value(value) for key, value in row.items()})
     return serialized
+
+
+def _combine_tweet_predictions(
+    tweets: list[dict[str, object]],
+    predictions: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    combined_rows: list[dict[str, object]] = []
+    for tweet, prediction in zip(tweets, predictions):
+        combined_rows.append(
+            {
+                "id": tweet.get("id", ""),
+                "url": tweet.get("url", ""),
+                "text": tweet.get("text", prediction.get("text", "")),
+                "retweetCount": tweet.get("retweetCount", ""),
+                "replyCount": tweet.get("replyCount", ""),
+                "likeCount": tweet.get("likeCount", ""),
+                "quoteCount": tweet.get("quoteCount", ""),
+                "viewCount": tweet.get("viewCount", ""),
+                "CreatedAt": tweet.get("CreatedAt", ""),
+                "lang": tweet.get("lang", ""),
+                "bookmarkCount": tweet.get("bookmarkCount", ""),
+                "isReply": tweet.get("isReply", ""),
+                "inReplyTold": tweet.get("inReplyTold", ""),
+                "userName": tweet.get("userName", ""),
+                "image_tweet": tweet.get("image_tweet", ""),
+                "_week_start": tweet.get("_week_start", ""),
+                "_week_end": tweet.get("_week_end", ""),
+                "knn_label": prediction.get("knn_label", ""),
+                "knn_score": prediction.get("knn_score"),
+                "svm_label": prediction.get("svm_label", ""),
+                "svm_score": prediction.get("svm_score"),
+            }
+        )
+    return combined_rows
+
+
+def _filter_rows_by_date_range(
+    rows: list[dict[str, object]],
+    start_date: date | None,
+    end_date: date | None,
+) -> list[dict[str, object]]:
+    filtered_rows: list[dict[str, object]] = []
+    for row in rows:
+        created_date = _parse_created_at_date(row.get("CreatedAt"))
+        if created_date is None:
+            continue
+        if start_date and created_date < start_date:
+            continue
+        if end_date and created_date > end_date:
+            continue
+        filtered_rows.append(row)
+    return filtered_rows
+
+
+def _load_scrape_rows(history: ScrapeHistory) -> list[dict[str, object]]:
+    stored_rows = history.rows if isinstance(history.rows, list) else []
+    if stored_rows:
+        return stored_rows
+
+    rows: list[dict[str, object]] = []
+    for chunk_rows in history.temp_chunks.order_by("chunk_index", "id").values_list("rows", flat=True):
+        if isinstance(chunk_rows, list):
+            rows.extend(chunk_rows)
+    return rows
 
 
 def login_view(request: HttpRequest) -> HttpResponse:
@@ -712,7 +790,7 @@ def history_detail_view(request: HttpRequest, history_id: int) -> HttpResponse:
     form = TwitterFetchForm()
     requested_page = _safe_positive_int(request.GET.get("page"), 1)
     per_page = _normalize_per_page(request.GET.get("per_page"), DEFAULT_PER_PAGE)
-    rows = history.rows if isinstance(history.rows, list) else []
+    rows = _load_scrape_rows(history)
 
     context: dict[str, object] = {
         "form": form,
@@ -889,12 +967,101 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
         max_tweets_per_window = _setting_positive_int("SENTIMENT_TWITTER_MAX_TWEETS_PER_WINDOW", 500)
         max_range_days = _setting_positive_int("SENTIMENT_TWITTER_MAX_RANGE_DAYS", 180)
         predict_chunk_size = _setting_positive_int("SENTIMENT_TWITTER_PREDICT_CHUNK_SIZE", 300)
+        temp_db_threshold_days = _setting_positive_int("SENTIMENT_TWITTER_TEMP_DB_THRESHOLD_DAYS", 90)
+        selected_days = (end_date - start_date).days + 1 if start_date and end_date else 1
+        use_temp_db_mode = selected_days > temp_db_threshold_days
+        if selected_days <= 14:
+            window_days = 1
+        elif selected_days <= 60:
+            window_days = 3
+        else:
+            window_days = 7
 
         if not api_key:
             messages.error(request, "API key wajib diisi.")
             return redirect("twitter_fetch")
 
         try:
+            if use_temp_db_mode:
+                history_item = ScrapeHistory.objects.create(
+                    user=request.user,
+                    query=str(query or ""),
+                    language=str(language or ""),
+                    start_date=start_date,
+                    end_date=end_date,
+                    tweet_count=0,
+                    rows=[],
+                )
+                temp_rows_count = 0
+                temp_chunk_index = 0
+
+                def _handle_window(window_tweets: list[dict[str, object]]) -> None:
+                    nonlocal temp_rows_count, temp_chunk_index
+                    if not window_tweets:
+                        return
+
+                    predictions = predict_batch_in_chunks(
+                        [str(tweet.get("text", "")) for tweet in window_tweets],
+                        chunk_size=predict_chunk_size,
+                    )
+                    classified_rows = _combine_tweet_predictions(window_tweets, predictions)
+                    filtered_rows = _filter_rows_by_date_range(classified_rows, start_date, end_date)
+                    if not filtered_rows:
+                        return
+
+                    serialized_rows = _serialize_history_rows(filtered_rows)
+                    ScrapeTempChunk.objects.create(
+                        history=history_item,
+                        chunk_index=temp_chunk_index,
+                        rows=serialized_rows,
+                    )
+                    temp_chunk_index += 1
+                    temp_rows_count += len(serialized_rows)
+
+                fetch_tweets(
+                    api_key=api_key,
+                    query=query,
+                    language=language,
+                    start_date=start_date.isoformat() if start_date else None,
+                    end_date=end_date.isoformat() if end_date else None,
+                    max_tweets_per_window=max_tweets_per_window,
+                    max_total_tweets=max_total_tweets,
+                    max_range_days=max_range_days,
+                    window_days=window_days,
+                    on_window=_handle_window,
+                )
+
+                if temp_rows_count <= 0:
+                    history_item.delete()
+                    messages.warning(
+                        request,
+                        "Tidak ada tweet dalam rentang tanggal yang dipilih setelah validasi tanggal final.",
+                    )
+                    request.session.pop(TWITTER_RESULT_SESSION_KEY, None)
+                    return redirect("twitter_fetch")
+
+                history_item.tweet_count = temp_rows_count
+                history_item.save(update_fields=["tweet_count"])
+
+                if temp_rows_count >= max_total_tweets:
+                    messages.warning(
+                        request,
+                        f"Hasil dibatasi maksimal {max_total_tweets} tweet per scraping agar aplikasi tetap stabil.",
+                    )
+                messages.info(
+                    request,
+                    "Rentang scraping lebih dari 3 bulan diproses menggunakan penyimpanan sementara di database.",
+                )
+
+                request.session[TWITTER_RESULT_SESSION_KEY] = {
+                    "history_id": history_item.id,
+                    "tweet_count": temp_rows_count,
+                    "last_page": 0,
+                    "last_per_page": 0,
+                }
+                request.session.modified = True
+                return redirect(f"{reverse('history_detail', args=[history_item.id])}?page=1&per_page={per_page}")
+
             tweets = fetch_tweets(
                 api_key=api_key,
                 query=query,
@@ -904,6 +1071,7 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                 max_tweets_per_window=max_tweets_per_window,
                 max_total_tweets=max_total_tweets,
                 max_range_days=max_range_days,
+                window_days=window_days,
             )
             if not tweets:
                 messages.warning(request, "Tidak ada tweet yang ditemukan untuk permintaan ini.")
@@ -911,49 +1079,11 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                 return redirect("twitter_fetch")
 
             predictions = predict_batch_in_chunks(
-                [tweet["text"] for tweet in tweets],
+                [str(tweet.get("text", "")) for tweet in tweets],
                 chunk_size=predict_chunk_size,
             )
-
-            classified_rows = []
-            for tweet, prediction in zip(tweets, predictions):
-                classified_rows.append(
-                    {
-                        "id": tweet.get("id", ""),
-                        "url": tweet.get("url", ""),
-                        "text": tweet.get("text", prediction.get("text", "")),
-                        "retweetCount": tweet.get("retweetCount", ""),
-                        "replyCount": tweet.get("replyCount", ""),
-                        "likeCount": tweet.get("likeCount", ""),
-                        "quoteCount": tweet.get("quoteCount", ""),
-                        "viewCount": tweet.get("viewCount", ""),
-                        "CreatedAt": tweet.get("CreatedAt", ""),
-                        "lang": tweet.get("lang", ""),
-                        "bookmarkCount": tweet.get("bookmarkCount", ""),
-                        "isReply": tweet.get("isReply", ""),
-                        "inReplyTold": tweet.get("inReplyTold", ""),
-                        "userName": tweet.get("userName", ""),
-                        "image_tweet": tweet.get("image_tweet", ""),
-                        "_week_start": tweet.get("_week_start", ""),
-                        "_week_end": tweet.get("_week_end", ""),
-                        "knn_label": prediction.get("knn_label", ""),
-                        "knn_score": prediction.get("knn_score"),
-                        "svm_label": prediction.get("svm_label", ""),
-                        "svm_score": prediction.get("svm_score"),
-                    }
-                )
-
-            # Guard terakhir di layer view: tampilkan hanya tanggal dalam rentang user.
-            filtered_rows: list[dict[str, object]] = []
-            for row in classified_rows:
-                created_date = _parse_created_at_date(row.get("CreatedAt"))
-                if created_date is None:
-                    continue
-                if start_date and created_date < start_date:
-                    continue
-                if end_date and created_date > end_date:
-                    continue
-                filtered_rows.append(row)
+            classified_rows = _combine_tweet_predictions(tweets, predictions)
+            filtered_rows = _filter_rows_by_date_range(classified_rows, start_date, end_date)
 
             if not filtered_rows:
                 messages.warning(
@@ -1009,7 +1139,7 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
         context["history"] = history
         requested_page = _safe_positive_int(request.GET.get("page"), 1)
         per_page = _normalize_per_page(request.GET.get("per_page"), DEFAULT_PER_PAGE)
-        rows = history.rows if isinstance(history.rows, list) else []
+        rows = _load_scrape_rows(history)
         _apply_scraping_context(
             context,
             rows,
@@ -1045,7 +1175,7 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
         request.session.pop(TWITTER_RESULT_SESSION_KEY, None)
         return render(request, "sentiment_app/twitter.html", context)
 
-    saved_rows = saved_history.rows if isinstance(saved_history.rows, list) else []
+    saved_rows = _load_scrape_rows(saved_history)
     if not saved_rows:
         request.session.pop(TWITTER_RESULT_SESSION_KEY, None)
         return render(request, "sentiment_app/twitter.html", context)

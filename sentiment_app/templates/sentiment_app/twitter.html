@@ -178,6 +178,11 @@
     </div>
 
     {% if classified_preview %}
+        {% if dashboard_error %}
+            <div class="col-12">
+                <div class="alert alert-warning py-2 mb-0">{{ dashboard_error }}</div>
+            </div>
+        {% endif %}
         {% if dashboard %}
             <div class="col-12">
                 <div class="card shadow-sm panel-card">
