@@ -10,6 +10,7 @@ import requests
 BASE_URL = "https://api.twitterapi.io"
 SEARCH_ENDPOINT = "/twitter/tweet/advanced_search"
 REQUEST_TIMEOUT_SECONDS = (5, 20)
+MIN_READ_TIMEOUT_SECONDS = 16
 WINDOW_DAYS = 1
 MAX_TWEETS_PER_WINDOW = 500
 MAX_TOTAL_TWEETS = 4000
@@ -17,7 +18,7 @@ PAGE_SLEEP_SECONDS = 0.35
 WINDOW_SLEEP_SECONDS = 0.25
 RATE_LIMIT_MAX_RETRIES = 3
 RATE_LIMIT_BACKOFF_SECONDS = 1.0
-MAX_RUNTIME_SECONDS = 22
+MAX_RUNTIME_SECONDS = 90
 
 
 class TwitterAPIError(RuntimeError):
@@ -273,7 +274,8 @@ def _fetch_window_tweets(
         request_timeout = REQUEST_TIMEOUT_SECONDS
         if deadline_ts is not None:
             remaining_seconds = deadline_ts - time.monotonic()
-            if remaining_seconds <= 2:
+            min_remaining_for_read = float(MIN_READ_TIMEOUT_SECONDS + 1)
+            if remaining_seconds <= min_remaining_for_read:
                 if fetched:
                     return fetched
                 raise TwitterTimeoutError(
@@ -281,7 +283,10 @@ def _fetch_window_tweets(
                     "Persempit rentang tanggal atau kueri, lalu coba lagi."
                 )
             connect_timeout = min(float(REQUEST_TIMEOUT_SECONDS[0]), max(1.0, remaining_seconds / 2))
-            read_timeout = min(float(REQUEST_TIMEOUT_SECONDS[1]), max(1.0, remaining_seconds - 1))
+            read_timeout = max(
+                float(MIN_READ_TIMEOUT_SECONDS),
+                min(float(REQUEST_TIMEOUT_SECONDS[1]), remaining_seconds - 1),
+            )
             request_timeout = (connect_timeout, read_timeout)
 
         try:
@@ -384,7 +389,7 @@ def fetch_tweets(
 
     max_tweets_per_window = max(1, int(max_tweets_per_window))
     max_total_tweets = max(1, int(max_total_tweets))
-    max_runtime_seconds = max(5, int(max_runtime_seconds))
+    max_runtime_seconds = max(MIN_READ_TIMEOUT_SECONDS + 2, int(max_runtime_seconds))
     deadline_ts = time.monotonic() + max_runtime_seconds
     meta = {
         "rate_limited": False,

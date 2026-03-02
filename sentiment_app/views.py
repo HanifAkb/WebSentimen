@@ -866,9 +866,8 @@ def _add_fetch_meta_messages(
 def _build_scrape_runtime_config(start_date: date, end_date: date) -> dict[str, int | bool]:
     max_total_tweets = _setting_positive_int("SENTIMENT_TWITTER_MAX_TOTAL_TWEETS", 4000)
     max_tweets_per_window = _setting_positive_int("SENTIMENT_TWITTER_MAX_TWEETS_PER_WINDOW", 500)
-    max_tweets_per_request = _setting_positive_int("SENTIMENT_TWITTER_MAX_TWEETS_PER_REQUEST", 1500)
     min_tweets_per_window = _setting_positive_int("SENTIMENT_TWITTER_MIN_TWEETS_PER_WINDOW", 80)
-    max_runtime_seconds = _setting_positive_int("SENTIMENT_TWITTER_MAX_RUNTIME_SECONDS", 22)
+    max_runtime_seconds = _setting_positive_int("SENTIMENT_TWITTER_MAX_RUNTIME_SECONDS", 90)
     predict_chunk_size = _setting_positive_int("SENTIMENT_TWITTER_PREDICT_CHUNK_SIZE", 300)
     temp_db_threshold_days = _setting_positive_int("SENTIMENT_TWITTER_TEMP_DB_THRESHOLD_DAYS", 90)
 
@@ -884,7 +883,7 @@ def _build_scrape_runtime_config(start_date: date, end_date: date) -> dict[str, 
         window_days = 4
 
     total_windows = max(1, (selected_days + window_days - 1) // window_days)
-    effective_total_tweets = min(max_total_tweets, max_tweets_per_request)
+    effective_total_tweets = max_total_tweets
     effective_tweets_per_window = min(
         max_tweets_per_window,
         max(min_tweets_per_window, (effective_total_tweets + total_windows - 1) // total_windows),
