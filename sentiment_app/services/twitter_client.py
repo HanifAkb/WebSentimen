@@ -15,8 +15,9 @@ MAX_TWEETS_PER_WINDOW = 500
 MAX_TOTAL_TWEETS = 4000
 PAGE_SLEEP_SECONDS = 0.35
 WINDOW_SLEEP_SECONDS = 0.25
-RATE_LIMIT_MAX_RETRIES = 3
-RATE_LIMIT_BACKOFF_SECONDS = 1.5
+RATE_LIMIT_MAX_RETRIES = 1
+RATE_LIMIT_BACKOFF_SECONDS = 0.5
+MAX_RUNTIME_SECONDS = 22
 
 
 class TwitterAPIError(RuntimeError):
@@ -233,6 +234,7 @@ def _fetch_window_tweets(
     api_key: str,
     query: str,
     max_tweets_per_window: int = MAX_TWEETS_PER_WINDOW,
+    deadline_ts: float | None = None,
 ) -> list[dict[str, Any]]:
     url = f"{BASE_URL}{SEARCH_ENDPOINT}"
     headers = {
@@ -245,6 +247,12 @@ def _fetch_window_tweets(
     tweet_count = 0
     rate_limit_retry_count = 0
     while tweet_count < max_tweets_per_window:
+        if deadline_ts is not None and time.monotonic() >= deadline_ts:
+            raise TwitterAPIError(
+                "Proses scraping melebihi batas waktu server. "
+                "Persempit rentang tanggal atau kueri, lalu coba lagi."
+            )
+
         params: dict[str, Any] = {
             "query": query,
             "queryType": "Latest",
@@ -252,8 +260,20 @@ def _fetch_window_tweets(
         if cursor:
             params["cursor"] = cursor
 
+        request_timeout = REQUEST_TIMEOUT_SECONDS
+        if deadline_ts is not None:
+            remaining_seconds = deadline_ts - time.monotonic()
+            if remaining_seconds <= 2:
+                raise TwitterAPIError(
+                    "Proses scraping melebihi batas waktu server. "
+                    "Persempit rentang tanggal atau kueri, lalu coba lagi."
+                )
+            connect_timeout = min(float(REQUEST_TIMEOUT_SECONDS[0]), max(1.0, remaining_seconds / 2))
+            read_timeout = min(float(REQUEST_TIMEOUT_SECONDS[1]), max(1.0, remaining_seconds - 1))
+            request_timeout = (connect_timeout, read_timeout)
+
         try:
-            response = requests.get(url, headers=headers, params=params, timeout=REQUEST_TIMEOUT_SECONDS)
+            response = requests.get(url, headers=headers, params=params, timeout=request_timeout)
         except requests.RequestException as exc:
             raise TwitterAPIError(f"Permintaan ke Twitter API gagal: {exc}") from exc
 
@@ -263,6 +283,11 @@ def _fetch_window_tweets(
             if rate_limit_retry_count < RATE_LIMIT_MAX_RETRIES:
                 sleep_seconds = RATE_LIMIT_BACKOFF_SECONDS * (rate_limit_retry_count + 1)
                 rate_limit_retry_count += 1
+                if deadline_ts is not None and (time.monotonic() + sleep_seconds) >= deadline_ts:
+                    raise TwitterAPIError(
+                        "Batas permintaan API tercapai dan waktu proses hampir habis. "
+                        "Coba lagi dengan rentang tanggal lebih pendek."
+                    )
                 time.sleep(sleep_seconds)
                 continue
             raise TwitterAPIError("Batas permintaan tercapai. Coba lagi dalam beberapa menit.")
@@ -305,6 +330,8 @@ def _fetch_window_tweets(
         if not has_next_page or not next_cursor:
             break
         cursor = str(next_cursor)
+        if deadline_ts is not None and (time.monotonic() + PAGE_SLEEP_SECONDS) >= deadline_ts:
+            break
         time.sleep(PAGE_SLEEP_SECONDS)
 
     return fetched
@@ -321,6 +348,7 @@ def fetch_tweets(
     max_range_days: int | None = None,
     window_days: int = WINDOW_DAYS,
     on_window: Callable[[list[dict[str, Any]]], None] | None = None,
+    max_runtime_seconds: int = MAX_RUNTIME_SECONDS,
 ) -> list[dict[str, Any]]:
     if not api_key:
         raise TwitterAPIError("API key wajib diisi.")
@@ -338,6 +366,8 @@ def fetch_tweets(
 
     max_tweets_per_window = max(1, int(max_tweets_per_window))
     max_total_tweets = max(1, int(max_total_tweets))
+    max_runtime_seconds = max(5, int(max_runtime_seconds))
+    deadline_ts = time.monotonic() + max_runtime_seconds
     if max_range_days is not None:
         max_range_days = max(1, int(max_range_days))
         selected_days = (parsed_end - parsed_start).days + 1
@@ -362,6 +392,11 @@ def fetch_tweets(
     kept_total = 0
     window_cursor = parsed_start
     while window_cursor < parsed_end_exclusive:
+        if time.monotonic() >= deadline_ts:
+            raise TwitterAPIError(
+                "Proses scraping melebihi batas waktu server. "
+                "Persempit rentang tanggal atau kueri, lalu coba lagi."
+            )
         next_window = min(window_cursor + timedelta(days=window_days), parsed_end_exclusive)
         since_str = window_cursor.strftime("%Y-%m-%d")
         until_str = next_window.strftime("%Y-%m-%d")
@@ -371,6 +406,7 @@ def fetch_tweets(
             api_key=api_key,
             query=window_query,
             max_tweets_per_window=max_tweets_per_window,
+            deadline_ts=deadline_ts,
         )
         total_raw_tweets += len(raw_window_tweets)
         normalized_window_tweets = normalize_tweets(raw_window_tweets, week_start=since_str, week_end=until_str)
@@ -419,6 +455,8 @@ def fetch_tweets(
             break
 
         window_cursor = next_window
+        if time.monotonic() + WINDOW_SLEEP_SECONDS >= deadline_ts:
+            break
         time.sleep(WINDOW_SLEEP_SECONDS)
 
     if kept_total == 0 and total_raw_tweets > 0:

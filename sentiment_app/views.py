@@ -985,6 +985,7 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
         max_total_tweets = _setting_positive_int("SENTIMENT_TWITTER_MAX_TOTAL_TWEETS", 4000)
         max_tweets_per_window = _setting_positive_int("SENTIMENT_TWITTER_MAX_TWEETS_PER_WINDOW", 500)
         max_range_days = _setting_positive_int("SENTIMENT_TWITTER_MAX_RANGE_DAYS", 180)
+        max_runtime_seconds = _setting_positive_int("SENTIMENT_TWITTER_MAX_RUNTIME_SECONDS", 22)
         predict_chunk_size = _setting_positive_int("SENTIMENT_TWITTER_PREDICT_CHUNK_SIZE", 300)
         temp_db_threshold_days = _setting_positive_int("SENTIMENT_TWITTER_TEMP_DB_THRESHOLD_DAYS", 90)
         selected_days = (end_date - start_date).days + 1 if start_date and end_date else 1
@@ -1043,6 +1044,7 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                     max_total_tweets=max_total_tweets,
                     max_range_days=max_range_days,
                     window_days=window_days,
+                    max_runtime_seconds=max_runtime_seconds,
                     on_window=_handle_window,
                 )
 
@@ -1087,6 +1089,7 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                 max_total_tweets=max_total_tweets,
                 max_range_days=max_range_days,
                 window_days=window_days,
+                max_runtime_seconds=max_runtime_seconds,
             )
             if not tweets:
                 messages.warning(request, "Tidak ada tweet yang ditemukan untuk permintaan ini.")
