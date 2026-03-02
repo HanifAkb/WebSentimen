@@ -1,338 +1,160 @@
-# Django Sentiment Site (KNN + SVM)
+﻿# Prediksi Sentimen (Django + KNN/SVM)
 
-Minimal Django web app for binary sentiment analysis (`Positive` / `Negative`) with two pre-trained models:
+Aplikasi web Django untuk analisis sentimen biner (`Positive`/`Negative`) memakai model pre-trained:
 
 - `knn_model.joblib`
 - `svm_rbf_model.joblib`
 
-The app supports:
+Website:
 
-- login system (company mode)
-- admin-only user registration
-- single sentence prediction
-- batch prediction from CSV/TXT upload
-- tweet fetch from `twitterapi.io` using user-provided API key
-- side-by-side KNN/SVM outputs
-- persistent history per logged user (scraping + prediction)
+- https://analisissentimen.up.railway.app/
 
-## 1) Project Structure
+## Fitur Utama
 
-```text
-.
-|-- manage.py
-|-- requirements.txt
-|-- README.md
-|-- sentiment_site/
-|   |-- settings.py
-|   |-- urls.py
-|   |-- models/
-|       |-- knn_model.joblib            # place here
-|       |-- svm_rbf_model.joblib        # place here
-|       |-- vectorizer.joblib (optional)
-|       |-- tfidf_vectorizer.joblib (optional)
-|       |-- label_encoder.joblib (optional)
-`-- sentiment_app/
-    |-- forms.py
-    |-- urls.py
-    |-- views.py
-    |-- services/
-    |   |-- preprocess.py
-    |   |-- model_service.py
-    |   |-- file_service.py
-    |   `-- twitter_client.py
-    |-- templates/sentiment_app/
-    |   |-- base.html
-    |   |-- login.html
-    |   |-- register.html
-    |   |-- history.html
-    |   |-- history_predict_detail.html
-    |   |-- predict.html
-    |   |-- beranda.html
-    |   `-- twitter.html
-    |-- static/sentiment_app/css/styles.css
-    `-- tests/
-        |-- test_preprocess.py
-        |-- test_file_service.py
-        |-- test_model_service.py
-        `-- test_auth_history.py
-```
+- Login wajib untuk akses fitur utama
+- Admin-only pembuatan akun baru
+- Prediksi kalimat tunggal
+- Prediksi batch dari file CSV/TXT
+- Scraping Web X via `twitterapi.io` (API key dari user)
+- Hasil KNN dan SVM berdampingan
+- Riwayat scraping dan prediksi per user
 
-## 2) Setup
+## Instalasi Cepat
 
-1. Create and activate virtual environment.
-2. Copy env template and adjust values:
+1. Buat virtual environment, lalu aktifkan.
+2. Salin file env:
 
 ```bash
 cp .env.example .env
 ```
 
-Untuk Windows PowerShell:
+PowerShell:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-3. Install dependencies:
+3. Install dependency:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Place model files into:
+4. Letakkan model di folder berikut:
 
 ```text
 sentiment_site/models/knn_model.joblib
 sentiment_site/models/svm_rbf_model.joblib
 ```
 
-The loader also checks project root as fallback (for quick local testing), but `sentiment_site/models/` is the recommended location.
-
-5. Optional artifacts if your model is classifier-only (not pipeline):
+5. Jika model bukan pipeline end-to-end, tambahkan artifact ini:
 
 ```text
 sentiment_site/models/vectorizer.joblib
-or
+atau
 sentiment_site/models/tfidf_vectorizer.joblib
 
-sentiment_site/models/label_encoder.joblib   # optional
+sentiment_site/models/label_encoder.joblib   # opsional
 ```
 
-6. Run migrations:
+6. Jalankan migrasi dan buat admin:
 
 ```bash
 python manage.py migrate
-```
-
-7. Create superuser (required to create other company accounts):
-
-```bash
 python manage.py createsuperuser
 ```
 
-8. Start server:
+7. Jalankan server:
 
 ```bash
 python manage.py runserver
 ```
 
-9. Open:
+Akses aplikasi di `http://127.0.0.1:8000/`.
 
-```text
-http://127.0.0.1:8000/
-```
+## Cara Pakai
 
-## 3) How to Use
+### 1) Buat Prediksi (`/predict/`)
 
-### Login (`/login/`)
-
-- Semua halaman utama diproteksi login.
-- Hanya admin/superuser yang bisa membuka halaman register akun baru (`/register/`).
-
-### Home / Predict (`/predict/`)
-
-- Type one sentence and submit, or upload one file (`.csv` / `.txt`).
+- Input 1 kalimat, atau upload 1 file (`.csv` / `.txt`)
 - CSV:
-  - auto-detect text column names: `text`, `tweet`, `content`, `sentence`
-  - or fill "CSV text column" manually.
-- TXT:
-  - each non-empty line is one sample.
+  - auto-detect kolom teks: `text`, `tweet`, `content`, `sentence`
+  - atau isi manual kolom teks
+- TXT: setiap baris non-kosong dianggap 1 data
 - Output:
-  - KNN and SVM labels shown side-by-side.
-  - Score shown when available:
-    - `predict_proba` positive class probability when supported.
-    - if unavailable and model has `decision_function`, score is sigmoid-scaled confidence-like value (not calibrated probability).
-  - For batch prediction: preview first 20 rows + full CSV download.
+  - label KNN dan SVM
+  - skor jika tersedia
+  - preview batch + unduh CSV hasil klasifikasi
 
-### Scraping Web X (`/scraping/`)
+### 2) Scraping Web X (`/scraping/`)
 
-- Input:
-  - API key (not stored in DB; used in-memory for request only)
-  - query
-  - optional language
-- Output:
-  - classified preview (KNN/SVM) + pagination
-  - hasil scraping bersifat sementara (tidak disimpan ke `media/outputs`)
-  - refresh pada halaman hasil akan membersihkan output
-  - setiap scraping yang berhasil otomatis disimpan ke riwayat user yang login
-  - jika proses berhenti karena timeout/rate limit, hasil parsial tetap tersimpan dan auto-continue berjalan otomatis di halaman scraping (tanpa harus pindah ke halaman riwayat)
-  - API key disimpan sementara di `sessionStorage` browser (bukan database) agar user tidak perlu mengisi ulang saat auto-continue masih berjalan di tab yang sama
-  - tersedia progress bar berdasarkan rentang tanggal yang sudah diproses saat melanjutkan scraping
-  - untuk menjaga stabilitas server:
-    - total tweet yang diproses per scraping maksimum default `4000` (`SENTIMENT_TWITTER_MAX_TOTAL_TWEETS`)
-    - klasifikasi dilakukan bertahap (chunk) default `300` baris per batch (`SENTIMENT_TWITTER_PREDICT_CHUNK_SIZE`)
+- Isi API key, kueri, bahasa (opsional), tanggal mulai-selesai
+- Hasil scraping diklasifikasikan oleh KNN + SVM
+- Auto-continue tersedia saat proses belum selesai
+- Dashboard otomatis tampil saat status scraping sudah `Selesai`
+- API key disimpan sementara di browser (`sessionStorage`), tidak disimpan ke database
 
-### Riwayat (`/history/`)
+### 3) Riwayat (`/history/`)
 
-- Menampilkan riwayat scraping dan riwayat prediksi milik user login.
-- Riwayat prediksi mencakup:
-  - kalimat tunggal
-  - unggah CSV/TXT
-- Data history terisolasi per-user.
-- Klik `Lihat` untuk membuka detail setiap riwayat.
+- Riwayat scraping dan prediksi dipisah per user
+- Tabel riwayat sudah dipaginasi (10 data per halaman)
 
-Contoh kueri lanjutan (sesuaikan dukungan endpoint twitterapi.io Anda):
+## Konfigurasi Penting (.env)
 
-- `"frasa persis"` untuk exact phrase
-- `(A OR B)` untuk alternatif keyword
-- `-kata` atau `-filter:retweets` untuk exclude
-- `from:username` untuk akun tertentu
-- `min_faves:10`, `min_retweets:5` untuk minimum engagement
-- `has:links`, `has:media` untuk tipe konten
+Security dasar:
 
-Catatan: rentang tanggal sudah diatur dari field tanggal pada form, jadi tidak perlu menambahkan `since:`/`until:` di kueri.
+- `DJANGO_SECRET_KEY`
+- `DJANGO_DEBUG` (gunakan `0` di production)
+- `DJANGO_ALLOWED_HOSTS`
 
-## 4) Security Notes
+Batas upload:
 
-- Upload validation:
-  - extensions restricted to `.csv` / `.txt`
-  - content type checked
-  - max upload size default `10 MB` (configurable via env `SENTIMENT_UPLOAD_MAX_SIZE`)
-- Download route:
-  - filename regex validation
-  - strict path resolution under `MEDIA_ROOT/outputs` (path traversal blocked)
-- CSRF protection enabled in all forms
-- Django messages framework used for safe UI feedback
-- API key is never persisted
-- Semua route inti diproteksi autentikasi (`login_required`)
-- Registrasi akun baru dibatasi hanya superuser/admin
-- Test keamanan auth mencakup skenario payload login mirip SQL injection
-- Penyimpanan kredensial:
-  - `username` disimpan sebagai teks biasa di database (untuk identitas login)
-  - `password` tidak disimpan plain text, tetapi di-hash satu arah (PBKDF2/Scrypt)
-- Hardening production disediakan lewat env:
-  - `DJANGO_DEBUG=0`
-  - `DJANGO_SECRET_KEY` wajib diisi
-  - `DJANGO_ALLOWED_HOSTS` wajib diisi
-  - opsi cookie/SSL/HSTS ada di `.env.example`
-- Tuning performa scraping:
-  - `SENTIMENT_TWITTER_MAX_TOTAL_TWEETS`
-  - `SENTIMENT_TWITTER_MAX_TWEETS_PER_WINDOW`
-  - `SENTIMENT_TWITTER_PREDICT_CHUNK_SIZE`
-  - `SENTIMENT_TWITTER_TEMP_DB_THRESHOLD_DAYS` (default `90`, hasil > 3 bulan diproses bertahap via DB sementara)
-  - `SENTIMENT_WORDCLOUD_MAX_TEXTS_PER_LABEL`
-  - `SENTIMENT_WORDCLOUD_MAX_CHARS_PER_LABEL`
+- `SENTIMENT_UPLOAD_MAX_SIZE` (default 10 MB)
 
-## 5) Twitter API Endpoint Notes
+Tuning scraping (opsional):
 
-Twitter API wrapper is centralized in:
+- `SENTIMENT_TWITTER_MAX_TOTAL_TWEETS`
+- `SENTIMENT_TWITTER_MAX_TWEETS_PER_WINDOW`
+- `SENTIMENT_TWITTER_MIN_TWEETS_PER_WINDOW`
+- `SENTIMENT_TWITTER_MAX_RUNTIME_SECONDS`
+- `SENTIMENT_TWITTER_PREDICT_CHUNK_SIZE`
+- `SENTIMENT_TWITTER_TEMP_DB_THRESHOLD_DAYS`
 
-- `sentiment_app/services/twitter_client.py`
+## Catatan Model
 
-Key constants to edit:
+- Sistem mencoba `model.predict([text])` langsung lebih dulu
+- Jika gagal (butuh vectorizer), sistem pakai preprocessing + vectorizer artifact
+- Mapping label default:
+  - `1 -> Positive`
+  - `0 -> Negative`
+- Skor:
+  - `predict_proba` jika tersedia
+  - fallback `decision_function` (confidence-like, bukan probabilitas terkalibrasi)
 
-- `BASE_URL`
-- `SEARCH_ENDPOINT`
+## Keamanan
 
-If your `twitterapi.io` plan uses different endpoint/params, update these constants and request parameter mapping there.
+- Validasi upload extension/type/size
+- CSRF aktif di form
+- Validasi path aman untuk download CSV
+- API key tidak dipersist ke DB
+- Password user disimpan dalam bentuk hash Django (bukan plaintext)
 
-## 6) Model Loading and Behavior
+## Testing
 
-- Models load lazily and are cached in-memory.
-- App tries direct `model.predict([text])` first.
-- If direct inference fails (usually means vectorization required), app tries:
-  - preprocessing (`lowercase`, URL/user/hashtag cleanup, whitespace normalize)
-  - vectorizer transform from `vectorizer.joblib` or `tfidf_vectorizer.joblib`
-- If vectorizer artifacts are missing, a friendly UI error is shown.
-
-Label mapping rules:
-
-- numeric outputs: `1 -> Positive`, `0 -> Negative`
-- string outputs: normalized to `Positive`/`Negative` when recognizable
-- optional `label_encoder.joblib` is used if available
-
-## 7) Tests
-
-Run:
+Jalankan:
 
 ```bash
 python manage.py test
 ```
 
-Included tests:
-
-- preprocessing behavior
-- CSV parsing + text column detection
-- prediction flow using mocked model artifacts
-- auth/access control + history persistence (scraping + prediction)
-- login payload SQL-like injection should fail authentication
-
-## 8) Manual Test Checklist
-
-1. Open `/` and submit a single sentence. Confirm both KNN and SVM labels appear.
-2. Upload valid CSV with `text` column. Confirm preview + CSV download works.
-3. Upload valid TXT with multiple lines. Confirm batch predictions.
-4. Upload file > 10 MB. Confirm friendly validation error.
-5. Upload unsupported extension (`.xlsx`). Confirm rejection.
-6. Use CSV without usable text column and no manual column. Confirm clear error.
-7. Remove/rename model files and submit. Confirm missing-model error message.
-8. Use classifier-only model without vectorizer artifact. Confirm vectorizer-required message.
-9. Open `/scraping/`, use API key + query, fetch tweets, then verify preview + pagination appears.
-10. Try invalid API key and confirm error handling.
-11. Verify `/download/<filename>/` blocks invalid filename/path attempts.
-
-## 9) Deploy (Railway Manual)
-
-Catatan: Railway menggunakan model free trial/credit, lalu berbayar setelah limit tercapai.
-
-### A. Persiapan repo
-
-1. Pastikan file model ada di repo:
-   - `sentiment_site/models/knn_model.joblib`
-   - `sentiment_site/models/svm_rbf_model.joblib`
-2. Pastikan push terbaru sudah masuk (termasuk `requirements.txt`, `Procfile`, `build.sh`).
-
-### B. Buat project dan service
-
-1. Buka Railway Dashboard -> `New Project`.
-2. Pilih `Deploy from GitHub Repo`, lalu pilih repo ini.
-3. Setelah service web terbentuk, tambah database:
-   - `New` -> `Database` -> `Add PostgreSQL`.
-
-### C. Konfigurasi web service (Settings)
-
-Set command berikut di service web:
-
-- Build Command:
-  - `bash build.sh`
-- Start Command:
-  - `gunicorn sentiment_site.wsgi:application --bind 0.0.0.0:$PORT`
-- Pre-Deploy Command:
-  - `python manage.py migrate --noinput`
-
-### D. Environment variables (Variables tab)
-
-Set variabel berikut di service web:
-
-- `DJANGO_SECRET_KEY` = string acak panjang
-- `DJANGO_DEBUG` = `0`
-- `DJANGO_SESSION_COOKIE_SECURE` = `1`
-- `DJANGO_CSRF_COOKIE_SECURE` = `1`
-- `DJANGO_SECURE_SSL_REDIRECT` = `1`
-- `DJANGO_SECURE_HSTS_SECONDS` = `31536000`
-- `DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS` = `1`
-- `DJANGO_SECURE_HSTS_PRELOAD` = `1`
-
-Untuk database:
-
-1. Buat env `DATABASE_URL`.
-2. Klik `Add Reference` -> pilih service PostgreSQL -> pilih `DATABASE_URL`.
-
-`DJANGO_ALLOWED_HOSTS` dan `DJANGO_CSRF_TRUSTED_ORIGINS` bisa dikosongkan di Railway karena aplikasi otomatis membaca `RAILWAY_PUBLIC_DOMAIN`.
-
-### E. Deploy pertama
-
-1. Trigger deploy (otomatis saat push, atau klik `Deploy` manual).
-2. Tunggu status `Success`.
-3. Buka domain yang diberikan Railway.
-
-### F. Buat akun admin pertama (superuser)
-
-Gunakan Railway CLI dari lokal:
+Cek konfigurasi cepat:
 
 ```bash
-railway login
-railway link
-railway run python manage.py createsuperuser
+python manage.py check
 ```
 
-Lalu login ke `/admin/` atau `/login/`.
+## Troubleshooting Singkat
+
+- Error `No module named 'imblearn'`: install ulang dependency dari `requirements.txt`
+- Error model butuh vectorizer: tambahkan `vectorizer.joblib` atau `tfidf_vectorizer.joblib`
+- Scraping terasa lambat: perkecil rentang tanggal atau turunkan batas tweet per scraping via env
