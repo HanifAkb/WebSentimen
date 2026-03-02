@@ -358,10 +358,17 @@ def fetch_tweets(
             created_date = _parse_created_at_date(tweet.get("CreatedAt"))
             if created_date is None:
                 total_unparseable_date += 1
-                continue
-            if not (window_cursor <= created_date < next_window):
-                total_out_of_range += 1
-                continue
+            else:
+                # Keep rows by global selected range. Per-window strict filter can
+                # drop valid rows when API date boundaries/timezones are inconsistent.
+                if not (parsed_start <= created_date <= parsed_end):
+                    total_out_of_range += 1
+                    continue
+
+            if not tweet.get("_week_start"):
+                tweet["_week_start"] = since_str
+            if not tweet.get("_week_end"):
+                tweet["_week_end"] = until_str
 
             tweet_id = str(tweet.get("id", "")).strip()
             if tweet_id:
