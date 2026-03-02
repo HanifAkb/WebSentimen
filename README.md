@@ -154,7 +154,9 @@ http://127.0.0.1:8000/
   - hasil scraping bersifat sementara (tidak disimpan ke `media/outputs`)
   - refresh pada halaman hasil akan membersihkan output
   - setiap scraping yang berhasil otomatis disimpan ke riwayat user yang login
-  - jika proses berhenti karena timeout/rate limit, hasil parsial tetap tersimpan dan bisa dilanjutkan lewat tombol `Lanjutkan Scraping` pada halaman detail riwayat (user mengisi ulang API key, API key tidak disimpan)
+  - jika proses berhenti karena timeout/rate limit, hasil parsial tetap tersimpan dan auto-continue berjalan otomatis di halaman scraping (tanpa harus pindah ke halaman riwayat)
+  - API key disimpan sementara di `sessionStorage` browser (bukan database) agar user tidak perlu mengisi ulang saat auto-continue masih berjalan di tab yang sama
+  - tersedia progress bar berdasarkan rentang tanggal yang sudah diproses saat melanjutkan scraping
   - untuk menjaga stabilitas server:
     - total tweet yang diproses per scraping maksimum default `4000` (`SENTIMENT_TWITTER_MAX_TOTAL_TWEETS`)
     - klasifikasi dilakukan bertahap (chunk) default `300` baris per batch (`SENTIMENT_TWITTER_PREDICT_CHUNK_SIZE`)

@@ -12,7 +12,7 @@ from django.contrib.auth import login as auth_login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import models
-from django.http import FileResponse, Http404, HttpRequest, HttpResponse, HttpResponseForbidden
+from django.http import FileResponse, Http404, HttpRequest, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -666,6 +666,17 @@ def _json_safe_value(value: object) -> object:
     return str(value)
 
 
+def _safe_next_relative_url(value: object) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if text.startswith("//"):
+        return ""
+    if not text.startswith("/"):
+        return ""
+    return text
+
+
 def _serialize_history_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
     serialized: list[dict[str, object]] = []
     for row in rows:
@@ -840,12 +851,12 @@ def _add_fetch_meta_messages(
             request,
             "Sebagian data berhasil diambil, tetapi proses berhenti karena batas waktu server.",
         )
-    if current_count >= effective_total_tweets or bool(fetch_meta.get("truncated")):
+    if effective_total_tweets > 0 and (current_count >= effective_total_tweets or bool(fetch_meta.get("truncated"))):
         messages.warning(
             request,
             f"Hasil dibatasi maksimal {effective_total_tweets} tweet per scraping agar aplikasi tetap stabil.",
         )
-    if effective_total_tweets < max_total_tweets:
+    if effective_total_tweets > 0 and effective_total_tweets < max_total_tweets:
         messages.info(
             request,
             f"Untuk stabilitas server, rentang ini diproses dengan sampling maksimal {effective_total_tweets} tweet.",
@@ -888,6 +899,150 @@ def _build_scrape_runtime_config(start_date: date, end_date: date) -> dict[str, 
         "max_total_tweets": max_total_tweets,
         "max_runtime_seconds": max_runtime_seconds,
         "predict_chunk_size": predict_chunk_size,
+    }
+
+
+def _history_resume_progress(history: ScrapeHistory) -> tuple[int, int, int]:
+    total_days = max(1, (history.end_date - history.start_date).days + 1)
+    if history.is_complete:
+        done_days = total_days
+    else:
+        next_date = history.resume_next_date or history.start_date
+        done_days = max(0, min(total_days, (next_date - history.start_date).days))
+    progress_pct = int((done_days * 100) / total_days)
+    return done_days, total_days, progress_pct
+
+
+def _resume_scrape_once(history: ScrapeHistory, api_key: str) -> dict[str, object]:
+    if history.is_complete:
+        done_days, total_days, progress_pct = _history_resume_progress(history)
+        return {
+            "ok": True,
+            "complete": True,
+            "appended_count": 0,
+            "tweet_count": int(history.tweet_count or 0),
+            "resume_next_date": "",
+            "stop_reason": "",
+            "rate_limited": False,
+            "timed_out": False,
+            "truncated": False,
+            "progress_pct": progress_pct,
+            "done_days": done_days,
+            "total_days": total_days,
+            "effective_total_tweets": 0,
+            "max_total_tweets": 0,
+        }
+
+    resume_start_date = history.resume_next_date or history.start_date
+    if resume_start_date > history.end_date:
+        history.is_complete = True
+        history.resume_next_date = None
+        history.stop_reason = ""
+        history.save(update_fields=["is_complete", "resume_next_date", "stop_reason"])
+        done_days, total_days, progress_pct = _history_resume_progress(history)
+        return {
+            "ok": True,
+            "complete": True,
+            "appended_count": 0,
+            "tweet_count": int(history.tweet_count or 0),
+            "resume_next_date": "",
+            "stop_reason": "",
+            "rate_limited": False,
+            "timed_out": False,
+            "truncated": False,
+            "progress_pct": progress_pct,
+            "done_days": done_days,
+            "total_days": total_days,
+            "effective_total_tweets": 0,
+            "max_total_tweets": 0,
+        }
+
+    runtime_config = _build_scrape_runtime_config(resume_start_date, history.end_date)
+    effective_total_tweets = int(runtime_config["effective_total_tweets"])
+    effective_tweets_per_window = int(runtime_config["effective_tweets_per_window"])
+    max_total_tweets = int(runtime_config["max_total_tweets"])
+    max_runtime_seconds = int(runtime_config["max_runtime_seconds"])
+    predict_chunk_size = int(runtime_config["predict_chunk_size"])
+    default_window_days = int(runtime_config["window_days"])
+    window_days = int(history.window_days or default_window_days)
+    window_days = max(1, window_days)
+
+    seen_keys = _build_existing_scrape_keys(history)
+    chunk_index = _next_chunk_index(history)
+    appended_count = 0
+
+    def _handle_window(window_tweets: list[dict[str, object]]) -> None:
+        nonlocal chunk_index, appended_count
+        if not window_tweets:
+            return
+
+        predictions = predict_batch_in_chunks(
+            [str(tweet.get("text", "")) for tweet in window_tweets],
+            chunk_size=predict_chunk_size,
+        )
+        classified_rows = _combine_tweet_predictions(window_tweets, predictions)
+        filtered_rows = _filter_rows_by_date_range(classified_rows, history.start_date, history.end_date)
+        if not filtered_rows:
+            return
+
+        new_count, next_chunk_index = _append_rows_to_history_chunks(
+            history,
+            filtered_rows,
+            seen_keys,
+            chunk_index,
+        )
+        chunk_index = next_chunk_index
+        appended_count += new_count
+
+    try:
+        fetch_result = fetch_tweets(
+            api_key=api_key,
+            query=history.query,
+            language=history.language,
+            start_date=resume_start_date.isoformat(),
+            end_date=history.end_date.isoformat(),
+            max_tweets_per_window=effective_tweets_per_window,
+            max_total_tweets=effective_total_tweets,
+            window_days=window_days,
+            max_runtime_seconds=max_runtime_seconds,
+            on_window=_handle_window,
+            return_meta=True,
+        )
+    except (TwitterAPIError, ModelServiceError, FileValidationError) as exc:
+        return {"ok": False, "error": str(exc)}
+    except Exception as exc:
+        return {"ok": False, "error": f"Terjadi kesalahan tak terduga saat melanjutkan scraping: {exc}"}
+
+    fetch_meta: dict[str, object] = {
+        "rate_limited": False,
+        "truncated": False,
+        "timed_out": False,
+        "next_start_date": resume_start_date.isoformat(),
+    }
+    if isinstance(fetch_result, tuple) and len(fetch_result) == 2 and isinstance(fetch_result[1], dict):
+        fetch_meta = fetch_result[1]
+
+    total_rows = _load_scrape_rows(history)
+    history.tweet_count = len(total_rows)
+    _apply_history_progress_meta(history, fetch_meta, history.end_date, resume_start_date, window_days)
+    history.save(update_fields=["tweet_count", "is_complete", "resume_next_date", "stop_reason", "window_days"])
+    done_days, total_days, progress_pct = _history_resume_progress(history)
+
+    return {
+        "ok": True,
+        "complete": bool(history.is_complete),
+        "appended_count": int(appended_count),
+        "tweet_count": int(history.tweet_count or 0),
+        "resume_next_date": history.resume_next_date.isoformat() if history.resume_next_date else "",
+        "stop_reason": str(history.stop_reason or ""),
+        "rate_limited": bool(fetch_meta.get("rate_limited")),
+        "timed_out": bool(fetch_meta.get("timed_out")),
+        "truncated": bool(fetch_meta.get("truncated")),
+        "progress_pct": progress_pct,
+        "done_days": done_days,
+        "total_days": total_days,
+        "effective_total_tweets": effective_total_tweets,
+        "max_total_tweets": max_total_tweets,
     }
 
 
@@ -960,6 +1115,7 @@ def history_detail_view(request: HttpRequest, history_id: int) -> HttpResponse:
     history = get_object_or_404(ScrapeHistory, id=history_id, user=request.user)
     form = TwitterFetchForm()
     resume_form = ResumeScrapeForm()
+    resume_done_days, resume_total_days, resume_progress_pct = _history_resume_progress(history)
     requested_page = _safe_positive_int(request.GET.get("page"), 1)
     per_page = _normalize_per_page(request.GET.get("per_page"), DEFAULT_PER_PAGE)
     rows = _load_scrape_rows(history)
@@ -969,6 +1125,11 @@ def history_detail_view(request: HttpRequest, history_id: int) -> HttpResponse:
         "resume_form": resume_form,
         "history_mode": True,
         "history": history,
+        "resume_done_days": resume_done_days,
+        "resume_total_days": resume_total_days,
+        "resume_progress_pct": resume_progress_pct,
+        "resume_next_url": request.get_full_path(),
+        "auto_resume_default": str(request.GET.get("auto", "")).strip() == "1",
     }
     if not _apply_scraping_context(
         context,
@@ -989,118 +1150,67 @@ def resume_scrape_view(request: HttpRequest, history_id: int) -> HttpResponse:
     if request.method != "POST":
         return redirect("history_detail", history_id=history_id)
 
+    wants_json = (
+        request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        or str(request.POST.get("ajax", "")).strip() == "1"
+    )
+
     history = get_object_or_404(ScrapeHistory, id=history_id, user=request.user)
+    next_url = _safe_next_relative_url(request.POST.get("next_url"))
+    fallback_url = reverse("history_detail", args=[history.id])
+    redirect_target = next_url or fallback_url
     form = ResumeScrapeForm(request.POST)
     if not form.is_valid():
+        if wants_json:
+            first_error = "Form tidak valid."
+            for _field_name, field_errors in form.errors.items():
+                if field_errors:
+                    first_error = str(field_errors[0])
+                    break
+            return JsonResponse({"ok": False, "error": first_error}, status=400)
         for field_name, field_errors in form.errors.items():
             label = form.fields.get(field_name).label if field_name in form.fields else field_name
             for field_error in field_errors:
                 messages.error(request, f"{label}: {field_error}")
-        return redirect("history_detail", history_id=history.id)
-
-    if history.is_complete:
-        messages.info(request, "Riwayat scraping ini sudah selesai.")
-        return redirect("history_detail", history_id=history.id)
+        return redirect(redirect_target)
 
     api_key = (form.cleaned_data.get("api_key") or "").strip()
     if not api_key:
+        if wants_json:
+            return JsonResponse({"ok": False, "error": "API key wajib diisi."}, status=400)
         messages.error(request, "API key wajib diisi.")
-        return redirect("history_detail", history_id=history.id)
+        return redirect(redirect_target)
 
-    resume_start_date = history.resume_next_date or history.start_date
-    if resume_start_date > history.end_date:
-        history.is_complete = True
-        history.resume_next_date = None
-        history.stop_reason = ""
-        history.save(update_fields=["is_complete", "resume_next_date", "stop_reason"])
-        messages.success(request, "Scraping sudah selesai.")
-        return redirect("history_detail", history_id=history.id)
+    resume_result = _resume_scrape_once(history, api_key)
+    if not bool(resume_result.get("ok")):
+        error_message = str(resume_result.get("error") or "Terjadi kesalahan saat melanjutkan scraping.")
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error_message}, status=400)
+        messages.error(request, error_message)
+        return redirect(redirect_target)
 
-    runtime_config = _build_scrape_runtime_config(resume_start_date, history.end_date)
-    effective_total_tweets = int(runtime_config["effective_total_tweets"])
-    effective_tweets_per_window = int(runtime_config["effective_tweets_per_window"])
-    max_total_tweets = int(runtime_config["max_total_tweets"])
-    max_runtime_seconds = int(runtime_config["max_runtime_seconds"])
-    predict_chunk_size = int(runtime_config["predict_chunk_size"])
-    default_window_days = int(runtime_config["window_days"])
-    window_days = int(history.window_days or default_window_days)
-    window_days = max(1, window_days)
+    if wants_json:
+        return JsonResponse(resume_result)
 
-    seen_keys = _build_existing_scrape_keys(history)
-    chunk_index = _next_chunk_index(history)
-    appended_count = 0
-
-    def _handle_window(window_tweets: list[dict[str, object]]) -> None:
-        nonlocal chunk_index, appended_count
-        if not window_tweets:
-            return
-
-        predictions = predict_batch_in_chunks(
-            [str(tweet.get("text", "")) for tweet in window_tweets],
-            chunk_size=predict_chunk_size,
-        )
-        classified_rows = _combine_tweet_predictions(window_tweets, predictions)
-        filtered_rows = _filter_rows_by_date_range(classified_rows, history.start_date, history.end_date)
-        if not filtered_rows:
-            return
-
-        new_count, next_chunk_index = _append_rows_to_history_chunks(
-            history,
-            filtered_rows,
-            seen_keys,
-            chunk_index,
-        )
-        chunk_index = next_chunk_index
-        appended_count += new_count
-
-    try:
-        fetch_result = fetch_tweets(
-            api_key=api_key,
-            query=history.query,
-            language=history.language,
-            start_date=resume_start_date.isoformat(),
-            end_date=history.end_date.isoformat(),
-            max_tweets_per_window=effective_tweets_per_window,
-            max_total_tweets=effective_total_tweets,
-            window_days=window_days,
-            max_runtime_seconds=max_runtime_seconds,
-            on_window=_handle_window,
-            return_meta=True,
-        )
-    except (TwitterAPIError, ModelServiceError, FileValidationError) as exc:
-        messages.error(request, str(exc))
-        return redirect("history_detail", history_id=history.id)
-    except Exception as exc:
-        messages.error(request, f"Terjadi kesalahan tak terduga saat melanjutkan scraping: {exc}")
-        return redirect("history_detail", history_id=history.id)
-
-    fetch_meta: dict[str, object] = {
-        "rate_limited": False,
-        "truncated": False,
-        "timed_out": False,
-        "next_start_date": resume_start_date.isoformat(),
+    fetch_meta_for_messages = {
+        "rate_limited": bool(resume_result.get("rate_limited")),
+        "timed_out": bool(resume_result.get("timed_out")),
+        "truncated": bool(resume_result.get("truncated")),
     }
-    if isinstance(fetch_result, tuple) and len(fetch_result) == 2 and isinstance(fetch_result[1], dict):
-        fetch_meta = fetch_result[1]
-
-    total_rows = _load_scrape_rows(history)
-    history.tweet_count = len(total_rows)
-    _apply_history_progress_meta(history, fetch_meta, history.end_date, resume_start_date, window_days)
-    history.save(update_fields=["tweet_count", "is_complete", "resume_next_date", "stop_reason", "window_days"])
-
     _add_fetch_meta_messages(
         request,
-        fetch_meta,
-        appended_count,
-        effective_total_tweets,
-        max_total_tweets,
+        fetch_meta_for_messages,
+        int(resume_result.get("appended_count") or 0),
+        int(resume_result.get("effective_total_tweets") or 0),
+        int(resume_result.get("max_total_tweets") or 0),
     )
+    appended_count = int(resume_result.get("appended_count") or 0)
     if appended_count > 0:
         messages.success(request, f"Berhasil menambahkan {appended_count} tweet baru ke riwayat.")
     else:
         messages.info(request, "Tidak ada tweet baru yang ditambahkan pada proses lanjutan ini.")
 
-    if history.is_complete:
+    if bool(resume_result.get("complete")):
         messages.success(request, "Scraping sudah selesai untuk seluruh rentang tanggal.")
     elif history.resume_next_date:
         messages.info(
@@ -1109,6 +1219,8 @@ def resume_scrape_view(request: HttpRequest, history_id: int) -> HttpResponse:
         )
 
     per_page = _normalize_per_page(request.POST.get("per_page"), DEFAULT_PER_PAGE)
+    if next_url:
+        return redirect(next_url)
     return redirect(f"{reverse('history_detail', args=[history.id])}?page=1&per_page={per_page}")
 
 
@@ -1370,7 +1482,7 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                 if not history_item.is_complete and history_item.resume_next_date:
                     messages.info(
                         request,
-                        "Scraping belum selesai. Klik 'Lanjutkan Scraping' pada halaman riwayat untuk melanjutkan.",
+                        "Scraping belum selesai. Proses lanjutan otomatis dijalankan di halaman ini.",
                     )
 
                 request.session[TWITTER_RESULT_SESSION_KEY] = {
@@ -1380,7 +1492,11 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                     "last_per_page": 0,
                 }
                 request.session.modified = True
-                return redirect(f"{reverse('history_detail', args=[history_item.id])}?page=1&per_page={per_page}")
+                query_url = reverse("twitter_fetch")
+                auto_flag = "1" if not history_item.is_complete else "0"
+                return redirect(
+                    f"{query_url}?show=1&history={history_item.id}&page=1&per_page={per_page}&auto={auto_flag}"
+                )
 
             fetch_result = fetch_tweets(
                 api_key=api_key,
@@ -1453,7 +1569,7 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
             if not history_item.is_complete and history_item.resume_next_date:
                 messages.info(
                     request,
-                    "Scraping belum selesai. Klik 'Lanjutkan Scraping' pada halaman riwayat untuk melanjutkan.",
+                    "Scraping belum selesai. Proses lanjutan otomatis dijalankan di halaman ini.",
                 )
 
             request.session[TWITTER_RESULT_SESSION_KEY] = {
@@ -1465,7 +1581,8 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
             request.session.modified = True
 
             query_url = reverse("twitter_fetch")
-            return redirect(f"{query_url}?show=1&page=1&per_page={per_page}")
+            auto_flag = "1" if not history_item.is_complete else "0"
+            return redirect(f"{query_url}?show=1&history={history_item.id}&page=1&per_page={per_page}&auto={auto_flag}")
         except (TwitterAPIError, ModelServiceError, FileValidationError) as exc:
             messages.error(request, str(exc))
             return redirect("twitter_fetch")
@@ -1481,9 +1598,15 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
     history_id = _safe_positive_int(request.GET.get("history"), 0)
     if history_id:
         history = get_object_or_404(ScrapeHistory, id=history_id, user=request.user)
+        resume_done_days, resume_total_days, resume_progress_pct = _history_resume_progress(history)
         context["history_mode"] = True
         context["history"] = history
         context["resume_form"] = ResumeScrapeForm()
+        context["resume_done_days"] = resume_done_days
+        context["resume_total_days"] = resume_total_days
+        context["resume_progress_pct"] = resume_progress_pct
+        context["resume_next_url"] = request.get_full_path()
+        context["auto_resume_default"] = str(request.GET.get("auto", "")).strip() == "1"
         requested_page = _safe_positive_int(request.GET.get("page"), 1)
         per_page = _normalize_per_page(request.GET.get("per_page"), DEFAULT_PER_PAGE)
         rows = _load_scrape_rows(history)

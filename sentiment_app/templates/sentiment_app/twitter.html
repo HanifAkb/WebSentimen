@@ -30,7 +30,30 @@
                                     Lanjut dari tanggal <strong>{{ history.resume_next_date|date:"d/m/Y" }}</strong>.
                                 {% endif %}
                             </div>
-                            <form method="post" action="{% url 'resume_scrape' history.id %}" class="row g-2 align-items-end">
+                            <div class="mb-2 small">
+                                Progress rentang tanggal: <strong id="resumeProgressLabel">{{ resume_done_days|default:0 }}/{{ resume_total_days|default:1 }} hari</strong>
+                            </div>
+                            <div class="progress mb-3" style="height: 0.9rem;">
+                                <div
+                                    id="resumeProgressBar"
+                                    class="progress-bar progress-bar-striped"
+                                    role="progressbar"
+                                    style="width: {{ resume_progress_pct|default:0 }}%;"
+                                    aria-valuenow="{{ resume_progress_pct|default:0 }}"
+                                    aria-valuemin="0"
+                                    aria-valuemax="100"
+                                >
+                                    <span id="resumeProgressText">{{ resume_progress_pct|default:0 }}%</span>
+                                </div>
+                            </div>
+                            <div id="resumeAutoStatus" class="small mb-2 text-dark"></div>
+                            <form
+                                id="resumeScrapeForm"
+                                method="post"
+                                action="{% url 'resume_scrape' history.id %}"
+                                class="row g-2 align-items-end"
+                                data-auto-default="{% if auto_resume_default %}1{% else %}0{% endif %}"
+                            >
                                 {% csrf_token %}
                                 <div class="col-12 col-md-7 col-lg-6">
                                     <label class="form-label mb-1" for="{{ resume_form.api_key.id_for_label }}">{{ resume_form.api_key.label }}</label>
@@ -38,14 +61,25 @@
                                 </div>
                                 <div class="col-12 col-md-auto">
                                     <input type="hidden" name="per_page" value="{{ per_page|default:10 }}">
+                                    <input type="hidden" name="next_url" value="{{ resume_next_url|default:'' }}">
                                     <button class="btn btn-warning" type="submit">Lanjutkan Scraping</button>
+                                </div>
+                                <div class="col-12 col-md-auto">
+                                    <button
+                                        id="resumeAutoButton"
+                                        class="btn btn-outline-dark"
+                                        type="button"
+                                        data-running="0"
+                                    >
+                                        Auto Continue
+                                    </button>
                                 </div>
                             </form>
                         </div>
                     {% endif %}
                 {% endif %}
 
-                <form method="post" action="{% url 'twitter_fetch' %}">
+                <form id="twitterFetchForm" method="post" action="{% url 'twitter_fetch' %}">
                     {% csrf_token %}
                     {% if form.non_field_errors %}
                         <div class="alert alert-danger py-2">
@@ -590,6 +624,8 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+    const SCRAPE_API_KEY_STORAGE = "sentiment_scrape_api_key";
+
     if (typeof flatpickr !== "undefined") {
         const dateInputs = document.querySelectorAll(".js-flatpickr-date");
         dateInputs.forEach(function (input) {
@@ -606,6 +642,194 @@ document.addEventListener("DOMContentLoaded", function () {
                 locale: (flatpickr.l10ns && flatpickr.l10ns.id) ? flatpickr.l10ns.id : "default",
             });
         });
+    }
+
+    const twitterFetchForm = document.getElementById("twitterFetchForm");
+    if (twitterFetchForm) {
+        const fetchApiKeyInput = twitterFetchForm.querySelector('input[name="api_key"]');
+        if (fetchApiKeyInput) {
+            const storedApiKey = window.sessionStorage.getItem(SCRAPE_API_KEY_STORAGE) || "";
+            if (!fetchApiKeyInput.value && storedApiKey) {
+                fetchApiKeyInput.value = storedApiKey;
+            }
+            fetchApiKeyInput.addEventListener("input", function () {
+                const keyValue = String(fetchApiKeyInput.value || "").trim();
+                if (keyValue) {
+                    window.sessionStorage.setItem(SCRAPE_API_KEY_STORAGE, keyValue);
+                } else {
+                    window.sessionStorage.removeItem(SCRAPE_API_KEY_STORAGE);
+                }
+            });
+        }
+
+        twitterFetchForm.addEventListener("submit", function () {
+            if (!fetchApiKeyInput) {
+                return;
+            }
+            const keyValue = String(fetchApiKeyInput.value || "").trim();
+            if (keyValue) {
+                window.sessionStorage.setItem(SCRAPE_API_KEY_STORAGE, keyValue);
+            } else {
+                window.sessionStorage.removeItem(SCRAPE_API_KEY_STORAGE);
+            }
+        });
+    }
+
+    const resumeForm = document.getElementById("resumeScrapeForm");
+    const resumeAutoButton = document.getElementById("resumeAutoButton");
+    const resumeProgressBar = document.getElementById("resumeProgressBar");
+    const resumeProgressText = document.getElementById("resumeProgressText");
+    const resumeProgressLabel = document.getElementById("resumeProgressLabel");
+    const resumeAutoStatus = document.getElementById("resumeAutoStatus");
+
+    if (resumeForm && resumeAutoButton && resumeProgressBar && resumeProgressText && resumeProgressLabel) {
+        const csrfInput = resumeForm.querySelector('input[name="csrfmiddlewaretoken"]');
+        const apiKeyInput = resumeForm.querySelector('input[name="api_key"]');
+        const perPageInput = resumeForm.querySelector('input[name="per_page"]');
+        const nextUrlInput = resumeForm.querySelector('input[name="next_url"]');
+        const storedApiKey = window.sessionStorage.getItem(SCRAPE_API_KEY_STORAGE) || "";
+        if (apiKeyInput && !apiKeyInput.value && storedApiKey) {
+            apiKeyInput.value = storedApiKey;
+        }
+
+        const autoDefault = resumeForm.dataset.autoDefault === "1";
+        let autoRunning = false;
+        let noProgressCount = 0;
+        let lastProgress = Number(resumeProgressBar.getAttribute("aria-valuenow") || "0");
+
+        const setAutoStatus = function (text, isError) {
+            if (!resumeAutoStatus) {
+                return;
+            }
+            resumeAutoStatus.classList.remove("text-danger", "text-dark");
+            resumeAutoStatus.classList.add(isError ? "text-danger" : "text-dark");
+            resumeAutoStatus.textContent = text;
+        };
+
+        const setProgress = function (pct, doneDays, totalDays) {
+            const bounded = Math.max(0, Math.min(100, Number(pct || 0)));
+            resumeProgressBar.style.width = bounded + "%";
+            resumeProgressBar.setAttribute("aria-valuenow", String(bounded));
+            resumeProgressText.textContent = bounded + "%";
+            if (doneDays !== null && doneDays !== undefined && totalDays) {
+                resumeProgressLabel.textContent = String(doneDays) + "/" + String(totalDays) + " hari";
+            }
+        };
+
+        const setButtonState = function (running) {
+            autoRunning = running;
+            resumeAutoButton.dataset.running = running ? "1" : "0";
+            resumeAutoButton.textContent = running ? "Memproses..." : "Auto Continue";
+            resumeAutoButton.disabled = running;
+        };
+
+        const runAutoStep = async function () {
+            if (!csrfInput || !apiKeyInput) {
+                setAutoStatus("Form tidak lengkap untuk auto continue.", true);
+                setButtonState(false);
+                return;
+            }
+
+            const apiKey = String(apiKeyInput.value || "").trim();
+            if (!apiKey) {
+                setAutoStatus("Isi API key dulu untuk menjalankan auto continue.", true);
+                setButtonState(false);
+                return;
+            }
+            window.sessionStorage.setItem(SCRAPE_API_KEY_STORAGE, apiKey);
+
+            const formData = new URLSearchParams();
+            formData.append("api_key", apiKey);
+            formData.append("ajax", "1");
+            formData.append("per_page", perPageInput ? String(perPageInput.value || "10") : "10");
+            if (nextUrlInput && nextUrlInput.value) {
+                formData.append("next_url", String(nextUrlInput.value));
+            }
+
+            let response;
+            let payload;
+            try {
+                response = await fetch(resumeForm.action, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                        "X-CSRFToken": csrfInput.value,
+                        "X-Requested-With": "XMLHttpRequest",
+                    },
+                    body: formData.toString(),
+                });
+                payload = await response.json();
+            } catch (error) {
+                setAutoStatus("Gagal menghubungi server saat auto continue.", true);
+                setButtonState(false);
+                return;
+            }
+
+            if (!response.ok || !payload || !payload.ok) {
+                const message = payload && payload.error ? payload.error : "Auto continue gagal.";
+                setAutoStatus(String(message), true);
+                setButtonState(false);
+                return;
+            }
+
+            const currentProgress = Number(payload.progress_pct || 0);
+            setProgress(currentProgress, payload.done_days, payload.total_days);
+
+            const addedCount = Number(payload.appended_count || 0);
+            if (currentProgress <= lastProgress && addedCount <= 0) {
+                noProgressCount += 1;
+            } else {
+                noProgressCount = 0;
+            }
+            lastProgress = currentProgress;
+
+            if (payload.complete) {
+                setAutoStatus("Scraping selesai. Memuat ulang halaman...", false);
+                setButtonState(false);
+                window.setTimeout(function () {
+                    window.location.reload();
+                }, 900);
+                return;
+            }
+
+            if (noProgressCount >= 2) {
+                setAutoStatus("Progress belum bertambah. Coba lagi beberapa menit lagi.", true);
+                setButtonState(false);
+                return;
+            }
+
+            if (payload.resume_next_date) {
+                setAutoStatus("Melanjutkan dari " + payload.resume_next_date + "...", false);
+            } else {
+                setAutoStatus("Melanjutkan scraping...", false);
+            }
+
+            window.setTimeout(runAutoStep, 250);
+        };
+
+        const startAutoResume = function () {
+            if (autoRunning) {
+                return;
+            }
+            noProgressCount = 0;
+            setAutoStatus("Memulai auto continue...", false);
+            setButtonState(true);
+            runAutoStep();
+        };
+
+        resumeAutoButton.addEventListener("click", function () {
+            startAutoResume();
+        });
+
+        if (autoDefault) {
+            if (apiKeyInput && String(apiKeyInput.value || "").trim()) {
+                window.setTimeout(function () {
+                    startAutoResume();
+                }, 350);
+            } else {
+                setAutoStatus("Auto continue aktif, tetapi API key tidak tersedia di sesi browser.", true);
+            }
+        }
     }
 
     const chartDataScript = document.getElementById("scraping-dashboard-data");

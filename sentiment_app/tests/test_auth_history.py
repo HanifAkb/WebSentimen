@@ -287,7 +287,7 @@ class AuthAndHistoryTests(TestCase):
         self.assertEqual(history.tweet_count, 1)
         self.assertEqual(history.rows, [])
         self.assertEqual(ScrapeTempChunk.objects.filter(history=history).count(), 1)
-        self.assertIn(reverse("history_detail", args=[history.id]), response.url)
+        self.assertIn(f"history={history.id}", response.url)
 
     def test_scraping_marks_history_incomplete_when_partial_timeout(self):
         self.client.force_login(self.user)
@@ -400,3 +400,61 @@ class AuthAndHistoryTests(TestCase):
         self.assertIsNone(history.resume_next_date)
         self.assertEqual(history.tweet_count, 2)
         self.assertEqual(ScrapeTempChunk.objects.filter(history=history).count(), 1)
+
+    def test_resume_scrape_ajax_returns_progress_payload(self):
+        self.client.force_login(self.user)
+        history = ScrapeHistory.objects.create(
+            user=self.user,
+            query="mobil listrik",
+            language="in",
+            start_date="2026-01-01",
+            end_date="2026-01-03",
+            tweet_count=0,
+            rows=[],
+            is_complete=False,
+            resume_next_date="2026-01-02",
+            stop_reason="timed_out",
+            window_days=1,
+        )
+
+        window_rows = [
+            {
+                "id": "seed-9",
+                "text": "data lanjutan ajax",
+                "CreatedAt": "2026-01-02T11:00:00+00:00",
+            }
+        ]
+        window_predictions = [
+            {
+                "text": "data lanjutan ajax",
+                "knn_label": "Positive",
+                "knn_score": 0.7,
+                "svm_label": "Positive",
+                "svm_score": 0.6,
+            }
+        ]
+
+        def _fake_fetch_tweets(*args, **kwargs):
+            callback = kwargs.get("on_window")
+            if callback:
+                callback(window_rows)
+            return [], {"next_start_date": "2026-01-03", "rate_limited": False, "timed_out": True, "truncated": False}
+
+        with patch("sentiment_app.views.fetch_tweets", side_effect=_fake_fetch_tweets), patch(
+            "sentiment_app.views.predict_batch_in_chunks",
+            return_value=window_predictions,
+        ):
+            response = self.client.post(
+                reverse("resume_scrape", args=[history.id]),
+                {
+                    "api_key": "dummy_api_key",
+                    "ajax": "1",
+                },
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload.get("ok"))
+        self.assertIn("progress_pct", payload)
+        self.assertIn("tweet_count", payload)
