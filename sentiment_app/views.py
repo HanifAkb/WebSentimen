@@ -315,12 +315,24 @@ def _parse_created_at_date(value: object) -> date | None:
     return None
 
 
-def _bucket_start(value: date, granularity: str) -> date:
+def _bucket_start(value: date, granularity: str, anchor: date | None = None) -> date:
     if granularity == "week":
-        return value - timedelta(days=value.weekday())
+        # Weekly buckets are anchored to requested start_date so chart range
+        # does not spill into dates before user input.
+        anchor_date = anchor or value
+        delta_days = (value - anchor_date).days
+        return anchor_date + timedelta(days=(delta_days // 7) * 7)
     if granularity == "month":
         return value.replace(day=1)
     return value
+
+
+def _bucket_end(value: date, granularity: str) -> date:
+    if granularity == "day":
+        return value
+    if granularity == "week":
+        return value + timedelta(days=6)
+    return _next_bucket(value, "month") - timedelta(days=1)
 
 
 def _next_bucket(value: date, granularity: str) -> date:
@@ -333,13 +345,30 @@ def _next_bucket(value: date, granularity: str) -> date:
     return date(year, month, 1)
 
 
-def _format_bucket_label(value: date, granularity: str) -> str:
+def _format_bucket_label(
+    value: date,
+    granularity: str,
+    range_start: date | None = None,
+    range_end: date | None = None,
+) -> str:
+    display_start = value
+    display_end = _bucket_end(value, granularity)
+    if range_start and display_start < range_start:
+        display_start = range_start
+    if range_end and display_end > range_end:
+        display_end = range_end
+
     if granularity == "day":
-        return value.strftime("%d %b %Y")
+        return display_start.strftime("%d %b %Y")
     if granularity == "week":
-        week_end = value + timedelta(days=6)
-        return f"{value.strftime('%d %b')} - {week_end.strftime('%d %b %Y')}"
-    return value.strftime("%b %Y")
+        return f"{display_start.strftime('%d %b')} - {display_end.strftime('%d %b %Y')}"
+
+    # Keep concise month label only when bucket covers a full calendar month.
+    full_month_start = value.replace(day=1)
+    full_month_end = _bucket_end(full_month_start, "month")
+    if display_start == full_month_start and display_end == full_month_end:
+        return value.strftime("%b %Y")
+    return f"{display_start.strftime('%d %b')} - {display_end.strftime('%d %b %Y')}"
 
 
 def _normalize_sentiment_label(value: object) -> str:
@@ -447,16 +476,17 @@ def _build_scraping_dashboard(
         start_date, end_date = end_date, start_date
 
     granularity, granularity_label = _choose_granularity(start_date, end_date)
+    bucket_anchor = start_date if granularity == "week" else None
     trend_counter: Counter[date] = Counter()
     for created_date in row_dates:
-        trend_counter[_bucket_start(created_date, granularity)] += 1
+        trend_counter[_bucket_start(created_date, granularity, bucket_anchor)] += 1
 
     chart_labels: list[str] = []
     chart_values: list[int] = []
-    bucket_cursor = _bucket_start(start_date, granularity)
-    bucket_last = _bucket_start(end_date, granularity)
+    bucket_cursor = _bucket_start(start_date, granularity, bucket_anchor)
+    bucket_last = _bucket_start(end_date, granularity, bucket_anchor)
     while bucket_cursor <= bucket_last:
-        chart_labels.append(_format_bucket_label(bucket_cursor, granularity))
+        chart_labels.append(_format_bucket_label(bucket_cursor, granularity, start_date, end_date))
         chart_values.append(int(trend_counter.get(bucket_cursor, 0)))
         bucket_cursor = _next_bucket(bucket_cursor, granularity)
 
