@@ -30,7 +30,7 @@ class TwitterFetchFormTests(SimpleTestCase):
         self.assertFalse(form.is_valid())
         self.assertIn("Maksimal 7 hari", str(form.non_field_errors()))
 
-    def test_rejects_iso_date_format(self):
+    def test_accepts_iso_date_format_from_native_date_input(self):
         form = TwitterFetchForm(
             data={
                 "api_key": "dummy",
@@ -40,5 +40,4 @@ class TwitterFetchFormTests(SimpleTestCase):
                 "end_date": "2026-01-07",
             }
         )
-        self.assertFalse(form.is_valid())
-        self.assertIn("Format tanggal harus dd/mm/yyyy", str(form.errors))
+        self.assertTrue(form.is_valid(), form.errors)
