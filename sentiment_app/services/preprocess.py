@@ -258,7 +258,7 @@ def _stem_text(text: str) -> str:
     return " ".join(stemmed_words)
 
 
-def preprocess_text(text: str) -> str:
+def preprocess_text(text: str, apply_stemming: bool = True) -> str:
     normalized = str(text or "").lower()
     normalized = EMOJI_RE.sub(" ", normalized)
     normalized = URL_RE.sub(" ", normalized)
@@ -270,6 +270,7 @@ def preprocess_text(text: str) -> str:
 
     normalized = _normalize_slang(normalized)
     normalized = _remove_stopwords(normalized)
-    normalized = _stem_text(normalized)
+    if apply_stemming:
+        normalized = _stem_text(normalized)
     normalized = WS_RE.sub(" ", normalized).strip()
     return normalized

@@ -392,7 +392,7 @@ def _normalize_sentiment_label(value: object) -> str:
 
 def _clean_text_for_wordcloud(text: str) -> str:
     # Align with model preprocessing so WordCloud reflects the same cleaned language space.
-    cleaned = preprocess_text(str(text or ""))
+    cleaned = preprocess_text(str(text or ""), apply_stemming=False)
     cleaned = re.sub(r"[^0-9a-zA-Z_\s]", " ", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned)
     return cleaned.strip()

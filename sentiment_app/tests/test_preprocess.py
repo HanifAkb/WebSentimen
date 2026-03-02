@@ -1,4 +1,5 @@
 from django.test import SimpleTestCase
+from unittest.mock import patch
 
 from sentiment_app.services.preprocess import preprocess_text
 
@@ -20,3 +21,15 @@ class PreprocessTests(SimpleTestCase):
         self.assertIn("sedang", cleaned)
         self.assertTrue("perjalanan" in cleaned or "jalan" in cleaned)
         self.assertNotIn("123", cleaned)
+
+    def test_preprocess_can_skip_stemming(self):
+        class FakeStemmer:
+            def stem(self, word):
+                return f"stem_{word}"
+
+        with patch("sentiment_app.services.preprocess._get_stemmer", return_value=FakeStemmer()):
+            with_stemming = preprocess_text("rumah besar", apply_stemming=True)
+            without_stemming = preprocess_text("rumah besar", apply_stemming=False)
+
+        self.assertIn("stem_rumah", with_stemming)
+        self.assertEqual(without_stemming, "rumah besar")
