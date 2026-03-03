@@ -5,6 +5,7 @@ from .views import (
     delete_all_history_view,
     delete_prediction_history_view,
     delete_scrape_history_view,
+    delete_selected_history_view,
     download_output_view,
     history_detail_view,
     history_list_view,
@@ -26,6 +27,7 @@ urlpatterns = [
     path("scraping/", twitter_fetch_view, name="twitter_fetch"),
     path("history/", history_list_view, name="history_list"),
     path("history/delete-all/", delete_all_history_view, name="history_delete_all"),
+    path("history/delete-selected/", delete_selected_history_view, name="history_delete_selected"),
     path("history/scrape/<int:history_id>/delete/", delete_scrape_history_view, name="history_delete_scrape"),
     path(
         "history/predict/<int:history_id>/delete/",

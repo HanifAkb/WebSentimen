@@ -394,6 +394,20 @@ body {
     color: var(--bs-primary);
 }
 
+.history-delete-all-btn {
+    color: #ffffff;
+    border: 0;
+    background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+    box-shadow: 0 8px 16px rgba(185, 28, 28, 0.28);
+}
+
+.history-delete-all-btn:hover,
+.history-delete-all-btn:focus {
+    color: #ffffff;
+    background: linear-gradient(135deg, #f87171 0%, #dc2626 100%);
+    box-shadow: 0 10px 20px rgba(220, 38, 38, 0.32);
+}
+
 .resume-action-btn {
     border: 0;
     border-radius: 0.7rem;

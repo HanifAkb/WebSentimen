@@ -1166,21 +1166,51 @@ def delete_prediction_history_view(request: HttpRequest, history_id: int) -> Htt
 @login_required
 @require_POST
 def delete_all_history_view(request: HttpRequest) -> HttpResponse:
-    scope = str(request.POST.get("scope", "all")).strip().lower()
+    scope = str(request.POST.get("scope", "")).strip().lower()
     if scope == "scrape":
-        deleted_count, _ = ScrapeHistory.objects.filter(user=request.user).delete()
-        messages.success(request, f"Semua riwayat scraping dihapus ({deleted_count} data).")
+        queryset = ScrapeHistory.objects.filter(user=request.user)
+        deleted_histories = queryset.count()
+        queryset.delete()
+        messages.success(request, f"Semua riwayat scraping dihapus ({deleted_histories} data).")
     elif scope == "prediction":
-        deleted_count, _ = PredictionHistory.objects.filter(user=request.user).delete()
-        messages.success(request, f"Semua riwayat prediksi dihapus ({deleted_count} data).")
+        queryset = PredictionHistory.objects.filter(user=request.user)
+        deleted_histories = queryset.count()
+        queryset.delete()
+        messages.success(request, f"Semua riwayat prediksi dihapus ({deleted_histories} data).")
     else:
-        deleted_scrape_count, _ = ScrapeHistory.objects.filter(user=request.user).delete()
-        deleted_prediction_count, _ = PredictionHistory.objects.filter(user=request.user).delete()
-        messages.success(
-            request,
-            "Semua riwayat berhasil dihapus "
-            f"(scraping: {deleted_scrape_count}, prediksi: {deleted_prediction_count}).",
-        )
+        messages.warning(request, "Pilih jenis riwayat yang ingin dihapus (scraping atau prediksi).")
+    return _history_list_redirect(request)
+
+
+@login_required
+@require_POST
+def delete_selected_history_view(request: HttpRequest) -> HttpResponse:
+    scope = str(request.POST.get("scope", "")).strip().lower()
+    selected_ids_raw = request.POST.getlist("selected_ids")
+
+    selected_ids: set[int] = set()
+    for raw_id in selected_ids_raw:
+        parsed_id = _safe_positive_int(raw_id, 0)
+        if parsed_id > 0:
+            selected_ids.add(parsed_id)
+
+    if not selected_ids:
+        messages.warning(request, "Pilih minimal satu riwayat yang ingin dihapus.")
+        return _history_list_redirect(request)
+
+    if scope == "scrape":
+        queryset = ScrapeHistory.objects.filter(user=request.user, id__in=selected_ids)
+        deleted_histories = queryset.count()
+        queryset.delete()
+        messages.success(request, f"Riwayat scraping terpilih berhasil dihapus ({deleted_histories} data).")
+    elif scope == "prediction":
+        queryset = PredictionHistory.objects.filter(user=request.user, id__in=selected_ids)
+        deleted_histories = queryset.count()
+        queryset.delete()
+        messages.success(request, f"Riwayat prediksi terpilih berhasil dihapus ({deleted_histories} data).")
+    else:
+        messages.warning(request, "Jenis riwayat tidak valid.")
+
     return _history_list_redirect(request)
 
 
