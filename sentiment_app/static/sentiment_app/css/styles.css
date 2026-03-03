@@ -364,6 +364,15 @@ body {
     background: rgba(191, 219, 254, 0.4);
 }
 
+.history-click-row {
+    cursor: pointer;
+}
+
+.history-click-row:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: -2px;
+}
+
 .panel-card h1,
 .panel-card h2 {
     color: #1e40af;
@@ -392,20 +401,6 @@ body {
 .query-help-inline:hover,
 .query-help-inline:focus {
     color: var(--bs-primary);
-}
-
-.history-delete-all-btn {
-    color: #ffffff;
-    border: 0;
-    background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
-    box-shadow: 0 8px 16px rgba(185, 28, 28, 0.28);
-}
-
-.history-delete-all-btn:hover,
-.history-delete-all-btn:focus {
-    color: #ffffff;
-    background: linear-gradient(135deg, #f87171 0%, #dc2626 100%);
-    box-shadow: 0 10px 20px rgba(220, 38, 38, 0.32);
 }
 
 .resume-action-btn {

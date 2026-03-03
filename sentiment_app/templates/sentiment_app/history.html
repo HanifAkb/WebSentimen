@@ -14,22 +14,7 @@
     <div class="col-12">
         <div class="card shadow-sm panel-card">
             <div class="card-body">
-                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                    <h2 class="h5 fw-semibold mb-0">Riwayat Scraping</h2>
-                    {% if scrape_histories %}
-                        <form
-                            method="post"
-                            action="{% url 'history_delete_all' %}"
-                            onsubmit="return confirm('Hapus semua riwayat scraping? Tindakan ini tidak dapat dibatalkan.');"
-                        >
-                            {% csrf_token %}
-                            <input type="hidden" name="scope" value="scrape">
-                            <input type="hidden" name="scrape_page" value="{{ scrape_page_obj.number }}">
-                            <input type="hidden" name="pred_page" value="{{ prediction_page_obj.number }}">
-                            <button class="btn btn-sm history-delete-all-btn" type="submit">Hapus Semua Scraping</button>
-                        </form>
-                    {% endif %}
-                </div>
+                <h2 class="h5 fw-semibold mb-2">Riwayat Scraping</h2>
                 <p class="text-muted small mb-3">Daftar hasil scraping yang pernah Anda jalankan.</p>
 
                 {% if scrape_histories %}
@@ -46,7 +31,7 @@
                         <div class="mb-2">
                             <button
                                 id="scrape-delete-selected-button"
-                                class="btn btn-sm history-delete-all-btn"
+                                class="btn btn-sm btn-outline-danger"
                                 type="submit"
                                 disabled
                             >
@@ -54,7 +39,7 @@
                             </button>
                         </div>
                         <div class="table-responsive">
-                            <table class="table table-striped align-middle">
+                            <table class="table table-striped table-hover align-middle">
                                 <thead>
                                     <tr>
                                         <th class="text-center" style="width: 36px;">
@@ -71,7 +56,13 @@
                                 </thead>
                                 <tbody>
                                     {% for item in scrape_histories %}
-                                        <tr>
+                                        <tr
+                                            class="history-click-row"
+                                            data-href="{% url 'history_detail' item.id %}"
+                                            tabindex="0"
+                                            role="link"
+                                            aria-label="Buka detail riwayat scraping {{ item.id }}"
+                                        >
                                             <td class="text-center">
                                                 <input
                                                     class="form-check-input scrape-select-item"
@@ -82,12 +73,20 @@
                                                 >
                                             </td>
                                             <td>{{ scrape_page_obj.start_index|add:forloop.counter0 }}</td>
-                                            <td>{{ item.created_at|date:"d/m/Y H:i" }}</td>
-                                            <td class="text-break">
-                                                <a class="text-decoration-none" href="{% url 'history_detail' item.id %}">{{ item.query }}</a>
-                                            </td>
+                                            <td>{{ item.created_at|date:"j F Y, H:i" }}</td>
+                                            <td class="text-break">{{ item.query }}</td>
                                             <td>{{ item.language|default:"-" }}</td>
-                                            <td>{{ item.start_date|date:"d/m/Y" }} - {{ item.end_date|date:"d/m/Y" }}</td>
+                                            <td>
+                                                {% if item.start_date|date:"Y" == item.end_date|date:"Y" %}
+                                                    {% if item.start_date|date:"F" == item.end_date|date:"F" %}
+                                                        {{ item.start_date|date:"j" }} - {{ item.end_date|date:"j F Y" }}
+                                                    {% else %}
+                                                        {{ item.start_date|date:"j F" }} - {{ item.end_date|date:"j F Y" }}
+                                                    {% endif %}
+                                                {% else %}
+                                                    {{ item.start_date|date:"j F Y" }} - {{ item.end_date|date:"j F Y" }}
+                                                {% endif %}
+                                            </td>
                                             <td>{{ item.tweet_count }}</td>
                                             <td>
                                                 {% if item.is_complete %}
@@ -137,22 +136,7 @@
     <div class="col-12">
         <div class="card shadow-sm panel-card">
             <div class="card-body">
-                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                    <h2 class="h5 fw-semibold mb-0">Riwayat Prediksi</h2>
-                    {% if prediction_histories %}
-                        <form
-                            method="post"
-                            action="{% url 'history_delete_all' %}"
-                            onsubmit="return confirm('Hapus semua riwayat prediksi? Tindakan ini tidak dapat dibatalkan.');"
-                        >
-                            {% csrf_token %}
-                            <input type="hidden" name="scope" value="prediction">
-                            <input type="hidden" name="scrape_page" value="{{ scrape_page_obj.number }}">
-                            <input type="hidden" name="pred_page" value="{{ prediction_page_obj.number }}">
-                            <button class="btn btn-sm history-delete-all-btn" type="submit">Hapus Semua Prediksi</button>
-                        </form>
-                    {% endif %}
-                </div>
+                <h2 class="h5 fw-semibold mb-2">Riwayat Prediksi</h2>
                 <p class="text-muted small mb-3">Daftar hasil prediksi kalimat tunggal dan unggah CSV/TXT.</p>
 
                 {% if prediction_histories %}
@@ -169,7 +153,7 @@
                         <div class="mb-2">
                             <button
                                 id="prediction-delete-selected-button"
-                                class="btn btn-sm history-delete-all-btn"
+                                class="btn btn-sm btn-outline-danger"
                                 type="submit"
                                 disabled
                             >
@@ -177,7 +161,7 @@
                             </button>
                         </div>
                         <div class="table-responsive">
-                            <table class="table table-striped align-middle">
+                            <table class="table table-striped table-hover align-middle">
                                 <thead>
                                     <tr>
                                         <th class="text-center" style="width: 36px;">
@@ -193,7 +177,13 @@
                                 </thead>
                                 <tbody>
                                     {% for item in prediction_histories %}
-                                        <tr>
+                                        <tr
+                                            class="history-click-row"
+                                            data-href="{% url 'prediction_history_detail' item.id %}"
+                                            tabindex="0"
+                                            role="link"
+                                            aria-label="Buka detail riwayat prediksi {{ item.id }}"
+                                        >
                                             <td class="text-center">
                                                 <input
                                                     class="form-check-input prediction-select-item"
@@ -204,7 +194,7 @@
                                                 >
                                             </td>
                                             <td>{{ prediction_page_obj.start_index|add:forloop.counter0 }}</td>
-                                            <td>{{ item.created_at|date:"d/m/Y H:i" }}</td>
+                                            <td>{{ item.created_at|date:"j F Y, H:i" }}</td>
                                             <td>
                                                 {% if item.input_type == "single" %}
                                                     Kalimat Tunggal
@@ -213,13 +203,11 @@
                                                 {% endif %}
                                             </td>
                                             <td class="text-break">
-                                                <a class="text-decoration-none" href="{% url 'prediction_history_detail' item.id %}">
-                                                    {% if item.input_type == "single" %}
-                                                        Input manual
-                                                    {% else %}
-                                                        {{ item.source_name|default:"-" }}
-                                                    {% endif %}
-                                                </a>
+                                                {% if item.input_type == "single" %}
+                                                    Input manual
+                                                {% else %}
+                                                    {{ item.source_name|default:"-" }}
+                                                {% endif %}
                                             </td>
                                             <td>{{ item.text_column|default:"-" }}</td>
                                             <td>{{ item.sample_count }}</td>
@@ -266,6 +254,36 @@
 {% block extra_scripts %}
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+    const bindRowNavigation = function (rowSelector) {
+        const interactiveSelector = "a, button, input, label, select, textarea";
+        const rows = Array.from(document.querySelectorAll(rowSelector));
+
+        rows.forEach(function (row) {
+            const destination = row.dataset.href;
+            if (!destination) {
+                return;
+            }
+
+            row.addEventListener("click", function (event) {
+                if (event.target.closest(interactiveSelector)) {
+                    return;
+                }
+                window.location.href = destination;
+            });
+
+            row.addEventListener("keydown", function (event) {
+                if (event.key !== "Enter" && event.key !== " ") {
+                    return;
+                }
+                if (event.target.closest(interactiveSelector)) {
+                    return;
+                }
+                event.preventDefault();
+                window.location.href = destination;
+            });
+        });
+    };
+
     const bindSelectionTable = function (selectAllId, itemSelector, deleteButtonId) {
         const selectAll = document.getElementById(selectAllId);
         const deleteButton = document.getElementById(deleteButtonId);
@@ -300,6 +318,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     bindSelectionTable("scrape-select-all", ".scrape-select-item", "scrape-delete-selected-button");
     bindSelectionTable("prediction-select-all", ".prediction-select-item", "prediction-delete-selected-button");
+    bindRowNavigation(".history-click-row");
 });
 </script>
 {% endblock %}
