@@ -5,7 +5,20 @@
     <div class="col-12">
         <div class="card shadow-sm panel-card">
             <div class="card-body">
-                <h1 class="h4 fw-semibold mb-2">Riwayat Aktivitas</h1>
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                    <h1 class="h4 fw-semibold mb-0">Riwayat Aktivitas</h1>
+                    <form
+                        method="post"
+                        action="{% url 'history_delete_all' %}"
+                        onsubmit="return confirm('Hapus SEMUA riwayat scraping dan prediksi? Tindakan ini tidak dapat dibatalkan.');"
+                    >
+                        {% csrf_token %}
+                        <input type="hidden" name="scope" value="all">
+                        <input type="hidden" name="scrape_page" value="{{ scrape_page_obj.number }}">
+                        <input type="hidden" name="pred_page" value="{{ prediction_page_obj.number }}">
+                        <button class="btn btn-sm btn-outline-danger" type="submit">Hapus Semua Riwayat</button>
+                    </form>
+                </div>
                 <p class="text-muted small mb-0">Riwayat ini berisi hasil scraping dan prediksi yang pernah Anda jalankan.</p>
             </div>
         </div>
@@ -49,7 +62,19 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            <a class="btn btn-sm btn-outline-primary" href="{% url 'history_detail' item.id %}">Lihat</a>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                <a class="btn btn-sm btn-outline-primary" href="{% url 'history_detail' item.id %}">Lihat</a>
+                                                <form
+                                                    method="post"
+                                                    action="{% url 'history_delete_scrape' item.id %}"
+                                                    onsubmit="return confirm('Hapus riwayat scraping ini?');"
+                                                >
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="scrape_page" value="{{ scrape_page_obj.number }}">
+                                                    <input type="hidden" name="pred_page" value="{{ prediction_page_obj.number }}">
+                                                    <button class="btn btn-sm btn-outline-danger" type="submit">Hapus</button>
+                                                </form>
+                                            </div>
                                         </td>
                                     </tr>
                                 {% endfor %}
@@ -130,7 +155,19 @@
                                         <td>{{ item.text_column|default:"-" }}</td>
                                         <td>{{ item.sample_count }}</td>
                                         <td>
-                                            <a class="btn btn-sm btn-outline-primary" href="{% url 'prediction_history_detail' item.id %}">Lihat</a>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                <a class="btn btn-sm btn-outline-primary" href="{% url 'prediction_history_detail' item.id %}">Lihat</a>
+                                                <form
+                                                    method="post"
+                                                    action="{% url 'history_delete_prediction' item.id %}"
+                                                    onsubmit="return confirm('Hapus riwayat prediksi ini?');"
+                                                >
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="scrape_page" value="{{ scrape_page_obj.number }}">
+                                                    <input type="hidden" name="pred_page" value="{{ prediction_page_obj.number }}">
+                                                    <button class="btn btn-sm btn-outline-danger" type="submit">Hapus</button>
+                                                </form>
+                                            </div>
                                         </td>
                                     </tr>
                                 {% endfor %}

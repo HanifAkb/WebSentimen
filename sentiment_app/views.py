@@ -17,6 +17,7 @@ from django.http import FileResponse, Http404, HttpRequest, HttpResponse, HttpRe
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from .forms import AdminCreateUserForm, LoginForm, PredictForm, ResumeScrapeForm, TwitterFetchForm
 from .models import PredictionHistory, ScrapeHistory, ScrapeTempChunk
@@ -1136,6 +1137,51 @@ def history_list_view(request: HttpRequest) -> HttpResponse:
         "prediction_page_obj": prediction_page_obj,
     }
     return render(request, "sentiment_app/history.html", context)
+
+
+def _history_list_redirect(request: HttpRequest) -> HttpResponse:
+    scrape_page = _safe_positive_int(request.POST.get("scrape_page"), 1)
+    pred_page = _safe_positive_int(request.POST.get("pred_page"), 1)
+    return redirect(f"{reverse('history_list')}?scrape_page={scrape_page}&pred_page={pred_page}")
+
+
+@login_required
+@require_POST
+def delete_scrape_history_view(request: HttpRequest, history_id: int) -> HttpResponse:
+    history = get_object_or_404(ScrapeHistory, id=history_id, user=request.user)
+    history.delete()
+    messages.success(request, "Riwayat scraping berhasil dihapus.")
+    return _history_list_redirect(request)
+
+
+@login_required
+@require_POST
+def delete_prediction_history_view(request: HttpRequest, history_id: int) -> HttpResponse:
+    history = get_object_or_404(PredictionHistory, id=history_id, user=request.user)
+    history.delete()
+    messages.success(request, "Riwayat prediksi berhasil dihapus.")
+    return _history_list_redirect(request)
+
+
+@login_required
+@require_POST
+def delete_all_history_view(request: HttpRequest) -> HttpResponse:
+    scope = str(request.POST.get("scope", "all")).strip().lower()
+    if scope == "scrape":
+        deleted_count, _ = ScrapeHistory.objects.filter(user=request.user).delete()
+        messages.success(request, f"Semua riwayat scraping dihapus ({deleted_count} data).")
+    elif scope == "prediction":
+        deleted_count, _ = PredictionHistory.objects.filter(user=request.user).delete()
+        messages.success(request, f"Semua riwayat prediksi dihapus ({deleted_count} data).")
+    else:
+        deleted_scrape_count, _ = ScrapeHistory.objects.filter(user=request.user).delete()
+        deleted_prediction_count, _ = PredictionHistory.objects.filter(user=request.user).delete()
+        messages.success(
+            request,
+            "Semua riwayat berhasil dihapus "
+            f"(scraping: {deleted_scrape_count}, prediksi: {deleted_prediction_count}).",
+        )
+    return _history_list_redirect(request)
 
 
 @login_required
