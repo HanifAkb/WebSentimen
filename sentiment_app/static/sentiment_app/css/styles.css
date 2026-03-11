@@ -586,6 +586,30 @@ body {
     height: 1px;
 }
 
+.predict-results-table {
+    table-layout: fixed;
+    width: 3000px;
+    min-width: 3000px;
+}
+
+.predict-main-scroll .text-break {
+    overflow-wrap: anywhere;
+}
+
+.predict-top-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.375rem;
+    height: 16px;
+    margin-bottom: 0.5rem;
+    background-color: var(--bs-body-bg);
+}
+
+.predict-top-scroll-inner {
+    height: 1px;
+}
+
 .dashboard-chart-card {
     border: 1px solid rgba(37, 99, 235, 0.18);
     border-radius: 0.85rem;
