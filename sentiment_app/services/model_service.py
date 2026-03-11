@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
@@ -139,8 +138,9 @@ def _score_from_decision(decision_values: Any, classes: Any) -> list[float]:
             positive_index = 1 if values.shape[1] > 1 else 0
         selected = values[:, positive_index]
 
-    clipped = np.clip(selected, -30, 30)
-    return [float(1 / (1 + math.exp(-value))) for value in clipped]
+    # Keep raw decision score in [-1, 1] range for UI consistency.
+    clipped = np.clip(selected, -1.0, 1.0)
+    return [float(value) for value in clipped]
 
 
 def _extract_scores(model: Any, features: Any) -> list[float | None]:

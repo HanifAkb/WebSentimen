@@ -45,9 +45,9 @@ TWITTER_RESULT_SESSION_KEY = "twitter_last_result"
 PREDICTION_COLUMNS = ["knn_label", "knn_score", "svm_label", "svm_score"]
 PREDICTION_HEADERS = {
     "knn_label": "KNN",
-    "knn_score": "Skor KNN",
+    "knn_score": "Skor KNN (0-1)",
     "svm_label": "SVM",
-    "svm_score": "Skor SVM",
+    "svm_score": "Skor SVM (-1 s/d 1)",
 }
 WORDCLOUD_STOPWORDS = {
     "dan",
@@ -866,11 +866,6 @@ def _add_fetch_meta_messages(
         messages.warning(
             request,
             "Sebagian data berhasil diambil, tetapi proses berhenti karena batas permintaan API.",
-        )
-    if bool(fetch_meta.get("timed_out")):
-        messages.warning(
-            request,
-            "Sebagian data berhasil diambil, tetapi proses berhenti karena batas waktu server.",
         )
     if effective_total_tweets > 0 and (current_count >= effective_total_tweets or bool(fetch_meta.get("truncated"))):
         messages.warning(
