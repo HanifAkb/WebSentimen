@@ -47,6 +47,38 @@ class PrefixVectorizer:
         return [f"vec::{value}" for value in values]
 
 
+class NeutralThresholdKNNModel:
+    classes_ = np.array([0, 1])
+
+    def predict(self, values):
+        return np.array([1 for _ in values])
+
+    def predict_proba(self, values):
+        probabilities = []
+        for value in values:
+            if "netral" in str(value).lower():
+                probabilities.append([0.5, 0.5])
+            else:
+                probabilities.append([0.1, 0.9])
+        return np.array(probabilities)
+
+
+class NeutralThresholdSVMModel:
+    classes_ = np.array([0, 1])
+
+    def predict(self, values):
+        return np.array([1 for _ in values])
+
+    def decision_function(self, values):
+        decisions = []
+        for value in values:
+            if "netral" in str(value).lower():
+                decisions.append(0.05)
+            else:
+                decisions.append(0.7)
+        return np.array(decisions)
+
+
 class ModelServiceTests(SimpleTestCase):
     def test_predict_batch_with_direct_pipeline_path(self):
         artifacts = ModelArtifacts(
@@ -104,3 +136,19 @@ class ModelServiceTests(SimpleTestCase):
             actual = predict_batch_in_chunks(values, chunk_size=2)
 
         self.assertEqual(actual, expected)
+
+    def test_predict_batch_applies_neutral_thresholds_for_knn_and_svm(self):
+        artifacts = ModelArtifacts(
+            knn_model=NeutralThresholdKNNModel(),
+            svm_model=NeutralThresholdSVMModel(),
+            vectorizer=None,
+            label_encoder=None,
+        )
+
+        with patch("sentiment_app.services.model_service._load_artifacts", return_value=artifacts):
+            rows = predict_batch(["teks netral", "teks positif"])
+
+        self.assertEqual(rows[0]["knn_label"], "Neutral")
+        self.assertEqual(rows[0]["svm_label"], "Neutral")
+        self.assertEqual(rows[1]["knn_label"], "Positive")
+        self.assertEqual(rows[1]["svm_label"], "Positive")

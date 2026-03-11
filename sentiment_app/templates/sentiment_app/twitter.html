@@ -560,14 +560,14 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            <span class="badge {% if row.knn_label == 'Positive' %}text-bg-success{% else %}text-bg-danger{% endif %}">
-                                                {% if row.knn_label == "Positive" %}Positif{% elif row.knn_label == "Negative" %}Negatif{% else %}{{ row.knn_label }}{% endif %}
+                                            <span class="badge {% if row.knn_label == 'Positive' %}text-bg-success{% elif row.knn_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
+                                                {% if row.knn_label == "Positive" %}Positif{% elif row.knn_label == "Negative" %}Negatif{% elif row.knn_label == "Neutral" %}Netral{% else %}{{ row.knn_label }}{% endif %}
                                             </span>
                                         </td>
                                         <td>{% if row.knn_score is not None %}{{ row.knn_score|floatformat:4 }}{% endif %}</td>
                                         <td>
-                                            <span class="badge {% if row.svm_label == 'Positive' %}text-bg-success{% else %}text-bg-danger{% endif %}">
-                                                {% if row.svm_label == "Positive" %}Positif{% elif row.svm_label == "Negative" %}Negatif{% else %}{{ row.svm_label }}{% endif %}
+                                            <span class="badge {% if row.svm_label == 'Positive' %}text-bg-success{% elif row.svm_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
+                                                {% if row.svm_label == "Positive" %}Positif{% elif row.svm_label == "Negative" %}Negatif{% elif row.svm_label == "Neutral" %}Netral{% else %}{{ row.svm_label }}{% endif %}
                                             </span>
                                         </td>
                                         <td>{% if row.svm_score is not None %}{{ row.svm_score|floatformat:4 }}{% endif %}</td>

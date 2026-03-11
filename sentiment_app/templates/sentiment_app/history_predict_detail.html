@@ -31,8 +31,8 @@
                         <div class="col-md-6">
                             <div class="p-3 border rounded result-box">
                                 <div class="fw-semibold mb-2">KNN</div>
-                                <span class="badge {% if single_result.knn_label == 'Positive' %}text-bg-success{% else %}text-bg-danger{% endif %}">
-                                    {% if single_result.knn_label == "Positive" %}Positif{% elif single_result.knn_label == "Negative" %}Negatif{% else %}{{ single_result.knn_label }}{% endif %}
+                                <span class="badge {% if single_result.knn_label == 'Positive' %}text-bg-success{% elif single_result.knn_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
+                                    {% if single_result.knn_label == "Positive" %}Positif{% elif single_result.knn_label == "Negative" %}Negatif{% elif single_result.knn_label == "Neutral" %}Netral{% else %}{{ single_result.knn_label }}{% endif %}
                                 </span>
                                 <div class="text-muted small mt-2">
                                     Skor:
@@ -47,8 +47,8 @@
                         <div class="col-md-6">
                             <div class="p-3 border rounded result-box">
                                 <div class="fw-semibold mb-2">SVM</div>
-                                <span class="badge {% if single_result.svm_label == 'Positive' %}text-bg-success{% else %}text-bg-danger{% endif %}">
-                                    {% if single_result.svm_label == "Positive" %}Positif{% elif single_result.svm_label == "Negative" %}Negatif{% else %}{{ single_result.svm_label }}{% endif %}
+                                <span class="badge {% if single_result.svm_label == 'Positive' %}text-bg-success{% elif single_result.svm_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
+                                    {% if single_result.svm_label == "Positive" %}Positif{% elif single_result.svm_label == "Negative" %}Negatif{% elif single_result.svm_label == "Neutral" %}Netral{% else %}{{ single_result.svm_label }}{% endif %}
                                 </span>
                                 <div class="text-muted small mt-2">
                                     Skor:
@@ -141,8 +141,8 @@
                                         {% for cell in row.cells %}
                                             <td class="text-break">
                                                 {% if cell.type == "label" %}
-                                                    <span class="badge {% if cell.value == 'Positive' %}text-bg-success{% else %}text-bg-danger{% endif %}">
-                                                        {% if cell.value == "Positive" %}Positif{% elif cell.value == "Negative" %}Negatif{% else %}{{ cell.value }}{% endif %}
+                                                    <span class="badge {% if cell.value == 'Positive' %}text-bg-success{% elif cell.value == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
+                                                        {% if cell.value == "Positive" %}Positif{% elif cell.value == "Negative" %}Negatif{% elif cell.value == "Neutral" %}Netral{% else %}{{ cell.value }}{% endif %}
                                                     </span>
                                                 {% elif cell.type == "score" %}
                                                     {% if cell.value is not None and cell.value != "" %}{{ cell.value|floatformat:4 }}{% endif %}

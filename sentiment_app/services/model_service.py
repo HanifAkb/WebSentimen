@@ -25,6 +25,10 @@ class ModelArtifacts:
 
 
 _ARTIFACTS_CACHE: ModelArtifacts | None = None
+KNN_NEUTRAL_MIN = 0.45
+KNN_NEUTRAL_MAX = 0.55
+SVM_NEUTRAL_MIN = -0.10
+SVM_NEUTRAL_MAX = 0.10
 
 
 def clear_cache() -> None:
@@ -185,6 +189,19 @@ def _normalize_label(predicted: Any, label_encoder: Any | None) -> str:
     return str(decoded).strip()
 
 
+def _apply_neutral_threshold(label: str, score: float | None, model_name: str) -> str:
+    if score is None:
+        return label
+
+    if model_name == "knn" and KNN_NEUTRAL_MIN <= score <= KNN_NEUTRAL_MAX:
+        return "Neutral"
+
+    if model_name == "svm" and SVM_NEUTRAL_MIN <= score <= SVM_NEUTRAL_MAX:
+        return "Neutral"
+
+    return label
+
+
 def _predict_with_optional_vectorizer(
     model: Any,
     texts: list[str],
@@ -248,13 +265,25 @@ def predict_batch(texts: Iterable[str]) -> list[dict[str, Any]]:
 
     rows: list[dict[str, Any]] = []
     for index, text in enumerate(texts_list):
+        knn_score = knn_scores[index] if index < len(knn_scores) else None
+        svm_score = svm_scores[index] if index < len(svm_scores) else None
+        knn_label = _apply_neutral_threshold(
+            _normalize_label(knn_predictions[index], artifacts.label_encoder),
+            knn_score,
+            "knn",
+        )
+        svm_label = _apply_neutral_threshold(
+            _normalize_label(svm_predictions[index], artifacts.label_encoder),
+            svm_score,
+            "svm",
+        )
         rows.append(
             {
                 "text": text,
-                "knn_label": _normalize_label(knn_predictions[index], artifacts.label_encoder),
-                "knn_score": knn_scores[index] if index < len(knn_scores) else None,
-                "svm_label": _normalize_label(svm_predictions[index], artifacts.label_encoder),
-                "svm_score": svm_scores[index] if index < len(svm_scores) else None,
+                "knn_label": knn_label,
+                "knn_score": knn_score,
+                "svm_label": svm_label,
+                "svm_score": svm_score,
             }
         )
     return rows
