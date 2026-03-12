@@ -6,6 +6,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from sentiment_app.models import PredictionHistory, ScrapeHistory, ScrapeTempChunk
+from sentiment_app.services.twitter_client import TwitterRateLimitError, TwitterTimeoutError
 
 
 class AuthAndHistoryTests(TestCase):
@@ -458,3 +459,75 @@ class AuthAndHistoryTests(TestCase):
         self.assertTrue(payload.get("ok"))
         self.assertIn("progress_pct", payload)
         self.assertIn("tweet_count", payload)
+
+    def test_resume_scrape_ajax_rate_limit_returns_retryable_payload(self):
+        self.client.force_login(self.user)
+        history = ScrapeHistory.objects.create(
+            user=self.user,
+            query="mobil listrik",
+            language="in",
+            start_date="2026-01-01",
+            end_date="2026-01-15",
+            tweet_count=0,
+            rows=[],
+            is_complete=False,
+            resume_next_date="2026-01-02",
+            stop_reason="rate_limited",
+            window_days=1,
+        )
+
+        with patch(
+            "sentiment_app.views.fetch_tweets",
+            side_effect=TwitterRateLimitError("Batas permintaan tercapai. Coba lagi dalam beberapa menit."),
+        ):
+            response = self.client.post(
+                reverse("resume_scrape", args=[history.id]),
+                {
+                    "api_key": "dummy_api_key",
+                    "ajax": "1",
+                },
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertFalse(payload.get("ok"))
+        self.assertTrue(payload.get("retryable"))
+        self.assertEqual(payload.get("error_code"), "rate_limited")
+        self.assertEqual(payload.get("retry_after_seconds"), 8)
+
+    def test_resume_scrape_ajax_timeout_returns_retryable_payload(self):
+        self.client.force_login(self.user)
+        history = ScrapeHistory.objects.create(
+            user=self.user,
+            query="mobil listrik",
+            language="in",
+            start_date="2026-01-01",
+            end_date="2026-01-15",
+            tweet_count=0,
+            rows=[],
+            is_complete=False,
+            resume_next_date="2026-01-02",
+            stop_reason="timed_out",
+            window_days=1,
+        )
+
+        with patch(
+            "sentiment_app.views.fetch_tweets",
+            side_effect=TwitterTimeoutError("Proses scraping melebihi batas waktu server."),
+        ):
+            response = self.client.post(
+                reverse("resume_scrape", args=[history.id]),
+                {
+                    "api_key": "dummy_api_key",
+                    "ajax": "1",
+                },
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertFalse(payload.get("ok"))
+        self.assertTrue(payload.get("retryable"))
+        self.assertEqual(payload.get("error_code"), "timed_out")
+        self.assertEqual(payload.get("retry_after_seconds"), 3)

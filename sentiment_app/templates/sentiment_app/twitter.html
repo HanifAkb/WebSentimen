@@ -692,9 +692,12 @@ document.addEventListener("DOMContentLoaded", function () {
         let autoRunning = false;
         let noProgressCount = 0;
         let lastProgress = Number(resumeProgressBar.getAttribute("aria-valuenow") || "0");
+        let retryAttemptCount = 0;
         let stopwatchIntervalId = null;
         let stopwatchStartedAtMs = 0;
         let stopwatchElapsedMs = 0;
+        const baseRetryDelayMs = 2500;
+        const maxRetryDelayMs = 60000;
 
         const formatDuration = function (totalSeconds) {
             const safeSeconds = Math.max(0, Math.floor(Number(totalSeconds || 0)));
@@ -770,6 +773,28 @@ document.addEventListener("DOMContentLoaded", function () {
             resumeAutoButton.disabled = running;
         };
 
+        const resolveRetryDelayMs = function (secondsHint) {
+            const fromHint = Number(secondsHint || 0);
+            if (Number.isFinite(fromHint) && fromHint > 0) {
+                return Math.max(1000, Math.min(maxRetryDelayMs, Math.floor(fromHint * 1000)));
+            }
+            const backoff = baseRetryDelayMs * Math.pow(1.6, Math.max(0, retryAttemptCount - 1));
+            return Math.max(1000, Math.min(maxRetryDelayMs, Math.floor(backoff)));
+        };
+
+        const scheduleAutoRetry = function (secondsHint, message) {
+            const delayMs = resolveRetryDelayMs(secondsHint);
+            if (message) {
+                console.warn(String(message) + " Auto lanjut lagi dalam " + Math.ceil(delayMs / 1000) + " detik.");
+            }
+            window.setTimeout(function () {
+                if (!autoRunning) {
+                    return;
+                }
+                runAutoStep();
+            }, delayMs);
+        };
+
         const runAutoStep = async function () {
             if (!csrfInput) {
                 console.warn("Form tidak lengkap untuk auto continue.");
@@ -798,7 +823,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             let response;
-            let payload;
+            let payload = null;
             try {
                 response = await fetch(resumeForm.action, {
                     method: "POST",
@@ -809,15 +834,25 @@ document.addEventListener("DOMContentLoaded", function () {
                     },
                     body: formData.toString(),
                 });
-                payload = await response.json();
             } catch (error) {
-                console.warn("Gagal menghubungi server saat auto continue.");
-                stopStopwatch();
-                setButtonState(false);
+                retryAttemptCount += 1;
+                scheduleAutoRetry(null, "Gagal menghubungi server saat auto continue.");
                 return;
             }
 
+            try {
+                payload = await response.json();
+            } catch (error) {
+                payload = null;
+            }
+
             if (!response.ok || !payload || !payload.ok) {
+                const retryable = Boolean(payload && payload.retryable);
+                if (retryable) {
+                    retryAttemptCount += 1;
+                    scheduleAutoRetry(payload.retry_after_seconds, payload.error || "Server meminta retry otomatis.");
+                    return;
+                }
                 const message = payload && payload.error ? payload.error : "Auto continue gagal.";
                 console.warn(String(message));
                 stopStopwatch();
@@ -825,6 +860,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
+            retryAttemptCount = 0;
             const currentProgress = Number(payload.progress_pct || 0);
             setProgress(currentProgress, payload.done_days, payload.total_days);
 
@@ -846,9 +882,8 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             if (noProgressCount >= 2) {
-                console.warn("Progress belum bertambah. Coba lagi beberapa menit lagi.");
-                stopStopwatch();
-                setButtonState(false);
+                retryAttemptCount += 1;
+                scheduleAutoRetry(4, "Progress belum bertambah.");
                 return;
             }
 
@@ -860,6 +895,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
             noProgressCount = 0;
+            retryAttemptCount = 0;
             resetStopwatch();
             setButtonState(true);
             startStopwatch();

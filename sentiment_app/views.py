@@ -28,7 +28,7 @@ from .services.file_service import (
 )
 from .services.model_service import ModelServiceError, predict_batch, predict_batch_in_chunks, predict_single
 from .services.preprocess import preprocess_text
-from .services.twitter_client import TwitterAPIError, fetch_tweets
+from .services.twitter_client import TwitterAPIError, TwitterRateLimitError, TwitterTimeoutError, fetch_tweets
 
 try:
     from wordcloud import STOPWORDS as WORDCLOUD_BASE_STOPWORDS
@@ -1023,10 +1023,30 @@ def _resume_scrape_once(history: ScrapeHistory, api_key: str) -> dict[str, objec
             on_window=_handle_window,
             return_meta=True,
         )
+    except TwitterRateLimitError as exc:
+        return {
+            "ok": False,
+            "error": str(exc),
+            "retryable": True,
+            "retry_after_seconds": 8,
+            "error_code": "rate_limited",
+        }
+    except TwitterTimeoutError as exc:
+        return {
+            "ok": False,
+            "error": str(exc),
+            "retryable": True,
+            "retry_after_seconds": 3,
+            "error_code": "timed_out",
+        }
     except (TwitterAPIError, ModelServiceError, FileValidationError) as exc:
-        return {"ok": False, "error": str(exc)}
+        return {"ok": False, "error": str(exc), "retryable": False}
     except Exception as exc:
-        return {"ok": False, "error": f"Terjadi kesalahan tak terduga saat melanjutkan scraping: {exc}"}
+        return {
+            "ok": False,
+            "error": f"Terjadi kesalahan tak terduga saat melanjutkan scraping: {exc}",
+            "retryable": False,
+        }
 
     fetch_meta: dict[str, object] = {
         "rate_limited": False,
@@ -1290,7 +1310,15 @@ def resume_scrape_view(request: HttpRequest, history_id: int) -> HttpResponse:
     if not bool(resume_result.get("ok")):
         error_message = str(resume_result.get("error") or "Terjadi kesalahan saat melanjutkan scraping.")
         if wants_json:
-            return JsonResponse({"ok": False, "error": error_message}, status=400)
+            retryable = bool(resume_result.get("retryable"))
+            response_payload = {
+                "ok": False,
+                "error": error_message,
+                "retryable": retryable,
+                "retry_after_seconds": int(resume_result.get("retry_after_seconds") or 0),
+                "error_code": str(resume_result.get("error_code") or ""),
+            }
+            return JsonResponse(response_payload, status=200 if retryable else 400)
         messages.error(request, error_message)
         return redirect(redirect_target)
 
