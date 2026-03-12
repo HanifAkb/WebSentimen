@@ -57,14 +57,15 @@ def _load_artifacts() -> ModelArtifacts:
 
     models_dir = _models_dir()
     knn_path = _find_artifact_path("knn_model.joblib")
-    svm_path = _find_artifact_path("svm_rbf_model.joblib")
+    svm_candidates = ["svm_linear_model.joblib", "svm_rbf_model.joblib"]
+    svm_path = next((path for path in (_find_artifact_path(name) for name in svm_candidates) if path is not None), None)
 
     if knn_path is None or svm_path is None:
         missing = []
         if knn_path is None:
             missing.append("knn_model.joblib")
         if svm_path is None:
-            missing.append("svm_rbf_model.joblib")
+            missing.append(" / ".join(svm_candidates))
         raise ModelServiceError(
             "File model wajib tidak ditemukan: "
             f"{', '.join(missing)}. Letakkan file tersebut di {models_dir}."
