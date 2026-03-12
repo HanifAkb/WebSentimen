@@ -417,7 +417,9 @@ def _normalize_sentiment_label(value: object) -> str:
         return "Positive"
     if text == "negative":
         return "Negative"
-    return "Other"
+    if text == "neutral":
+        return "Neutral"
+    return "Neutral"
 
 
 def _clean_text_for_wordcloud(text: str) -> str:
@@ -590,27 +592,27 @@ def _build_scraping_dashboard(
         "knn_counts": {
             "positive": int(knn_counts.get("Positive", 0)),
             "negative": int(knn_counts.get("Negative", 0)),
-            "other": int(knn_counts.get("Other", 0)),
+            "neutral": int(knn_counts.get("Neutral", 0)),
         },
         "svm_counts": {
             "positive": int(svm_counts.get("Positive", 0)),
             "negative": int(svm_counts.get("Negative", 0)),
-            "other": int(svm_counts.get("Other", 0)),
+            "neutral": int(svm_counts.get("Neutral", 0)),
         },
         "wordcloud_available": WordCloud is not None and not wordcloud_error,
         "wordcloud_error": wordcloud_error,
         "wordclouds": wordclouds,
         "charts": {
-            "pie_labels": ["Positif", "Negatif", "Lainnya"],
+            "pie_labels": ["Positif", "Negatif", "Netral"],
             "knn_pie": [
                 int(knn_counts.get("Positive", 0)),
                 int(knn_counts.get("Negative", 0)),
-                int(knn_counts.get("Other", 0)),
+                int(knn_counts.get("Neutral", 0)),
             ],
             "svm_pie": [
                 int(svm_counts.get("Positive", 0)),
                 int(svm_counts.get("Negative", 0)),
-                int(svm_counts.get("Other", 0)),
+                int(svm_counts.get("Neutral", 0)),
             ],
             "trend_labels": chart_labels,
             "trend_values": chart_values,

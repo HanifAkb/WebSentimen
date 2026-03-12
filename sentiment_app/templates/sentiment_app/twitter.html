@@ -981,7 +981,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (chartDataScript && typeof Chart !== "undefined") {
         try {
             const chartData = JSON.parse(chartDataScript.textContent);
-            const pieLabels = chartData.pie_labels || ["Positif", "Negatif", "Lainnya"];
+            const pieLabels = chartData.pie_labels || ["Positif", "Negatif", "Netral"];
 
             const knnCanvas = document.getElementById("knnPieChart");
             if (knnCanvas) {
