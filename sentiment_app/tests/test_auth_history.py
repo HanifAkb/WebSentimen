@@ -43,25 +43,13 @@ class AuthAndHistoryTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("_auth_user_id", self.client.session)
 
-    def test_non_admin_cannot_open_register_page(self):
+    def test_register_route_is_removed(self):
         self.client.force_login(self.user)
-        response = self.client.get(reverse("register_user"))
-        self.assertEqual(response.status_code, 403)
+        response = self.client.get("/register/")
+        self.assertEqual(response.status_code, 404)
 
-    def test_admin_can_register_new_user(self):
-        self.client.force_login(self.admin)
-        response = self.client.post(
-            reverse("register_user"),
-            {
-                "username": "company_user",
-                "email": "company_user@example.com",
-                "is_staff": "on",
-                "password1": "StrongPass123!",
-                "password2": "StrongPass123!",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(User.objects.filter(username="company_user", is_staff=True).exists())
+    def test_admin_route_is_available(self):
+        self.assertEqual(reverse("admin:index"), "/admin/")
 
     def test_scraping_post_creates_history_for_logged_user(self):
         self.client.force_login(self.user)

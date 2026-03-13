@@ -13,13 +13,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db import models
-from django.http import FileResponse, Http404, HttpRequest, HttpResponse, HttpResponseForbidden, JsonResponse
+from django.http import FileResponse, Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from .forms import AdminCreateUserForm, LoginForm, PredictForm, ResumeScrapeForm, TwitterFetchForm
+from .forms import LoginForm, PredictForm, ResumeScrapeForm, TwitterFetchForm
 from .models import PredictionHistory, ScrapeHistory, ScrapeTempChunk
 from .services.file_service import (
     FileValidationError,
@@ -621,10 +621,6 @@ def _build_scraping_dashboard(
     }
 
 
-def _is_admin_user(user) -> bool:
-    return bool(getattr(user, "is_authenticated", False) and getattr(user, "is_superuser", False))
-
-
 def _apply_scraping_context(
     context: dict[str, object],
     rows: list[dict[str, object]],
@@ -1105,19 +1101,6 @@ def logout_view(request: HttpRequest) -> HttpResponse:
         messages.info(request, "Anda sudah logout.")
         return redirect("login")
     return redirect("home")
-
-
-@login_required
-def register_user_view(request: HttpRequest) -> HttpResponse:
-    if not _is_admin_user(request.user):
-        return HttpResponseForbidden("Hanya admin yang boleh membuat akun baru.")
-
-    form = AdminCreateUserForm(request.POST or None)
-    if request.method == "POST" and form.is_valid():
-        new_user = form.save()
-        messages.success(request, f"Akun baru berhasil dibuat: {new_user.username}")
-        return redirect("register_user")
-    return render(request, "sentiment_app/register.html", {"form": form})
 
 
 @login_required

@@ -52,11 +52,11 @@
                             <span class="sidebar-link-arrow">&gt;</span>
                         </a>
                         {% if user.is_superuser %}
-                            <a class="nav-link sidebar-link {% if request.resolver_match.url_name == 'register_user' %}active{% endif %}" href="{% url 'register_user' %}">
+                            <a class="nav-link sidebar-link {% if request.path|slice:':7' == '/admin/' %}active{% endif %}" href="{% url 'admin:index' %}">
                                 <span class="sidebar-link-icon">
-                                    <img class="sidebar-link-icon-img" src="{% static 'sentiment_app/icons/newacc.svg' %}" alt="Ikon Registrasi">
+                                    <img class="sidebar-link-icon-img" src="{% static 'sentiment_app/icons/newacc.svg' %}" alt="Ikon Admin">
                                 </span>
-                                <span class="sidebar-link-text">Tambah Akun</span>
+                                <span class="sidebar-link-text">Admin Panel</span>
                                 <span class="sidebar-link-arrow">&gt;</span>
                             </a>
                         {% endif %}
