@@ -21,7 +21,7 @@ Website:
 
 ## Cara Pakai
 
-### 1) Buat Prediksi (`/predict/`)
+### 1) Buat Prediksi (`https://analisissentimen.up.railway.app/predict/`)
 
 - Input 1 kalimat, atau upload 1 file (`.csv` / `.txt`)
 - CSV:
@@ -33,7 +33,7 @@ Website:
   - skor jika tersedia
   - preview batch + unduh CSV hasil klasifikasi
 
-### 2) Scraping Web X (`/scraping/`)
+### 2) Scraping Web X (`https://analisissentimen.up.railway.app/scraping/`)
 
 - Isi API key, kueri, bahasa (opsional), tanggal mulai-selesai
 - Hasil scraping diklasifikasikan oleh KNN + SVM
@@ -41,42 +41,17 @@ Website:
 - Dashboard otomatis tampil saat status scraping sudah `Selesai`
 - API key disimpan sementara di browser (`sessionStorage`), tidak disimpan ke database
 
-### 3) Riwayat (`/history/`)
+### 3) Riwayat (`https://analisissentimen.up.railway.app/history/`)
 
 - Riwayat scraping dan prediksi dipisah per user
 - Tabel riwayat sudah dipaginasi (10 data per halaman)
 
-## Konfigurasi Penting (.env)
-
-Security dasar:
-
-- `DJANGO_SECRET_KEY`
-- `DJANGO_DEBUG` (gunakan `0` di production)
-- `DJANGO_ALLOWED_HOSTS`
-
-Batas upload:
-
-- `SENTIMENT_UPLOAD_MAX_SIZE` (default 10 MB)
-
-Tuning scraping (opsional):
-
-- `SENTIMENT_TWITTER_MAX_TOTAL_TWEETS`
-- `SENTIMENT_TWITTER_MAX_TWEETS_PER_WINDOW`
-- `SENTIMENT_TWITTER_MIN_TWEETS_PER_WINDOW`
-- `SENTIMENT_TWITTER_MAX_RUNTIME_SECONDS`
-- `SENTIMENT_TWITTER_PREDICT_CHUNK_SIZE`
-- `SENTIMENT_TWITTER_TEMP_DB_THRESHOLD_DAYS`
-
 ## Catatan Model
-
-- Sistem mencoba `model.predict([text])` langsung lebih dulu
-- Jika gagal (butuh vectorizer), sistem pakai preprocessing + vectorizer artifact
-- Mapping label default:
-  - `1 -> Positive`
-  - `0 -> Negative`
+- Batas upload:
+  - `SENTIMENT_UPLOAD_MAX_SIZE` (default 10 MB)
 - Skor:
   - KNN: `predict_proba` (rentang `0-1`)
-  - SVM: `predict_proba` jika tersedia; jika tidak, fallback `decision_function` yang di-clip ke rentang `-1..1`
+  - SVM: `decision_function` yang di-clip ke rentang `-1..1`
 - Aturan label `Neutral`:
   - KNN: jika skor `0.45` s/d `0.55`
   - SVM: jika skor `-0.10` s/d `0.10`
