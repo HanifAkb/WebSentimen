@@ -206,6 +206,44 @@ class AuthAndHistoryTests(TestCase):
         self.assertEqual(history.rows[0]["text"], "mobil listrik bagus")
         self.assertEqual(history.rows[1]["svm_label"], "Negative")
 
+    @override_settings(SENTIMENT_WORDCLOUD_MAX_ROWS=1)
+    def test_prediction_file_history_detail_shows_dashboard(self):
+        history = PredictionHistory.objects.create(
+            user=self.user,
+            input_type=PredictionHistory.InputType.FILE,
+            source_name="uji.csv",
+            text_column="review",
+            sample_count=2,
+            columns=["review", "tanggal"],
+            rows=[
+                {
+                    "review": "mobil listrik bagus",
+                    "tanggal": "2026-01-01",
+                    "knn_label": "Positive",
+                    "knn_score": 0.91,
+                    "svm_label": "Positive",
+                    "svm_score": 0.87,
+                },
+                {
+                    "review": "servis buruk",
+                    "tanggal": "2026-01-02",
+                    "knn_label": "Negative",
+                    "knn_score": 0.16,
+                    "svm_label": "Negative",
+                    "svm_score": 0.12,
+                },
+            ],
+        )
+
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("prediction_history_detail", args=[history.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Dashboard Hasil Prediksi")
+        self.assertContains(response, "KNN Positif: 1")
+        self.assertContains(response, "prediction-dashboard-data")
+        self.assertEqual(response.context["dashboard"]["charts"]["trend_title"], "Jumlah Data per Harian")
+
     def test_prediction_history_detail_is_user_scoped(self):
         own_history = PredictionHistory.objects.create(
             user=self.user,

@@ -65,6 +65,178 @@
             </div>
         </div>
     {% else %}
+        {% if dashboard_error %}
+            <div class="col-12">
+                <div class="alert alert-warning py-2 mb-0">{{ dashboard_error }}</div>
+            </div>
+        {% endif %}
+        {% if dashboard_enabled and dashboard %}
+            <div class="col-12">
+                <div class="card shadow-sm panel-card">
+                    <div class="card-body">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                            <div>
+                                <h2 class="h5 mb-1 fw-semibold">Dashboard Hasil Prediksi</h2>
+                                <div class="text-muted small">
+                                    Rentang data: {{ dashboard.period_label }}
+                                </div>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <span class="badge text-bg-success">KNN Positif: {{ dashboard.knn_counts.positive }}</span>
+                                <span class="badge text-bg-danger">KNN Negatif: {{ dashboard.knn_counts.negative }}</span>
+                                <span class="badge text-bg-success">SVM Positif: {{ dashboard.svm_counts.positive }}</span>
+                                <span class="badge text-bg-danger">SVM Negatif: {{ dashboard.svm_counts.negative }}</span>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-pager mb-3">
+                            <button
+                                id="dashboardPagePrev"
+                                class="btn btn-outline-primary btn-sm dashboard-page-arrow"
+                                type="button"
+                                aria-label="Halaman dashboard sebelumnya"
+                            >
+                                &lt;
+                            </button>
+                            <div id="dashboardPageLabel" class="dashboard-page-label">1 / 3</div>
+                            <button
+                                id="dashboardPageNext"
+                                class="btn btn-outline-primary btn-sm dashboard-page-arrow"
+                                type="button"
+                                aria-label="Halaman dashboard berikutnya"
+                            >
+                                &gt;
+                            </button>
+                        </div>
+
+                        <div class="tab-content" id="dashboardPageTabsContent">
+                            <div
+                                class="tab-pane fade show active"
+                                id="dashboard-page-pie"
+                                role="tabpanel"
+                                tabindex="0"
+                                data-dashboard-title="Halaman 1: Pie Chart"
+                            >
+                                <div class="row g-3 mb-2">
+                                    <div class="col-12 col-xl-6">
+                                        <div class="dashboard-chart-card h-100">
+                                            <h3 class="h6 fw-semibold mb-2">Distribusi Sentimen KNN</h3>
+                                            <div class="dashboard-chart-wrap">
+                                                <canvas id="knnPieChart"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-xl-6">
+                                        <div class="dashboard-chart-card h-100">
+                                            <h3 class="h6 fw-semibold mb-2">Distribusi Sentimen SVM</h3>
+                                            <div class="dashboard-chart-wrap">
+                                                <canvas id="svmPieChart"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div
+                                class="tab-pane fade"
+                                id="dashboard-page-wordcloud"
+                                role="tabpanel"
+                                tabindex="0"
+                                data-dashboard-title="Halaman 2: WordCloud"
+                            >
+                                {% if dashboard.wordcloud_error %}
+                                    <div class="alert alert-warning py-2">{{ dashboard.wordcloud_error }}</div>
+                                {% endif %}
+
+                                <div class="row g-3 mb-2">
+                                    <div class="col-12 col-lg-6">
+                                        <div class="dashboard-chart-card h-100">
+                                            <h3 class="h6 fw-semibold mb-2">WordCloud KNN Positif</h3>
+                                            <div class="wordcloud-image-wrap">
+                                                {% if dashboard.wordclouds.knn_positive_image %}
+                                                    <img
+                                                        class="wordcloud-image"
+                                                        src="data:image/png;base64,{{ dashboard.wordclouds.knn_positive_image }}"
+                                                        alt="WordCloud KNN Positif"
+                                                    >
+                                                {% else %}
+                                                    <div class="wordcloud-empty">Data kata sentimen positif KNN belum cukup.</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-lg-6">
+                                        <div class="dashboard-chart-card h-100">
+                                            <h3 class="h6 fw-semibold mb-2">WordCloud KNN Negatif</h3>
+                                            <div class="wordcloud-image-wrap">
+                                                {% if dashboard.wordclouds.knn_negative_image %}
+                                                    <img
+                                                        class="wordcloud-image"
+                                                        src="data:image/png;base64,{{ dashboard.wordclouds.knn_negative_image }}"
+                                                        alt="WordCloud KNN Negatif"
+                                                    >
+                                                {% else %}
+                                                    <div class="wordcloud-empty">Data kata sentimen negatif KNN belum cukup.</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-lg-6">
+                                        <div class="dashboard-chart-card h-100">
+                                            <h3 class="h6 fw-semibold mb-2">WordCloud SVM Positif</h3>
+                                            <div class="wordcloud-image-wrap">
+                                                {% if dashboard.wordclouds.svm_positive_image %}
+                                                    <img
+                                                        class="wordcloud-image"
+                                                        src="data:image/png;base64,{{ dashboard.wordclouds.svm_positive_image }}"
+                                                        alt="WordCloud SVM Positif"
+                                                    >
+                                                {% else %}
+                                                    <div class="wordcloud-empty">Data kata sentimen positif SVM belum cukup.</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-lg-6">
+                                        <div class="dashboard-chart-card h-100">
+                                            <h3 class="h6 fw-semibold mb-2">WordCloud SVM Negatif</h3>
+                                            <div class="wordcloud-image-wrap">
+                                                {% if dashboard.wordclouds.svm_negative_image %}
+                                                    <img
+                                                        class="wordcloud-image"
+                                                        src="data:image/png;base64,{{ dashboard.wordclouds.svm_negative_image }}"
+                                                        alt="WordCloud SVM Negatif"
+                                                    >
+                                                {% else %}
+                                                    <div class="wordcloud-empty">Data kata sentimen negatif SVM belum cukup.</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div
+                                class="tab-pane fade"
+                                id="dashboard-page-trend"
+                                role="tabpanel"
+                                tabindex="0"
+                                data-dashboard-title="Halaman 3: Tren Waktu"
+                            >
+                                <div class="dashboard-chart-card">
+                                    <h3 class="h6 fw-semibold mb-2">{{ dashboard.charts.trend_title }}</h3>
+                                    <div class="dashboard-line-wrap">
+                                        <canvas id="tweetTrendChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {{ dashboard.charts|json_script:"prediction-dashboard-data" }}
+        {% endif %}
+
         <div class="col-12">
             <div class="card shadow-sm panel-card">
                 <div class="card-body">
@@ -190,4 +362,175 @@
         </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+{% if dashboard_enabled and dashboard %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const chartDataScript = document.getElementById("prediction-dashboard-data");
+    const dashboardCharts = [];
+    const dashboardPageLabel = document.getElementById("dashboardPageLabel");
+    const dashboardPrevButton = document.getElementById("dashboardPagePrev");
+    const dashboardNextButton = document.getElementById("dashboardPageNext");
+    const dashboardPanes = Array.from(document.querySelectorAll("#dashboardPageTabsContent .tab-pane"));
+    let currentDashboardPageIndex = 0;
+
+    const showDashboardPage = function (index) {
+        if (!dashboardPanes.length) {
+            return;
+        }
+
+        const lastIndex = dashboardPanes.length - 1;
+        const boundedIndex = Math.max(0, Math.min(index, lastIndex));
+
+        dashboardPanes.forEach(function (pane, paneIndex) {
+            if (paneIndex === boundedIndex) {
+                pane.classList.add("show", "active");
+            } else {
+                pane.classList.remove("show", "active");
+            }
+        });
+
+        const activePane = dashboardPanes[boundedIndex];
+        if (dashboardPageLabel && activePane) {
+            dashboardPageLabel.textContent = (boundedIndex + 1) + " / " + dashboardPanes.length;
+            dashboardPageLabel.title = activePane.dataset.dashboardTitle || "";
+        }
+        if (dashboardPrevButton) {
+            dashboardPrevButton.disabled = boundedIndex <= 0;
+        }
+        if (dashboardNextButton) {
+            dashboardNextButton.disabled = boundedIndex >= lastIndex;
+        }
+
+        currentDashboardPageIndex = boundedIndex;
+        dashboardCharts.forEach(function (chart) {
+            chart.resize();
+        });
+    };
+
+    if (dashboardPrevButton) {
+        dashboardPrevButton.addEventListener("click", function () {
+            showDashboardPage(currentDashboardPageIndex - 1);
+        });
+    }
+
+    if (dashboardNextButton) {
+        dashboardNextButton.addEventListener("click", function () {
+            showDashboardPage(currentDashboardPageIndex + 1);
+        });
+    }
+
+    if (dashboardPanes.length) {
+        showDashboardPage(0);
+    }
+
+    if (!chartDataScript || typeof Chart === "undefined") {
+        return;
+    }
+
+    try {
+        const chartData = JSON.parse(chartDataScript.textContent);
+        const pieLabels = chartData.pie_labels || ["Positif", "Negatif", "Netral"];
+
+        const knnCanvas = document.getElementById("knnPieChart");
+        if (knnCanvas) {
+            const knnPie = new Chart(knnCanvas, {
+                type: "pie",
+                data: {
+                    labels: pieLabels,
+                    datasets: [
+                        {
+                            data: chartData.knn_pie || [],
+                            backgroundColor: ["#16a34a", "#dc2626", "#64748b"],
+                            borderColor: "#ffffff",
+                            borderWidth: 2,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: "bottom",
+                        },
+                    },
+                },
+            });
+            dashboardCharts.push(knnPie);
+        }
+
+        const svmCanvas = document.getElementById("svmPieChart");
+        if (svmCanvas) {
+            const svmPie = new Chart(svmCanvas, {
+                type: "pie",
+                data: {
+                    labels: pieLabels,
+                    datasets: [
+                        {
+                            data: chartData.svm_pie || [],
+                            backgroundColor: ["#22c55e", "#ef4444", "#94a3b8"],
+                            borderColor: "#ffffff",
+                            borderWidth: 2,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: "bottom",
+                        },
+                    },
+                },
+            });
+            dashboardCharts.push(svmPie);
+        }
+
+        const trendCanvas = document.getElementById("tweetTrendChart");
+        if (trendCanvas) {
+            const trendChart = new Chart(trendCanvas, {
+                type: "line",
+                data: {
+                    labels: chartData.trend_labels || [],
+                    datasets: [
+                        {
+                            label: chartData.trend_title || "Jumlah Data",
+                            data: chartData.trend_values || [],
+                            borderColor: "#2563eb",
+                            backgroundColor: "rgba(37, 99, 235, 0.16)",
+                            fill: true,
+                            tension: 0.25,
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0,
+                            },
+                        },
+                    },
+                },
+            });
+            dashboardCharts.push(trendChart);
+        }
+
+        showDashboardPage(currentDashboardPageIndex);
+    } catch (error) {
+        console.error("Gagal memuat data chart dashboard prediksi:", error);
+    }
+});
+</script>
+{% endif %}
 {% endblock %}

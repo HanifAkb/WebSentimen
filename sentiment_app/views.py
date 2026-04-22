@@ -49,6 +49,16 @@ PREDICTION_HEADERS = {
     "svm_label": "SVM",
     "svm_score": "Skor SVM (-1 s/d 1)",
 }
+PREDICTION_DATE_COLUMN_HINTS = (
+    "createdat",
+    "created_at",
+    "created",
+    "date",
+    "datetime",
+    "time",
+    "tanggal",
+    "waktu",
+)
 WORDCLOUD_STOPWORDS = {
     "dan",
     "atau",
@@ -484,6 +494,7 @@ def _build_scraping_dashboard(
     rows: list[dict[str, object]],
     start_date: date | None = None,
     end_date: date | None = None,
+    trend_subject: str = "Tweet",
 ) -> dict[str, object]:
     max_texts_per_label = _setting_positive_int("SENTIMENT_WORDCLOUD_MAX_TEXTS_PER_LABEL", 1200)
     max_chars_per_label = _setting_positive_int("SENTIMENT_WORDCLOUD_MAX_CHARS_PER_LABEL", 160000)
@@ -616,9 +627,114 @@ def _build_scraping_dashboard(
             ],
             "trend_labels": chart_labels,
             "trend_values": chart_values,
-            "trend_title": f"Jumlah Tweet per {granularity_label}",
+            "trend_title": f"Jumlah {trend_subject} per {granularity_label}",
         },
     }
+
+
+def _row_value_for_column(row: dict[str, object], column: str) -> object:
+    if column in row:
+        return row.get(column)
+
+    normalized_column = column.strip().lower()
+    for key, value in row.items():
+        if str(key).strip().lower() == normalized_column:
+            return value
+    return ""
+
+
+def _prediction_row_text(
+    row: dict[str, object],
+    text_column: str,
+    source_columns: list[str],
+) -> str:
+    candidate_columns: list[str] = []
+    if text_column:
+        candidate_columns.append(text_column)
+    candidate_columns.extend(["text", "tweet", "content", "sentence"])
+    candidate_columns.extend(source_columns)
+
+    seen_columns: set[str] = set()
+    for column in candidate_columns:
+        normalized_column = str(column or "").strip().lower()
+        if not normalized_column or normalized_column in seen_columns:
+            continue
+        seen_columns.add(normalized_column)
+        value = _row_value_for_column(row, str(column))
+        text = str(value or "").strip()
+        if text:
+            return text
+
+    for key, value in row.items():
+        if key in PREDICTION_COLUMNS or key == "row_number":
+            continue
+        text = str(value or "").strip()
+        if text:
+            return text
+    return ""
+
+
+def _prediction_row_date_value(row: dict[str, object]) -> object:
+    for key, value in row.items():
+        normalized_key = str(key).strip().lower()
+        if normalized_key in PREDICTION_DATE_COLUMN_HINTS and _parse_created_at_date(value) is not None:
+            return value
+
+    for key, value in row.items():
+        normalized_key = str(key).strip().lower()
+        if key in PREDICTION_COLUMNS or key == "row_number":
+            continue
+        if not any(hint in normalized_key for hint in PREDICTION_DATE_COLUMN_HINTS):
+            continue
+        if _parse_created_at_date(value) is not None:
+            return value
+
+    return ""
+
+
+def _history_created_date(history: PredictionHistory) -> date:
+    created_at = getattr(history, "created_at", None)
+    if isinstance(created_at, datetime):
+        return created_at.date()
+    return date.today()
+
+
+def _build_prediction_dashboard(
+    history: PredictionHistory,
+    rows: list[dict[str, object]],
+    source_columns: list[str],
+) -> dict[str, object]:
+    fallback_date = _history_created_date(history)
+    fallback_date_text = fallback_date.isoformat()
+    dashboard_rows: list[dict[str, object]] = []
+    dashboard_dates: list[date] = []
+
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+
+        created_at_value = _prediction_row_date_value(row) or fallback_date_text
+        created_date = _parse_created_at_date(created_at_value)
+        if created_date is not None:
+            dashboard_dates.append(created_date)
+
+        dashboard_rows.append(
+            {
+                "text": _prediction_row_text(row, history.text_column, source_columns),
+                "CreatedAt": created_at_value,
+                "knn_label": row.get("knn_label", ""),
+                "svm_label": row.get("svm_label", ""),
+            }
+        )
+
+    start_date = min(dashboard_dates) if dashboard_dates else fallback_date
+    end_date = max(dashboard_dates) if dashboard_dates else fallback_date
+    return _build_scraping_dashboard(
+        dashboard_rows,
+        start_date,
+        end_date,
+        trend_subject="Data",
+    )
 
 
 def _apply_scraping_context(
@@ -1373,6 +1489,18 @@ def prediction_history_detail_view(request: HttpRequest, history_id: int) -> Htt
 
     page_start = max(1, current_page - 2)
     page_end = min(total_pages, current_page + 2)
+
+    if rows:
+        context["dashboard_enabled"] = True
+        try:
+            context["dashboard"] = _build_prediction_dashboard(history, rows, source_columns)
+            context["dashboard_error"] = ""
+        except Exception:
+            context["dashboard"] = None
+            context["dashboard_error"] = (
+                "Dashboard tidak dapat ditampilkan untuk riwayat prediksi ini. "
+                "Silakan periksa data CSV/TXT yang tersimpan."
+            )
 
     context.update(
         {
