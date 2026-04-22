@@ -18,50 +18,53 @@
     <div class="col-12">
         <div class="card shadow-sm panel-card h-100">
             <div class="card-body">
-                <h2 class="h5 fw-semibold mb-3">Ringkasan Hasil</h2>
-                <div class="row g-3">
-                    <div class="col-lg-6">
-                        <div class="beranda-stat-group h-100">
-                            <h3 class="h6 fw-semibold mb-3">Scraping</h3>
-                            <div class="row g-3">
-                                <div class="col-sm-6">
-                                    <div class="beranda-stat h-100">
-                                        <div class="small text-muted mb-1">Total Scraping</div>
-                                        <div class="beranda-stat-value">{{ total_scraping_count|default:0 }}</div>
-                                        <div class="small text-muted">Jumlah proses scraping yang pernah dijalankan.</div>
-                                    </div>
-                                </div>
-                                <div class="col-sm-6">
-                                    <div class="beranda-stat h-100">
-                                        <div class="small text-muted mb-1">Total Tweet Scraping</div>
-                                        <div class="beranda-stat-value">{{ total_scraping_results|default:0 }}</div>
-                                        <div class="small text-muted">Tweet tersimpan dari riwayat scraping Anda.</div>
-                                    </div>
-                                </div>
+                <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3">
+                    <div>
+                        <h2 class="h5 fw-semibold mb-1">Ringkasan Hasil</h2>
+                        <p class="small text-muted mb-0">Akumulasi aktivitas dan data yang sudah diproses.</p>
+                    </div>
+                </div>
+                <div class="beranda-summary">
+                    <section class="beranda-summary-section beranda-summary-section-scraping" aria-labelledby="summary-scraping-title">
+                        <div class="beranda-summary-heading">
+                            <div>
+                                <div class="beranda-summary-kicker">Scraping</div>
+                                <h3 class="h6 fw-semibold mb-0" id="summary-scraping-title">Scraping Web X</h3>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-lg-6">
-                        <div class="beranda-stat-group h-100">
-                            <h3 class="h6 fw-semibold mb-3">Prediksi</h3>
-                            <div class="row g-3">
-                                <div class="col-sm-6">
-                                    <div class="beranda-stat h-100">
-                                        <div class="small text-muted mb-1">Total Prediksi</div>
-                                        <div class="beranda-stat-value">{{ total_prediction_count|default:0 }}</div>
-                                        <div class="small text-muted">Jumlah proses prediksi yang pernah dijalankan.</div>
-                                    </div>
-                                </div>
-                                <div class="col-sm-6">
-                                    <div class="beranda-stat h-100">
-                                        <div class="small text-muted mb-1">Total Data Prediksi</div>
-                                        <div class="beranda-stat-value">{{ total_prediction_results|default:0 }}</div>
-                                        <div class="small text-muted">Data yang pernah diprediksi melalui menu Buat Analisis.</div>
-                                    </div>
-                                </div>
+                        <div class="beranda-summary-metrics">
+                            <div class="beranda-summary-metric">
+                                <div class="beranda-summary-value">{{ total_scraping_count|default:0 }}</div>
+                                <div class="beranda-summary-label">Total Scraping</div>
+                                <div class="beranda-summary-help">Jumlah proses scraping yang pernah dijalankan.</div>
+                            </div>
+                            <div class="beranda-summary-metric">
+                                <div class="beranda-summary-value">{{ total_scraping_results|default:0 }}</div>
+                                <div class="beranda-summary-label">Total Tweet Scraping</div>
+                                <div class="beranda-summary-help">Tweet tersimpan dari riwayat scraping Anda.</div>
                             </div>
                         </div>
-                    </div>
+                    </section>
+                    <section class="beranda-summary-section beranda-summary-section-prediction" aria-labelledby="summary-prediction-title">
+                        <div class="beranda-summary-heading">
+                            <div>
+                                <div class="beranda-summary-kicker">Prediksi</div>
+                                <h3 class="h6 fw-semibold mb-0" id="summary-prediction-title">Prediksi Tunggal dan CSV/TXT</h3>
+                            </div>
+                        </div>
+                        <div class="beranda-summary-metrics">
+                            <div class="beranda-summary-metric">
+                                <div class="beranda-summary-value">{{ total_prediction_count|default:0 }}</div>
+                                <div class="beranda-summary-label">Total Prediksi</div>
+                                <div class="beranda-summary-help">Jumlah proses prediksi yang pernah dijalankan.</div>
+                            </div>
+                            <div class="beranda-summary-metric">
+                                <div class="beranda-summary-value">{{ total_prediction_results|default:0 }}</div>
+                                <div class="beranda-summary-label">Total Data Prediksi</div>
+                                <div class="beranda-summary-help">Data yang pernah diprediksi melalui menu Buat Analisis.</div>
+                            </div>
+                        </div>
+                    </section>
                 </div>
             </div>
         </div>
