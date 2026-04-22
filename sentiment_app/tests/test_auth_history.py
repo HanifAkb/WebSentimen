@@ -103,6 +103,8 @@ class AuthAndHistoryTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Ringkasan Hasil")
+        self.assertContains(response, "Scraping")
+        self.assertContains(response, "Prediksi")
         self.assertContains(response, "Total Scraping")
         self.assertContains(response, "Total Tweet Scraping")
         self.assertContains(response, "Total Prediksi")

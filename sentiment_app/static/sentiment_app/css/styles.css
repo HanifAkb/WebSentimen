@@ -505,6 +505,13 @@ body {
     background: rgba(255, 255, 255, 0.76);
 }
 
+.beranda-stat-group {
+    border: 1px solid rgba(37, 99, 235, 0.2);
+    border-radius: 0.95rem;
+    padding: 0.95rem;
+    background: rgba(239, 246, 255, 0.42);
+}
+
 .beranda-stat-value {
     font-size: 2rem;
     line-height: 1.1;
