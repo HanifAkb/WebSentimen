@@ -17,7 +17,7 @@ class Migration(migrations.Migration):
             name="PredictionHistory",
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
-                ("input_type", models.CharField(choices=[("single", "Kalimat Tunggal"), ("file", "CSV/TXT")], max_length=12)),
+                ("input_type", models.CharField(choices=[("single", "Kalimat"), ("file", "CSV/TXT")], max_length=12)),
                 ("text_input", models.TextField(blank=True)),
                 ("source_name", models.CharField(blank=True, max_length=255)),
                 ("text_column", models.CharField(blank=True, max_length=100)),

@@ -13,7 +13,7 @@ def _upload_limit_mb() -> int:
 class PredictForm(forms.Form):
     text_input = forms.CharField(
         required=False,
-        label="Kalimat tunggal",
+        label="Kalimat",
         widget=forms.Textarea(
             attrs={
                 "rows": 4,

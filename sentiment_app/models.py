@@ -46,7 +46,7 @@ class ScrapeTempChunk(models.Model):
 
 class PredictionHistory(models.Model):
     class InputType(models.TextChoices):
-        SINGLE = "single", "Kalimat Tunggal"
+        SINGLE = "single", "Kalimat"
         FILE = "file", "CSV/TXT"
 
     user = models.ForeignKey(

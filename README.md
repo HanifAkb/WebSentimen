@@ -13,7 +13,7 @@ Website:
 
 - Login wajib untuk akses fitur utama
 - Admin-only pembuatan akun baru
-- Prediksi kalimat tunggal
+- Prediksi kalimat
 - Prediksi batch dari file CSV/TXT
 - Scraping Web X via `twitterapi.io` (API key dari user)
 - Hasil KNN dan SVM berdampingan

@@ -137,7 +137,7 @@
         <div class="card shadow-sm panel-card">
             <div class="card-body">
                 <h2 class="h5 fw-semibold mb-2">Riwayat Prediksi</h2>
-                <p class="text-muted small mb-3">Daftar hasil prediksi kalimat tunggal dan unggah CSV/TXT.</p>
+                <p class="text-muted small mb-3">Daftar hasil prediksi kalimat dan unggah CSV/TXT.</p>
 
                 {% if prediction_histories %}
                     <form
@@ -198,7 +198,7 @@
                                             <td>{{ item.created_at|date:"j F Y, H:i" }}</td>
                                             <td>
                                                 {% if item.input_type == "single" %}
-                                                    Kalimat Tunggal
+                                                    Kalimat
                                                 {% else %}
                                                     CSV/TXT
                                                 {% endif %}
