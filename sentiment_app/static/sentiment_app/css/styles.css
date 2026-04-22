@@ -513,8 +513,8 @@ body {
 
 .beranda-guide-steps {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.45rem 1.1rem;
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
     padding-left: 1.1rem;
     color: #64748b;
     font-size: 0.86rem;
@@ -1082,9 +1082,6 @@ span.flatpickr-weekday {
         gap: 0.8rem;
     }
 
-    .beranda-guide-steps {
-        grid-template-columns: 1fr;
-    }
 }
 
 @media (max-width: 575.98px) {
