@@ -247,7 +247,12 @@ class AdminEditUserForm(forms.ModelForm):
         required=False,
         label="Password baru",
         strip=False,
-        help_text=password_validation.password_validators_help_text_html(),
+        help_text=(
+            "<ul>"
+            "<li>Password minimal 8 karakter.</li>"
+            "<li>Password tidak boleh hanya berisi angka.</li>"
+            "</ul>"
+        ),
         widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
     )
     password2 = forms.CharField(
