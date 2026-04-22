@@ -518,11 +518,11 @@ body {
 }
 
 .beranda-summary-section-scraping {
-    border-left-color: #2563eb;
+    border-left-color: #38bdf8;
 }
 
 .beranda-summary-section-prediction {
-    border-left-color: #059669;
+    border-left-color: #1e3a8a;
 }
 
 .beranda-summary-heading {
@@ -530,15 +530,6 @@ body {
     align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
-}
-
-.beranda-summary-kicker {
-    margin-bottom: 0.2rem;
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0;
-    text-transform: uppercase;
-    color: #64748b;
 }
 
 .beranda-summary-metrics {
@@ -568,8 +559,12 @@ body {
     color: #1e3a8a;
 }
 
+.beranda-summary-section-scraping .beranda-summary-label {
+    color: #0369a1;
+}
+
 .beranda-summary-section-prediction .beranda-summary-label {
-    color: #065f46;
+    color: #1e3a8a;
 }
 
 .beranda-summary-help {
