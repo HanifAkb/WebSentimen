@@ -26,8 +26,13 @@ from .services.file_service import (
     generate_classification_csv,
     parse_uploaded_file,
 )
-from .services.model_service import ModelServiceError, predict_batch, predict_batch_in_chunks, predict_single
-from .services.preprocess import preprocess_text
+from .services.model_service import (
+    ModelServiceError,
+    predict_batch,
+    predict_batch_in_chunks,
+    predict_single,
+    preprocess_text,
+)
 from .services.twitter_client import TwitterAPIError, TwitterRateLimitError, TwitterTimeoutError, fetch_tweets
 
 try:

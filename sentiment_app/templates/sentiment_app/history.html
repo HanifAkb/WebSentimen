@@ -173,6 +173,7 @@
                                         <th>Sumber</th>
                                         <th>Kolom Teks</th>
                                         <th>Jumlah Data</th>
+                                        <th>Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -211,6 +212,9 @@
                                             </td>
                                             <td>{{ item.text_column|default:"-" }}</td>
                                             <td>{{ item.sample_count }}</td>
+                                            <td>
+                                                <span class="badge text-bg-success">Selesai</span>
+                                            </td>
                                         </tr>
                                     {% endfor %}
                                 </tbody>

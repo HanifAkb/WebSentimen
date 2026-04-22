@@ -177,10 +177,20 @@ class AuthAndHistoryTests(TestCase):
             tweet_count=1,
             rows=[{"id": "2", "text": "b"}],
         )
+        PredictionHistory.objects.create(
+            user=self.user,
+            input_type=PredictionHistory.InputType.SINGLE,
+            text_input="prediksi user",
+            sample_count=1,
+            rows=[{"text": "prediksi user", "knn_label": "Positive", "svm_label": "Positive"}],
+        )
 
         self.client.force_login(self.user)
         response = self.client.get(reverse("history_list"))
         self.assertContains(response, "query_user")
+        self.assertContains(response, "Riwayat Prediksi")
+        self.assertContains(response, "Status")
+        self.assertContains(response, "Selesai", count=2)
         self.assertNotContains(response, "query_other")
 
         forbidden_detail = self.client.get(reverse("history_detail", args=[other_history.id]))
