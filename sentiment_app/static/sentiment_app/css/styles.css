@@ -726,6 +726,69 @@ body {
     padding: 0.85rem;
 }
 
+.admin-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.9rem;
+}
+
+.admin-stat {
+    min-width: 0;
+    border: 1px solid rgba(30, 64, 175, 0.14);
+    border-left: 0.35rem solid #2563eb;
+    border-radius: 0.5rem;
+    padding: 0.9rem;
+    background: rgba(255, 255, 255, 0.84);
+}
+
+.admin-stat-label {
+    margin-bottom: 0.35rem;
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: #64748b;
+}
+
+.admin-stat-value {
+    font-size: 1.8rem;
+    line-height: 1;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.admin-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.45rem;
+}
+
+.admin-actions form {
+    margin: 0;
+}
+
+.admin-user-meta {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 0.55rem 0.8rem;
+    font-size: 0.9rem;
+}
+
+.admin-user-meta dt {
+    color: #64748b;
+}
+
+.admin-user-meta dd {
+    min-width: 0;
+    margin-bottom: 0;
+    color: #0f172a;
+    overflow-wrap: anywhere;
+}
+
+.admin-json-field {
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
 .dashboard-pager {
     display: grid;
     grid-template-columns: 34px minmax(72px, auto) 34px;
@@ -1065,6 +1128,10 @@ span.flatpickr-weekday {
         column-gap: 0.55rem;
     }
 
+    .admin-stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .beranda-summary {
         grid-template-columns: 1fr;
     }
@@ -1097,5 +1164,18 @@ span.flatpickr-weekday {
         width: 2.1rem;
         height: 2.1rem;
         font-size: 0.78rem;
+    }
+
+    .admin-stat-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .admin-actions .btn {
+        width: 100%;
     }
 }

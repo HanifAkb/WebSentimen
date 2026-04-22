@@ -10,7 +10,9 @@ from pathlib import Path
 from django.conf import settings
 from django.contrib.auth import login as auth_login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import models
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse, JsonResponse
@@ -19,7 +21,16 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from .forms import LoginForm, PredictForm, ResumeScrapeForm, TwitterFetchForm
+from .forms import (
+    AdminCreateUserForm,
+    AdminEditUserForm,
+    AdminPredictionHistoryForm,
+    AdminScrapeHistoryForm,
+    LoginForm,
+    PredictForm,
+    ResumeScrapeForm,
+    TwitterFetchForm,
+)
 from .models import PredictionHistory, ScrapeHistory, ScrapeTempChunk
 from .services.file_service import (
     FileValidationError,
@@ -1224,6 +1235,211 @@ def logout_view(request: HttpRequest) -> HttpResponse:
     return redirect("home")
 
 
+def _require_superuser(request: HttpRequest) -> None:
+    if not request.user.is_superuser:
+        raise PermissionDenied("Hanya superuser yang dapat mengakses Admin Panel.")
+
+
+def _scrape_history_queryset_for_detail(request: HttpRequest):
+    if request.user.is_superuser:
+        return ScrapeHistory.objects.all()
+    return ScrapeHistory.objects.filter(user=request.user)
+
+
+def _prediction_history_queryset_for_detail(request: HttpRequest):
+    if request.user.is_superuser:
+        return PredictionHistory.objects.all()
+    return PredictionHistory.objects.filter(user=request.user)
+
+
+@login_required
+def admin_dashboard_view(request: HttpRequest) -> HttpResponse:
+    _require_superuser(request)
+
+    users_qs = User.objects.order_by("username").only(
+        "id",
+        "username",
+        "first_name",
+        "last_name",
+        "email",
+        "is_active",
+        "is_staff",
+        "is_superuser",
+        "date_joined",
+        "last_login",
+    )
+    scrape_histories_qs = ScrapeHistory.objects.select_related("user").only(
+        "id",
+        "user__username",
+        "query",
+        "language",
+        "start_date",
+        "end_date",
+        "tweet_count",
+        "is_complete",
+        "created_at",
+    )
+    prediction_histories_qs = PredictionHistory.objects.select_related("user").only(
+        "id",
+        "user__username",
+        "input_type",
+        "source_name",
+        "text_column",
+        "sample_count",
+        "created_at",
+    )
+
+    users_page_obj = Paginator(users_qs, HISTORY_PER_PAGE).get_page(
+        _safe_positive_int(request.GET.get("users_page"), 1)
+    )
+    scrape_page_obj = Paginator(scrape_histories_qs, HISTORY_PER_PAGE).get_page(
+        _safe_positive_int(request.GET.get("scrape_page"), 1)
+    )
+    prediction_page_obj = Paginator(prediction_histories_qs, HISTORY_PER_PAGE).get_page(
+        _safe_positive_int(request.GET.get("pred_page"), 1)
+    )
+
+    context = {
+        "users_page_obj": users_page_obj,
+        "users": users_page_obj.object_list,
+        "scrape_page_obj": scrape_page_obj,
+        "scrape_histories": scrape_page_obj.object_list,
+        "prediction_page_obj": prediction_page_obj,
+        "prediction_histories": prediction_page_obj.object_list,
+        "total_users": User.objects.count(),
+        "total_staff": User.objects.filter(is_staff=True).count(),
+        "total_superusers": User.objects.filter(is_superuser=True).count(),
+        "total_scrape_histories": ScrapeHistory.objects.count(),
+        "total_prediction_histories": PredictionHistory.objects.count(),
+    }
+    return render(request, "sentiment_app/admin_panel.html", context)
+
+
+@login_required
+def admin_user_create_view(request: HttpRequest) -> HttpResponse:
+    _require_superuser(request)
+    form = AdminCreateUserForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        user_obj = form.save()
+        messages.success(request, f"User {user_obj.username} berhasil dibuat.")
+        return redirect("admin:user_edit", user_id=user_obj.id)
+
+    context = {
+        "form": form,
+        "form_title": "Tambah User",
+        "submit_label": "Simpan User",
+        "target_user": None,
+    }
+    return render(request, "sentiment_app/admin_user_form.html", context)
+
+
+@login_required
+def admin_user_edit_view(request: HttpRequest, user_id: int) -> HttpResponse:
+    _require_superuser(request)
+    target_user = get_object_or_404(User, pk=user_id)
+    form = AdminEditUserForm(request.POST or None, instance=target_user)
+    if request.method == "POST" and form.is_valid():
+        keeps_current_admin = (
+            target_user.pk != request.user.pk
+            or (
+                bool(form.cleaned_data.get("is_active"))
+                and bool(form.cleaned_data.get("is_superuser"))
+                and (bool(form.cleaned_data.get("is_staff")) or bool(form.cleaned_data.get("is_superuser")))
+            )
+        )
+        if not keeps_current_admin:
+            form.add_error(None, "Tidak bisa mencabut akses admin dari akun yang sedang login.")
+        else:
+            user_obj = form.save()
+            messages.success(request, f"User {user_obj.username} berhasil diperbarui.")
+            return redirect("admin:index")
+
+    context = {
+        "form": form,
+        "form_title": "Edit User",
+        "submit_label": "Simpan Perubahan",
+        "target_user": target_user,
+    }
+    return render(request, "sentiment_app/admin_user_form.html", context)
+
+
+@login_required
+@require_POST
+def admin_user_delete_view(request: HttpRequest, user_id: int) -> HttpResponse:
+    _require_superuser(request)
+    target_user = get_object_or_404(User, pk=user_id)
+    if target_user.pk == request.user.pk:
+        messages.error(request, "User yang sedang login tidak bisa dihapus.")
+        return redirect("admin:index")
+
+    username = target_user.username
+    target_user.delete()
+    messages.success(request, f"User {username} berhasil dihapus.")
+    return redirect("admin:index")
+
+
+@login_required
+def admin_prediction_history_edit_view(request: HttpRequest, history_id: int) -> HttpResponse:
+    _require_superuser(request)
+    history = get_object_or_404(PredictionHistory, pk=history_id)
+    form = AdminPredictionHistoryForm(request.POST or None, instance=history)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "PredictionHistory berhasil diperbarui.")
+        return redirect("admin:index")
+
+    context = {
+        "form": form,
+        "form_title": "Edit PredictionHistory",
+        "submit_label": "Simpan PredictionHistory",
+        "detail_url": reverse("prediction_history_detail", args=[history.id]),
+        "delete_url": reverse("admin:prediction_history_delete", args=[history.id]),
+        "delete_label": "Hapus PredictionHistory",
+    }
+    return render(request, "sentiment_app/admin_history_form.html", context)
+
+
+@login_required
+@require_POST
+def admin_prediction_history_delete_view(request: HttpRequest, history_id: int) -> HttpResponse:
+    _require_superuser(request)
+    history = get_object_or_404(PredictionHistory, pk=history_id)
+    history.delete()
+    messages.success(request, "PredictionHistory berhasil dihapus.")
+    return redirect("admin:index")
+
+
+@login_required
+def admin_scrape_history_edit_view(request: HttpRequest, history_id: int) -> HttpResponse:
+    _require_superuser(request)
+    history = get_object_or_404(ScrapeHistory, pk=history_id)
+    form = AdminScrapeHistoryForm(request.POST or None, instance=history)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "ScrapeHistory berhasil diperbarui.")
+        return redirect("admin:index")
+
+    context = {
+        "form": form,
+        "form_title": "Edit ScrapeHistory",
+        "submit_label": "Simpan ScrapeHistory",
+        "detail_url": reverse("history_detail", args=[history.id]),
+        "delete_url": reverse("admin:scrape_history_delete", args=[history.id]),
+        "delete_label": "Hapus ScrapeHistory",
+    }
+    return render(request, "sentiment_app/admin_history_form.html", context)
+
+
+@login_required
+@require_POST
+def admin_scrape_history_delete_view(request: HttpRequest, history_id: int) -> HttpResponse:
+    _require_superuser(request)
+    history = get_object_or_404(ScrapeHistory, pk=history_id)
+    history.delete()
+    messages.success(request, "ScrapeHistory berhasil dihapus.")
+    return redirect("admin:index")
+
+
 @login_required
 def history_list_view(request: HttpRequest) -> HttpResponse:
     scrape_histories_qs = ScrapeHistory.objects.filter(user=request.user).only(
@@ -1337,7 +1553,7 @@ def delete_selected_history_view(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def history_detail_view(request: HttpRequest, history_id: int) -> HttpResponse:
-    history = get_object_or_404(ScrapeHistory, id=history_id, user=request.user)
+    history = get_object_or_404(_scrape_history_queryset_for_detail(request), id=history_id)
     form = TwitterFetchForm()
     resume_form = ResumeScrapeForm()
     resume_done_days, resume_total_days, resume_progress_pct = _history_resume_progress(history)
@@ -1465,7 +1681,7 @@ def resume_scrape_view(request: HttpRequest, history_id: int) -> HttpResponse:
 
 @login_required
 def prediction_history_detail_view(request: HttpRequest, history_id: int) -> HttpResponse:
-    history = get_object_or_404(PredictionHistory, id=history_id, user=request.user)
+    history = get_object_or_404(_prediction_history_queryset_for_detail(request), id=history_id)
     context: dict[str, object] = {
         "history": history,
     }

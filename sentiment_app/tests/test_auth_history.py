@@ -51,6 +51,167 @@ class AuthAndHistoryTests(TestCase):
     def test_admin_route_is_available(self):
         self.assertEqual(reverse("admin:index"), "/admin/")
 
+    def test_custom_admin_requires_superuser(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("admin:index"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_custom_admin_shows_users_and_history_datasets(self):
+        ScrapeHistory.objects.create(
+            user=self.other_user,
+            query="dataset scraping",
+            language="in",
+            start_date="2026-01-01",
+            end_date="2026-01-02",
+            tweet_count=7,
+            rows=[],
+        )
+        PredictionHistory.objects.create(
+            user=self.other_user,
+            input_type=PredictionHistory.InputType.FILE,
+            source_name="dataset.csv",
+            text_column="text",
+            sample_count=3,
+            rows=[],
+        )
+
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse("admin:index"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Admin Panel")
+        self.assertContains(response, "Tambah User")
+        self.assertContains(response, "Dataset PredictionHistory")
+        self.assertContains(response, "Dataset ScrapeHistory")
+        self.assertContains(response, "member")
+        self.assertContains(response, "dataset scraping")
+        self.assertContains(response, "dataset.csv")
+
+    def test_custom_admin_can_create_edit_and_delete_user(self):
+        self.client.force_login(self.admin)
+        create_response = self.client.post(
+            reverse("admin:user_add"),
+            {
+                "username": "created_user",
+                "first_name": "Created",
+                "last_name": "User",
+                "email": "created@example.com",
+                "is_active": "on",
+                "is_staff": "on",
+                "is_superuser": "",
+                "password1": "CreatedPass123!",
+                "password2": "CreatedPass123!",
+            },
+        )
+        self.assertEqual(create_response.status_code, 302)
+        created_user = User.objects.get(username="created_user")
+        self.assertTrue(created_user.is_staff)
+        self.assertFalse(created_user.is_superuser)
+
+        edit_response = self.client.post(
+            reverse("admin:user_edit", args=[created_user.id]),
+            {
+                "username": "edited_user",
+                "first_name": "Edited",
+                "last_name": "Name",
+                "email": "edited@example.com",
+                "is_active": "on",
+                "is_staff": "",
+                "is_superuser": "on",
+                "password1": "EditedPass123!",
+                "password2": "EditedPass123!",
+            },
+        )
+        self.assertEqual(edit_response.status_code, 302)
+        created_user.refresh_from_db()
+        self.assertEqual(created_user.username, "edited_user")
+        self.assertTrue(created_user.is_superuser)
+        self.assertTrue(created_user.is_staff)
+        self.assertTrue(created_user.check_password("EditedPass123!"))
+
+        delete_response = self.client.post(reverse("admin:user_delete", args=[created_user.id]))
+        self.assertEqual(delete_response.status_code, 302)
+        self.assertFalse(User.objects.filter(id=created_user.id).exists())
+
+    def test_custom_admin_can_detail_edit_and_delete_history_datasets(self):
+        scrape_history = ScrapeHistory.objects.create(
+            user=self.other_user,
+            query="query awal",
+            language="in",
+            start_date="2026-01-01",
+            end_date="2026-01-02",
+            tweet_count=1,
+            rows=[{"id": "1", "text": "awal"}],
+        )
+        prediction_history = PredictionHistory.objects.create(
+            user=self.other_user,
+            input_type=PredictionHistory.InputType.FILE,
+            source_name="awal.csv",
+            text_column="text",
+            sample_count=1,
+            columns=["text"],
+            rows=[{"text": "awal", "knn_label": "Positive", "svm_label": "Positive"}],
+        )
+
+        self.client.force_login(self.admin)
+        scrape_detail = self.client.get(reverse("history_detail", args=[scrape_history.id]))
+        prediction_detail = self.client.get(reverse("prediction_history_detail", args=[prediction_history.id]))
+        self.assertEqual(scrape_detail.status_code, 200)
+        self.assertEqual(prediction_detail.status_code, 200)
+
+        prediction_edit = self.client.post(
+            reverse("admin:prediction_history_edit", args=[prediction_history.id]),
+            {
+                "user": self.other_user.id,
+                "input_type": PredictionHistory.InputType.FILE,
+                "text_input": "",
+                "source_name": "edited.csv",
+                "text_column": "review",
+                "sample_count": 2,
+                "columns": '["review"]',
+                "rows": '[{"review": "bagus", "knn_label": "Positive", "svm_label": "Positive"}]',
+                "output_filename": "edited.csv",
+            },
+        )
+        self.assertEqual(prediction_edit.status_code, 302)
+        prediction_history.refresh_from_db()
+        self.assertEqual(prediction_history.source_name, "edited.csv")
+        self.assertEqual(prediction_history.text_column, "review")
+        self.assertEqual(prediction_history.rows[0]["review"], "bagus")
+
+        scrape_edit = self.client.post(
+            reverse("admin:scrape_history_edit", args=[scrape_history.id]),
+            {
+                "user": self.other_user.id,
+                "query": "query edit",
+                "language": "en",
+                "start_date": "2026-02-01",
+                "end_date": "2026-02-02",
+                "tweet_count": 2,
+                "rows": '[{"id": "2", "text": "edit"}]',
+                "is_complete": "on",
+                "resume_next_date": "",
+                "stop_reason": "",
+                "window_days": 1,
+            },
+        )
+        self.assertEqual(scrape_edit.status_code, 302)
+        scrape_history.refresh_from_db()
+        self.assertEqual(scrape_history.query, "query edit")
+        self.assertEqual(scrape_history.language, "en")
+        self.assertEqual(scrape_history.rows[0]["text"], "edit")
+
+        self.assertEqual(
+            self.client.post(reverse("admin:prediction_history_delete", args=[prediction_history.id])).status_code,
+            302,
+        )
+        self.assertEqual(
+            self.client.post(reverse("admin:scrape_history_delete", args=[scrape_history.id])).status_code,
+            302,
+        )
+        self.assertFalse(PredictionHistory.objects.filter(id=prediction_history.id).exists())
+        self.assertFalse(ScrapeHistory.objects.filter(id=scrape_history.id).exists())
+
     def test_home_shows_owner_scraping_and_prediction_totals(self):
         ScrapeHistory.objects.create(
             user=self.user,

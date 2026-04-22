@@ -1,7 +1,12 @@
+import json
+
 from django import forms
 from django.conf import settings
+from django.contrib.auth import password_validation
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import User
+
+from .models import PredictionHistory, ScrapeHistory
 
 
 def _upload_limit_mb() -> int:
@@ -184,51 +189,265 @@ class LoginForm(AuthenticationForm):
 
 
 class AdminCreateUserForm(UserCreationForm):
+    first_name = forms.CharField(required=False, label="Nama depan")
+    last_name = forms.CharField(required=False, label="Nama belakang")
     email = forms.EmailField(required=False, label="Email")
-    is_staff = forms.BooleanField(required=False, label="Akses admin Django")
+    is_active = forms.BooleanField(required=False, initial=True, label="Aktif")
+    is_staff = forms.BooleanField(required=False, label="Staff")
+    is_superuser = forms.BooleanField(required=False, label="Superuser")
 
     class Meta:
         model = User
-        fields = ("username", "email", "is_staff", "password1", "password2")
+        fields = (
+            "username",
+            "first_name",
+            "last_name",
+            "email",
+            "is_active",
+            "is_staff",
+            "is_superuser",
+            "password1",
+            "password2",
+        )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["username"].widget.attrs.update(
-            {
-                "class": "form-control",
-                "placeholder": "username_baru",
-                "autocomplete": "off",
-            }
+        text_fields = (
+            "username",
+            "first_name",
+            "last_name",
+            "email",
+            "password1",
+            "password2",
         )
-        self.fields["email"].widget.attrs.update(
-            {
-                "class": "form-control",
-                "placeholder": "opsional@email.com",
-                "autocomplete": "off",
-            }
-        )
-        self.fields["password1"].widget.attrs.update(
-            {
-                "class": "form-control",
-                "autocomplete": "new-password",
-            }
-        )
-        self.fields["password2"].widget.attrs.update(
-            {
-                "class": "form-control",
-                "autocomplete": "new-password",
-            }
-        )
-        self.fields["is_staff"].widget.attrs.update(
-            {
-                "class": "form-check-input",
-            }
-        )
+        for field_name in text_fields:
+            self.fields[field_name].widget.attrs["class"] = "form-control"
+        self.fields["username"].widget.attrs.update({"placeholder": "username_baru", "autocomplete": "off"})
+        self.fields["email"].widget.attrs.update({"placeholder": "opsional@email.com", "autocomplete": "off"})
+        self.fields["password1"].widget.attrs["autocomplete"] = "new-password"
+        self.fields["password2"].widget.attrs["autocomplete"] = "new-password"
+        for field_name in ("is_active", "is_staff", "is_superuser"):
+            self.fields[field_name].widget.attrs["class"] = "form-check-input"
 
     def save(self, commit: bool = True):
         user = super().save(commit=False)
+        user.first_name = self.cleaned_data.get("first_name", "")
+        user.last_name = self.cleaned_data.get("last_name", "")
         user.email = self.cleaned_data.get("email", "")
-        user.is_staff = bool(self.cleaned_data.get("is_staff"))
+        user.is_active = bool(self.cleaned_data.get("is_active"))
+        user.is_superuser = bool(self.cleaned_data.get("is_superuser"))
+        user.is_staff = bool(self.cleaned_data.get("is_staff")) or user.is_superuser
         if commit:
             user.save()
         return user
+
+
+class AdminEditUserForm(forms.ModelForm):
+    password1 = forms.CharField(
+        required=False,
+        label="Password baru",
+        strip=False,
+        help_text=password_validation.password_validators_help_text_html(),
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+    )
+    password2 = forms.CharField(
+        required=False,
+        label="Konfirmasi password baru",
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+    )
+
+    class Meta:
+        model = User
+        fields = (
+            "username",
+            "first_name",
+            "last_name",
+            "email",
+            "is_active",
+            "is_staff",
+            "is_superuser",
+        )
+        labels = {
+            "username": "Username",
+            "first_name": "Nama depan",
+            "last_name": "Nama belakang",
+            "email": "Email",
+            "is_active": "Aktif",
+            "is_staff": "Staff",
+            "is_superuser": "Superuser",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name in ("username", "first_name", "last_name", "email"):
+            self.fields[field_name].widget.attrs["class"] = "form-control"
+        for field_name in ("password1", "password2"):
+            self.fields[field_name].widget.attrs["class"] = "form-control"
+        for field_name in ("is_active", "is_staff", "is_superuser"):
+            self.fields[field_name].widget.attrs["class"] = "form-check-input"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password1 = cleaned_data.get("password1") or ""
+        password2 = cleaned_data.get("password2") or ""
+        if password1 or password2:
+            if not password1 or not password2:
+                raise forms.ValidationError("Isi password baru dan konfirmasi password baru.")
+            if password1 != password2:
+                self.add_error("password2", "Konfirmasi password tidak sama.")
+            else:
+                password_validation.validate_password(password1, self.instance)
+        return cleaned_data
+
+    def save(self, commit: bool = True):
+        user = super().save(commit=False)
+        if user.is_superuser:
+            user.is_staff = True
+        password = self.cleaned_data.get("password1")
+        if password:
+            user.set_password(password)
+        if commit:
+            user.save()
+        return user
+
+
+def _json_initial(value: object, fallback: object) -> str:
+    if value in (None, ""):
+        value = fallback
+    try:
+        return json.dumps(value, ensure_ascii=False, indent=2)
+    except TypeError:
+        return str(value)
+
+
+class AdminJSONField(forms.JSONField):
+    def prepare_value(self, value):
+        if isinstance(value, str):
+            return value
+        return _json_initial(value, [])
+
+
+class AdminPredictionHistoryForm(forms.ModelForm):
+    columns = AdminJSONField(
+        required=False,
+        label="Columns (JSON)",
+        widget=forms.Textarea(attrs={"rows": 6}),
+    )
+    rows = AdminJSONField(
+        required=False,
+        label="Rows (JSON)",
+        widget=forms.Textarea(attrs={"rows": 14}),
+    )
+
+    class Meta:
+        model = PredictionHistory
+        fields = (
+            "user",
+            "input_type",
+            "text_input",
+            "source_name",
+            "text_column",
+            "sample_count",
+            "columns",
+            "rows",
+            "output_filename",
+        )
+        labels = {
+            "user": "User",
+            "input_type": "Tipe",
+            "text_input": "Input Kalimat",
+            "source_name": "Sumber",
+            "text_column": "Kolom Teks",
+            "sample_count": "Jumlah Data",
+            "output_filename": "File Output",
+        }
+        widgets = {
+            "text_input": forms.Textarea(attrs={"rows": 4}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["user"].queryset = User.objects.order_by("username")
+        self.fields["user"].widget.attrs["class"] = "form-select"
+        self.fields["input_type"].widget.attrs["class"] = "form-select"
+        for field_name in ("text_input", "source_name", "text_column", "sample_count", "output_filename"):
+            self.fields[field_name].widget.attrs["class"] = "form-control"
+        for field_name in ("columns", "rows"):
+            self.fields[field_name].widget.attrs["class"] = "form-control font-monospace admin-json-field"
+
+        if self.instance and self.instance.pk:
+            self.fields["columns"].initial = _json_initial(self.instance.columns, [])
+            self.fields["rows"].initial = _json_initial(self.instance.rows, [])
+
+    def clean_columns(self):
+        return self.cleaned_data.get("columns") or []
+
+    def clean_rows(self):
+        return self.cleaned_data.get("rows") or []
+
+
+class AdminScrapeHistoryForm(forms.ModelForm):
+    rows = AdminJSONField(
+        required=False,
+        label="Rows (JSON)",
+        widget=forms.Textarea(attrs={"rows": 14}),
+    )
+
+    class Meta:
+        model = ScrapeHistory
+        fields = (
+            "user",
+            "query",
+            "language",
+            "start_date",
+            "end_date",
+            "tweet_count",
+            "rows",
+            "is_complete",
+            "resume_next_date",
+            "stop_reason",
+            "window_days",
+        )
+        labels = {
+            "user": "User",
+            "query": "Kueri",
+            "language": "Bahasa",
+            "start_date": "Tanggal Mulai",
+            "end_date": "Tanggal Selesai",
+            "tweet_count": "Jumlah Tweet",
+            "is_complete": "Selesai",
+            "resume_next_date": "Tanggal Lanjutan",
+            "stop_reason": "Alasan Berhenti",
+            "window_days": "Window Days",
+        }
+        widgets = {
+            "query": forms.Textarea(attrs={"rows": 3}),
+            "start_date": forms.DateInput(attrs={"type": "date"}),
+            "end_date": forms.DateInput(attrs={"type": "date"}),
+            "resume_next_date": forms.DateInput(attrs={"type": "date"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["user"].queryset = User.objects.order_by("username")
+        self.fields["user"].widget.attrs["class"] = "form-select"
+        for field_name in (
+            "query",
+            "language",
+            "start_date",
+            "end_date",
+            "tweet_count",
+            "resume_next_date",
+            "stop_reason",
+            "window_days",
+        ):
+            self.fields[field_name].widget.attrs["class"] = "form-control"
+        self.fields["is_complete"].widget.attrs["class"] = "form-check-input"
+        self.fields["rows"].widget.attrs["class"] = "form-control font-monospace admin-json-field"
+
+        if self.instance and self.instance.pk:
+            self.fields["rows"].initial = _json_initial(self.instance.rows, [])
+
+    def clean_rows(self):
+        return self.cleaned_data.get("rows") or []
