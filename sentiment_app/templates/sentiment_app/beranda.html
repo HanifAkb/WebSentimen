@@ -20,16 +20,30 @@
             <div class="card-body">
                 <h2 class="h5 fw-semibold mb-3">Ringkasan Hasil</h2>
                 <div class="row g-3">
-                    <div class="col-md-6">
+                    <div class="col-md-6 col-xl-3">
                         <div class="beranda-stat h-100">
-                            <div class="small text-muted mb-1">Total Hasil Scraping</div>
+                            <div class="small text-muted mb-1">Total Scraping</div>
+                            <div class="beranda-stat-value">{{ total_scraping_count|default:0 }}</div>
+                            <div class="small text-muted">Jumlah proses scraping yang pernah dijalankan.</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-xl-3">
+                        <div class="beranda-stat h-100">
+                            <div class="small text-muted mb-1">Total Tweet Scraping</div>
                             <div class="beranda-stat-value">{{ total_scraping_results|default:0 }}</div>
                             <div class="small text-muted">Tweet tersimpan dari riwayat scraping Anda.</div>
                         </div>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-6 col-xl-3">
                         <div class="beranda-stat h-100">
-                            <div class="small text-muted mb-1">Total Hasil Prediksi</div>
+                            <div class="small text-muted mb-1">Total Prediksi</div>
+                            <div class="beranda-stat-value">{{ total_prediction_count|default:0 }}</div>
+                            <div class="small text-muted">Jumlah proses prediksi yang pernah dijalankan.</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-xl-3">
+                        <div class="beranda-stat h-100">
+                            <div class="small text-muted mb-1">Total Data Prediksi</div>
                             <div class="beranda-stat-value">{{ total_prediction_results|default:0 }}</div>
                             <div class="small text-muted">Data yang pernah diprediksi melalui menu Buat Analisis.</div>
                         </div>

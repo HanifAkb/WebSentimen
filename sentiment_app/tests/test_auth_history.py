@@ -103,9 +103,13 @@ class AuthAndHistoryTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Ringkasan Hasil")
-        self.assertContains(response, "Total Hasil Scraping")
-        self.assertContains(response, "Total Hasil Prediksi")
+        self.assertContains(response, "Total Scraping")
+        self.assertContains(response, "Total Tweet Scraping")
+        self.assertContains(response, "Total Prediksi")
+        self.assertContains(response, "Total Data Prediksi")
+        self.assertEqual(response.context["total_scraping_count"], 2)
         self.assertEqual(response.context["total_scraping_results"], 5)
+        self.assertEqual(response.context["total_prediction_count"], 2)
         self.assertEqual(response.context["total_prediction_results"], 5)
         self.assertNotContains(response, "Website Ini Untuk Apa?")
 

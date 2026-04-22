@@ -1,6 +1,6 @@
 ﻿# Prediksi Sentimen (Django + KNN/SVM)
 
-Aplikasi web Django untuk analisis sentimen biner (`Positive`/`Negative`) memakai model pre-trained:
+Aplikasi web Django untuk analisis sentimen memakai model pre-trained:
 
 - `knn_model.joblib`
 - `svm_linear_model.joblib` (fallback didukung: `svm_rbf_model.joblib`)
