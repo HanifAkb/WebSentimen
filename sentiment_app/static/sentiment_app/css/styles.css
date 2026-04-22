@@ -477,25 +477,59 @@ body {
     }
 }
 
-.beranda-step {
-    border: 1px solid rgba(37, 99, 235, 0.2);
-    border-radius: 0.9rem;
-    padding: 0.85rem;
-    background: rgba(255, 255, 255, 0.72);
+.beranda-guide {
+    border-top: 1px solid rgba(37, 99, 235, 0.16);
 }
 
-.beranda-step-number {
-    width: 1.8rem;
-    height: 1.8rem;
-    border-radius: 999px;
+.beranda-guide-item {
+    display: grid;
+    grid-template-columns: 3.25rem minmax(0, 1fr);
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid rgba(37, 99, 235, 0.16);
+}
+
+.beranda-guide-number {
+    width: 2.35rem;
+    height: 2.35rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 0.5rem;
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: #ffffff;
-    background: linear-gradient(135deg, #38bdf8, #2563eb);
+    border: 1px solid rgba(37, 99, 235, 0.22);
+    border-radius: 0.5rem;
+    background: #eff6ff;
+    color: #1e3a8a;
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.beranda-guide-body {
+    min-width: 0;
+}
+
+.beranda-guide-body h3 {
+    color: #1e3a8a;
+}
+
+.beranda-guide-steps {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem 1.1rem;
+    padding-left: 1.1rem;
+    color: #64748b;
+    font-size: 0.86rem;
+    line-height: 1.45;
+}
+
+.beranda-guide-note {
+    margin-top: 0.65rem;
+    padding: 0.55rem 0.7rem;
+    border-left: 0.25rem solid #f59e0b;
+    border-radius: 0.35rem;
+    background: rgba(254, 243, 199, 0.72);
+    color: #92400e;
+    font-size: 0.82rem;
+    line-height: 1.35;
 }
 
 .beranda-summary {
@@ -808,6 +842,12 @@ body {
     -webkit-text-fill-color: #ffffff;
 }
 
+.flatpickr-current-month .flatpickr-monthDropdown-months option {
+    color: #0f172a;
+    -webkit-text-fill-color: #0f172a;
+    background: #ffffff;
+}
+
 .flatpickr-prev-month,
 .flatpickr-next-month {
     border-radius: 0.45rem;
@@ -1036,10 +1076,29 @@ span.flatpickr-weekday {
     .beranda-summary-value {
         font-size: 1.85rem;
     }
+
+    .beranda-guide-item {
+        grid-template-columns: 2.8rem minmax(0, 1fr);
+        gap: 0.8rem;
+    }
+
+    .beranda-guide-steps {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 575.98px) {
     .beranda-summary-metrics {
         grid-template-columns: 1fr;
+    }
+
+    .beranda-guide-item {
+        grid-template-columns: 1fr;
+    }
+
+    .beranda-guide-number {
+        width: 2.1rem;
+        height: 2.1rem;
+        font-size: 0.78rem;
     }
 }
