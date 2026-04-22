@@ -5,19 +5,42 @@
 
 {% block content %}
 <div class="row g-4 app-page">
+    {% if history_mode and history %}
+        <div class="col-12">
+            <div class="card shadow-sm panel-card">
+                <div class="card-body">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <div>
+                            <h1 class="h4 fw-semibold mb-1">Detail Riwayat Scraping</h1>
+                            <div class="text-muted small">
+                                Dibuat: {{ history.created_at|date:"d/m/Y H:i" }}
+                            </div>
+                            <div class="text-muted small">
+                                Rentang tanggal: {{ history.start_date|date:"d/m/Y" }} - {{ history.end_date|date:"d/m/Y" }}
+                            </div>
+                            <div class="text-muted small text-break">
+                                Kueri: {{ history.query }}
+                            </div>
+                        </div>
+                        <a class="btn btn-outline-secondary btn-sm" href="{% url 'history_list' %}">Kembali ke Riwayat</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
     <div class="col-12">
         <div class="card shadow-sm panel-card">
             <div class="card-body">
-                <h1 class="h4 mb-2 fw-semibold">Scraping Web X</h1>
-                <p class="text-muted mb-4">
-                    Gunakan API key dari twitterapi.io Anda sendiri untuk mengambil tweet, mengunduh CSV, lalu klasifikasikan dengan KNN dan SVM.
-                </p>
                 {% if history_mode and history %}
-                    <div class="alert alert-info py-2 mb-3">
-                        Menampilkan riwayat scraping tersimpan:
-                        <strong>{{ history.created_at|date:"d/m/Y H:i" }}</strong>
-                        ({{ history.start_date|date:"d/m/Y" }} - {{ history.end_date|date:"d/m/Y" }}).
-                    </div>
+                    <h2 class="h5 mb-3 fw-semibold">Status Riwayat Scraping</h2>
+                {% else %}
+                    <h1 class="h4 mb-2 fw-semibold">Scraping Web X</h1>
+                    <p class="text-muted mb-4">
+                        Gunakan API key dari twitterapi.io Anda sendiri untuk mengambil tweet, mengunduh CSV, lalu klasifikasikan dengan KNN dan SVM.
+                    </p>
+                {% endif %}
+                {% if history_mode and history %}
                     {% if history.is_complete %}
                         <div class="alert alert-success py-2 mb-3">
                             Status scraping: <strong>Selesai</strong>.
@@ -54,6 +77,10 @@
                                 data-auto-default="{% if auto_resume_default %}1{% else %}0{% endif %}"
                             >
                                 {% csrf_token %}
+                                <div class="w-100 mb-2">
+                                    <label class="form-label" for="{{ resume_form.api_key.id_for_label }}">{{ resume_form.api_key.label }}</label>
+                                    {{ resume_form.api_key }}
+                                </div>
                                 <input type="hidden" name="per_page" value="{{ per_page|default:10 }}">
                                 <input type="hidden" name="next_url" value="{{ resume_next_url|default:'' }}">
                                 <button
@@ -69,6 +96,7 @@
                     {% endif %}
                 {% endif %}
 
+                {% if not history_mode %}
                 <form id="twitterFetchForm" method="post" action="{% url 'twitter_fetch' %}">
                     {% csrf_token %}
                     {% if form.non_field_errors %}
@@ -225,6 +253,7 @@
                         <button class="btn btn-primary px-4" type="submit">Mulai Scraping</button>
                     </div>
                 </form>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -644,24 +673,29 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    const resumeForm = document.getElementById("resumeScrapeForm");
     const twitterFetchForm = document.getElementById("twitterFetchForm");
-    const fetchApiKeyInput = twitterFetchForm ? twitterFetchForm.querySelector('input[name="api_key"]') : null;
-    if (twitterFetchForm) {
-        if (fetchApiKeyInput) {
-            const storedApiKey = window.sessionStorage.getItem(SCRAPE_API_KEY_STORAGE) || "";
-            if (!fetchApiKeyInput.value && storedApiKey) {
-                fetchApiKeyInput.value = storedApiKey;
-            }
-            fetchApiKeyInput.addEventListener("input", function () {
-                const keyValue = String(fetchApiKeyInput.value || "").trim();
-                if (keyValue) {
-                    window.sessionStorage.setItem(SCRAPE_API_KEY_STORAGE, keyValue);
-                } else {
-                    window.sessionStorage.removeItem(SCRAPE_API_KEY_STORAGE);
-                }
-            });
-        }
+    const resumeApiKeyInput = resumeForm ? resumeForm.querySelector('input[name="api_key"]') : null;
+    const fetchApiKeyInput = twitterFetchForm
+        ? twitterFetchForm.querySelector('input[name="api_key"]')
+        : resumeApiKeyInput;
 
+    if (fetchApiKeyInput) {
+        const storedApiKey = window.sessionStorage.getItem(SCRAPE_API_KEY_STORAGE) || "";
+        if (!fetchApiKeyInput.value && storedApiKey) {
+            fetchApiKeyInput.value = storedApiKey;
+        }
+        fetchApiKeyInput.addEventListener("input", function () {
+            const keyValue = String(fetchApiKeyInput.value || "").trim();
+            if (keyValue) {
+                window.sessionStorage.setItem(SCRAPE_API_KEY_STORAGE, keyValue);
+            } else {
+                window.sessionStorage.removeItem(SCRAPE_API_KEY_STORAGE);
+            }
+        });
+    }
+
+    if (twitterFetchForm) {
         twitterFetchForm.addEventListener("submit", function () {
             if (!fetchApiKeyInput) {
                 return;
@@ -675,7 +709,6 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    const resumeForm = document.getElementById("resumeScrapeForm");
     const resumeAutoButton = document.getElementById("resumeAutoButton");
     const resumeProgressBar = document.getElementById("resumeProgressBar");
     const resumeProgressText = document.getElementById("resumeProgressText");

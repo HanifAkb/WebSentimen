@@ -1595,7 +1595,17 @@ def predict_view(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def beranda_view(request: HttpRequest) -> HttpResponse:
-    return render(request, "sentiment_app/beranda.html")
+    total_scraping_results = (
+        ScrapeHistory.objects.filter(user=request.user).aggregate(total=models.Sum("tweet_count")).get("total") or 0
+    )
+    total_prediction_results = (
+        PredictionHistory.objects.filter(user=request.user).aggregate(total=models.Sum("sample_count")).get("total") or 0
+    )
+    context = {
+        "total_scraping_results": total_scraping_results,
+        "total_prediction_results": total_prediction_results,
+    }
+    return render(request, "sentiment_app/beranda.html", context)
 
 
 @login_required

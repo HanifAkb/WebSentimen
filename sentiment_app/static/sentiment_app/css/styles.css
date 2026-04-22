@@ -498,6 +498,20 @@ body {
     background: linear-gradient(135deg, #38bdf8, #2563eb);
 }
 
+.beranda-stat {
+    border: 1px solid rgba(37, 99, 235, 0.18);
+    border-radius: 0.85rem;
+    padding: 0.95rem;
+    background: rgba(255, 255, 255, 0.76);
+}
+
+.beranda-stat-value {
+    font-size: 2rem;
+    line-height: 1.1;
+    font-weight: 800;
+    color: #1e40af;
+}
+
 @keyframes sidebarActivePulse {
     0% {
         box-shadow: 0 10px 20px rgba(37, 99, 235, 0.42);

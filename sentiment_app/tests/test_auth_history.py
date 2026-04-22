@@ -51,6 +51,64 @@ class AuthAndHistoryTests(TestCase):
     def test_admin_route_is_available(self):
         self.assertEqual(reverse("admin:index"), "/admin/")
 
+    def test_home_shows_owner_scraping_and_prediction_totals(self):
+        ScrapeHistory.objects.create(
+            user=self.user,
+            query="query_user_1",
+            language="in",
+            start_date="2026-01-01",
+            end_date="2026-01-02",
+            tweet_count=3,
+            rows=[],
+        )
+        ScrapeHistory.objects.create(
+            user=self.user,
+            query="query_user_2",
+            language="in",
+            start_date="2026-01-03",
+            end_date="2026-01-04",
+            tweet_count=2,
+            rows=[],
+        )
+        ScrapeHistory.objects.create(
+            user=self.other_user,
+            query="query_other",
+            language="in",
+            start_date="2026-01-05",
+            end_date="2026-01-06",
+            tweet_count=99,
+            rows=[],
+        )
+        PredictionHistory.objects.create(
+            user=self.user,
+            input_type=PredictionHistory.InputType.SINGLE,
+            sample_count=1,
+            rows=[],
+        )
+        PredictionHistory.objects.create(
+            user=self.user,
+            input_type=PredictionHistory.InputType.FILE,
+            sample_count=4,
+            rows=[],
+        )
+        PredictionHistory.objects.create(
+            user=self.other_user,
+            input_type=PredictionHistory.InputType.FILE,
+            sample_count=88,
+            rows=[],
+        )
+
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Ringkasan Hasil")
+        self.assertContains(response, "Total Hasil Scraping")
+        self.assertContains(response, "Total Hasil Prediksi")
+        self.assertEqual(response.context["total_scraping_results"], 5)
+        self.assertEqual(response.context["total_prediction_results"], 5)
+        self.assertNotContains(response, "Website Ini Untuk Apa?")
+
     def test_scraping_post_creates_history_for_logged_user(self):
         self.client.force_login(self.user)
         mocked_tweets = [
@@ -123,6 +181,34 @@ class AuthAndHistoryTests(TestCase):
 
         forbidden_detail = self.client.get(reverse("history_detail", args=[other_history.id]))
         self.assertEqual(forbidden_detail.status_code, 404)
+
+    def test_scrape_history_detail_has_detail_header_and_back_button(self):
+        history = ScrapeHistory.objects.create(
+            user=self.user,
+            query="mobil listrik",
+            language="in",
+            start_date="2026-01-01",
+            end_date="2026-01-02",
+            tweet_count=1,
+            rows=[
+                {
+                    "id": "1",
+                    "text": "mobil listrik bagus",
+                    "CreatedAt": "2026-01-01T10:00:00+00:00",
+                    "knn_label": "Positive",
+                    "svm_label": "Positive",
+                }
+            ],
+        )
+
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("history_detail", args=[history.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Detail Riwayat Scraping")
+        self.assertContains(response, "Kembali ke Riwayat")
+        self.assertContains(response, "Status Riwayat Scraping")
+        self.assertNotContains(response, "Mulai Scraping")
 
     def test_predict_single_creates_prediction_history(self):
         self.client.force_login(self.user)
