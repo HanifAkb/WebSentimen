@@ -44,7 +44,7 @@ from .services.model_service import (
     predict_single,
     preprocess_text,
 )
-from .services.twitter_client import TwitterAPIError, TwitterRateLimitError, TwitterTimeoutError, fetch_tweets
+from .services.scraping_service import TwitterAPIError, TwitterRateLimitError, TwitterTimeoutError, fetch_tweets
 
 try:
     from wordcloud import STOPWORDS as WORDCLOUD_BASE_STOPWORDS
@@ -1322,7 +1322,7 @@ def admin_user_create_view(request: HttpRequest) -> HttpResponse:
     if request.method == "POST" and form.is_valid():
         user_obj = form.save()
         messages.success(request, f"User {user_obj.username} berhasil dibuat.")
-        return redirect("admin:user_edit", user_id=user_obj.id)
+        return redirect("admin:index")
 
     context = {
         "form": form,

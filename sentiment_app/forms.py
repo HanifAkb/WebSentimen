@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib.auth import password_validation
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import User
+from django.utils.safestring import mark_safe
 
 from .models import PredictionHistory, ScrapeHistory
 
@@ -247,9 +248,10 @@ class AdminEditUserForm(forms.ModelForm):
         required=False,
         label="Password baru",
         strip=False,
-        help_text=(
+        help_text=mark_safe(
             "<ul>"
             "<li>Password minimal 8 karakter.</li>"
+            "<li>Gunakan password yang tidak terlalu umum.</li>"
             "<li>Password tidak boleh hanya berisi angka.</li>"
             "</ul>"
         ),

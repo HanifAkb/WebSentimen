@@ -2,18 +2,18 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from sentiment_app.services.twitter_client import TwitterAPIError, _fetch_window_tweets, fetch_tweets
+from sentiment_app.services.scraping_service import TwitterAPIError, _fetch_window_tweets, fetch_tweets
 
 
-class TwitterClientServiceTests(SimpleTestCase):
-    @patch("sentiment_app.services.twitter_client.time.sleep", return_value=None)
+class ScrapingServiceTests(SimpleTestCase):
+    @patch("sentiment_app.services.scraping_service.time.sleep", return_value=None)
     def test_fetch_tweets_keeps_rows_with_unparseable_created_at(self, _mock_sleep):
         window_1 = [{"id": "1", "text": "tweet hari 1"}]
         window_2 = [{"id": "2", "text": "tweet hari 2"}]
         window_3 = [{"id": "3", "text": "tweet hari 3"}]
 
         with patch(
-            "sentiment_app.services.twitter_client._fetch_window_tweets",
+            "sentiment_app.services.scraping_service._fetch_window_tweets",
             side_effect=[window_1, window_2, window_3],
         ):
             tweets = fetch_tweets(
@@ -31,7 +31,7 @@ class TwitterClientServiceTests(SimpleTestCase):
         self.assertEqual(tweets[1]["_week_start"], "2026-02-02")
         self.assertEqual(tweets[2]["_week_start"], "2026-02-03")
 
-    @patch("sentiment_app.services.twitter_client.time.sleep", return_value=None)
+    @patch("sentiment_app.services.scraping_service.time.sleep", return_value=None)
     def test_fetch_tweets_filters_by_global_range(self, _mock_sleep):
         # Window 1 returns a tweet from day-2 (still inside global range) -> should be kept.
         # Window 2 returns tweet outside global range -> should be dropped.
@@ -40,7 +40,7 @@ class TwitterClientServiceTests(SimpleTestCase):
         window_3 = []
 
         with patch(
-            "sentiment_app.services.twitter_client._fetch_window_tweets",
+            "sentiment_app.services.scraping_service._fetch_window_tweets",
             side_effect=[window_1, window_2, window_3],
         ):
             tweets = fetch_tweets(
@@ -56,7 +56,7 @@ class TwitterClientServiceTests(SimpleTestCase):
         self.assertEqual(len(tweets), 1)
         self.assertEqual(tweets[0]["id"], "A")
 
-    @patch("sentiment_app.services.twitter_client.time.sleep", return_value=None)
+    @patch("sentiment_app.services.scraping_service.time.sleep", return_value=None)
     def test_fetch_window_tweets_raises_on_rate_limit_after_retries(self, _mock_sleep):
         class DummyResponse:
             status_code = 429
@@ -65,7 +65,7 @@ class TwitterClientServiceTests(SimpleTestCase):
             def json():
                 return {"message": "rate limit"}
 
-        with patch("sentiment_app.services.twitter_client.requests.get", return_value=DummyResponse()):
+        with patch("sentiment_app.services.scraping_service.requests.get", return_value=DummyResponse()):
             with self.assertRaises(TwitterAPIError):
                 _fetch_window_tweets(
                     api_key="dummy",
@@ -73,13 +73,13 @@ class TwitterClientServiceTests(SimpleTestCase):
                     max_tweets_per_window=5,
                 )
 
-    @patch("sentiment_app.services.twitter_client.time.sleep", return_value=None)
+    @patch("sentiment_app.services.scraping_service.time.sleep", return_value=None)
     def test_fetch_tweets_returns_partial_when_timeout_after_some_data(self, _mock_sleep):
         with patch(
-            "sentiment_app.services.twitter_client._fetch_window_tweets",
+            "sentiment_app.services.scraping_service._fetch_window_tweets",
             side_effect=lambda *args, **kwargs: [{"id": "x", "text": "tweet"}],
         ), patch(
-            "sentiment_app.services.twitter_client.time.monotonic",
+            "sentiment_app.services.scraping_service.time.monotonic",
             side_effect=[0.0, 0.0, 0.0, 100.0],
         ):
             tweets, meta = fetch_tweets(
@@ -97,10 +97,10 @@ class TwitterClientServiceTests(SimpleTestCase):
         self.assertEqual(len(tweets), 1)
         self.assertTrue(bool(meta.get("timed_out")))
 
-    @patch("sentiment_app.services.twitter_client.time.sleep", return_value=None)
+    @patch("sentiment_app.services.scraping_service.time.sleep", return_value=None)
     def test_fetch_tweets_raises_when_timeout_before_any_data(self, _mock_sleep):
         with patch(
-            "sentiment_app.services.twitter_client.time.monotonic",
+            "sentiment_app.services.scraping_service.time.monotonic",
             side_effect=[0.0, 100.0],
         ):
             with self.assertRaises(TwitterAPIError):

@@ -6,7 +6,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from sentiment_app.models import PredictionHistory, ScrapeHistory, ScrapeTempChunk
-from sentiment_app.services.twitter_client import TwitterRateLimitError, TwitterTimeoutError
+from sentiment_app.services.scraping_service import TwitterRateLimitError, TwitterTimeoutError
 
 
 class AuthAndHistoryTests(TestCase):
@@ -104,6 +104,7 @@ class AuthAndHistoryTests(TestCase):
             },
         )
         self.assertEqual(create_response.status_code, 302)
+        self.assertEqual(create_response["Location"], reverse("admin:index"))
         created_user = User.objects.get(username="created_user")
         self.assertTrue(created_user.is_staff)
         self.assertFalse(created_user.is_superuser)
