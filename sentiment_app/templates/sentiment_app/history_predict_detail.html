@@ -35,7 +35,7 @@
                                     {% if single_result.knn_label == "Positive" %}Positif{% elif single_result.knn_label == "Negative" %}Negatif{% elif single_result.knn_label == "Neutral" %}Netral{% else %}{{ single_result.knn_label }}{% endif %}
                                 </span>
                                 <div class="text-muted small mt-2">
-                                    Skor:
+                                    Skor <code>predict_proba</code> (0-1):
                                     {% if single_result.knn_score is not None %}
                                         {{ single_result.knn_score|floatformat:4 }}
                                     {% else %}
@@ -51,7 +51,7 @@
                                     {% if single_result.svm_label == "Positive" %}Positif{% elif single_result.svm_label == "Negative" %}Negatif{% elif single_result.svm_label == "Neutral" %}Netral{% else %}{{ single_result.svm_label }}{% endif %}
                                 </span>
                                 <div class="text-muted small mt-2">
-                                    Skor:
+                                    Skor <code>decision_function</code> (-1 s/d 1):
                                     {% if single_result.svm_score is not None %}
                                         {{ single_result.svm_score|floatformat:4 }}
                                     {% else %}
