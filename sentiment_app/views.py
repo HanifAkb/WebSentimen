@@ -219,7 +219,7 @@ def _build_batch_preview(
     source_columns: list[str],
     predictions: list[dict[str, object]],
 ) -> tuple[list[str], list[dict[str, object]]]:
-    columns = list(source_columns) + PREDICTION_COLUMNS
+    columns = [column for column in source_columns if str(column).strip().lower() != "id"] + PREDICTION_COLUMNS
     headers = [PREDICTION_HEADERS.get(column, column) for column in columns]
 
     preview_rows: list[dict[str, object]] = []
@@ -296,7 +296,7 @@ def _build_prediction_history_preview(
     rows: list[dict[str, object]],
     source_columns: list[str],
 ) -> tuple[list[str], list[dict[str, object]]]:
-    columns = list(source_columns) + PREDICTION_COLUMNS
+    columns = [column for column in source_columns if str(column).strip().lower() != "id"] + PREDICTION_COLUMNS
     headers = [PREDICTION_HEADERS.get(column, column) for column in columns]
     preview_rows: list[dict[str, object]] = []
 

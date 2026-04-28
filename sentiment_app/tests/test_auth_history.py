@@ -510,6 +510,36 @@ class AuthAndHistoryTests(TestCase):
         self.assertContains(response, "prediction-dashboard-data")
         self.assertEqual(response.context["dashboard"]["charts"]["trend_title"], "Jumlah Data per Harian")
 
+    def test_prediction_file_history_detail_hides_id_column_in_preview(self):
+        history = PredictionHistory.objects.create(
+            user=self.user,
+            input_type=PredictionHistory.InputType.FILE,
+            source_name="uji.csv",
+            text_column="review",
+            sample_count=1,
+            columns=["id", "review"],
+            rows=[
+                {
+                    "id": "abc-001",
+                    "review": "mobil listrik bagus",
+                    "knn_label": "Positive",
+                    "knn_score": 0.91,
+                    "svm_label": "Positive",
+                    "svm_score": 0.87,
+                }
+            ],
+            output_filename="uji_hasil.csv",
+        )
+
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("prediction_history_detail", args=[history.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(history.columns[0], "id")
+        self.assertEqual(history.rows[0]["id"], "abc-001")
+        self.assertNotIn("id", response.context["batch_preview_headers"])
+        self.assertContains(response, "Unduh CSV Lengkap")
+
     def test_prediction_history_detail_is_user_scoped(self):
         own_history = PredictionHistory.objects.create(
             user=self.user,
