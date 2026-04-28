@@ -407,9 +407,10 @@ class AuthAndHistoryTests(TestCase):
                 },
             )
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 302)
         self.assertEqual(PredictionHistory.objects.count(), 1)
         history = PredictionHistory.objects.get()
+        self.assertEqual(response.url, reverse("prediction_history_detail", args=[history.id]))
         self.assertEqual(history.user, self.user)
         self.assertEqual(history.input_type, PredictionHistory.InputType.SINGLE)
         self.assertEqual(history.sample_count, 1)
@@ -459,9 +460,10 @@ class AuthAndHistoryTests(TestCase):
                 },
             )
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 302)
         self.assertEqual(PredictionHistory.objects.count(), 1)
         history = PredictionHistory.objects.get()
+        self.assertEqual(response.url, reverse("prediction_history_detail", args=[history.id]))
         self.assertEqual(history.user, self.user)
         self.assertEqual(history.input_type, PredictionHistory.InputType.FILE)
         self.assertEqual(history.source_name, "uji.csv")

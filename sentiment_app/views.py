@@ -1764,9 +1764,7 @@ def predict_view(request: HttpRequest) -> HttpResponse:
         try:
             if text_input:
                 single_result = predict_single(text_input)
-                context["single_result"] = single_result
-                context["active_tab"] = "single"
-                PredictionHistory.objects.create(
+                saved_history = PredictionHistory.objects.create(
                     user=request.user,
                     input_type=PredictionHistory.InputType.SINGLE,
                     text_input=text_input,
@@ -1783,20 +1781,14 @@ def predict_view(request: HttpRequest) -> HttpResponse:
                         ]
                     ),
                 )
+                messages.success(request, "Prediksi kalimat berhasil dibuat.")
+                return redirect("prediction_history_detail", history_id=saved_history.id)
             elif upload_file:
                 texts, detected_column, source_rows, source_columns = parse_uploaded_file(upload_file, text_column)
                 predictions = predict_batch(texts)
                 output_filename = generate_classification_csv(predictions, prefix="uploaded")
-                preview_headers, preview_rows = _build_batch_preview(source_rows, source_columns, predictions)
                 merged_rows = _merge_batch_rows_for_history(source_rows, predictions)
-                context["batch_count"] = len(predictions)
-                context["detected_column"] = detected_column
-                context["batch_preview_headers"] = preview_headers
-                context["batch_preview_rows"] = preview_rows[:20]
-                context["output_filename"] = output_filename
-                context["download_url"] = reverse("download_output", args=[output_filename])
-                context["active_tab"] = "file"
-                PredictionHistory.objects.create(
+                saved_history = PredictionHistory.objects.create(
                     user=request.user,
                     input_type=PredictionHistory.InputType.FILE,
                     source_name=getattr(upload_file, "name", "") or "",
@@ -1806,6 +1798,8 @@ def predict_view(request: HttpRequest) -> HttpResponse:
                     rows=_serialize_history_rows(merged_rows),
                     output_filename=output_filename,
                 )
+                messages.success(request, "Prediksi CSV/TXT berhasil dibuat.")
+                return redirect("prediction_history_detail", history_id=saved_history.id)
         except (ModelServiceError, FileValidationError) as exc:
             messages.error(request, str(exc))
         except Exception as exc:
