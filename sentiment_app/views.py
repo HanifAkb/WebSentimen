@@ -1237,7 +1237,7 @@ def logout_view(request: HttpRequest) -> HttpResponse:
 
 def _require_superuser(request: HttpRequest) -> None:
     if not request.user.is_superuser:
-        raise PermissionDenied("Hanya superuser yang dapat mengakses Admin Panel.")
+        raise PermissionDenied("Hanya Administrator yang dapat mengakses Admin Panel.")
 
 
 def _scrape_history_queryset_for_detail(request: HttpRequest):

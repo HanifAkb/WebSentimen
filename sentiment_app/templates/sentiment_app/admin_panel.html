@@ -27,7 +27,7 @@
                 <div class="admin-stat-value">{{ total_staff }}</div>
             </div>
             <div class="admin-stat">
-                <div class="admin-stat-label">Superuser</div>
+                <div class="admin-stat-label">Administrator</div>
                 <div class="admin-stat-value">{{ total_superusers }}</div>
             </div>
             <div class="admin-stat">
@@ -67,7 +67,7 @@
                                         <td>{{ account.email|default:"-" }}</td>
                                         <td>
                                             {% if account.is_superuser %}
-                                                <span class="badge text-bg-primary">Superuser</span>
+                                                <span class="badge text-bg-primary">Administrator</span>
                                             {% endif %}
                                             {% if account.is_staff %}
                                                 <span class="badge text-bg-info">Staff</span>

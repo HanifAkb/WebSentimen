@@ -195,7 +195,7 @@ class AdminCreateUserForm(UserCreationForm):
     email = forms.EmailField(required=False, label="Email")
     is_active = forms.BooleanField(required=False, initial=True, label="Aktif")
     is_staff = forms.BooleanField(required=False, label="Staff")
-    is_superuser = forms.BooleanField(required=False, label="Superuser")
+    is_superuser = forms.BooleanField(required=False, label="Administrator")
 
     class Meta:
         model = User
@@ -282,7 +282,7 @@ class AdminEditUserForm(forms.ModelForm):
             "email": "Email",
             "is_active": "Aktif",
             "is_staff": "Staff",
-            "is_superuser": "Superuser",
+            "is_superuser": "Administrator",
         }
 
     def __init__(self, *args, **kwargs):
