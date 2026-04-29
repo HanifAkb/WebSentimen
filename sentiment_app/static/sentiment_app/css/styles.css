@@ -73,7 +73,7 @@ body {
 
 .sidebar-logo-text {
     display: block;
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 800;
     letter-spacing: 0.01em;
     color: #f8fafc;
@@ -1033,7 +1033,7 @@ span.flatpickr-weekday {
     }
 
     .sidebar-logo-text {
-        font-size: 1rem;
+        font-size: 0.92rem;
     }
 
     .sidebar-subtitle {
