@@ -213,6 +213,71 @@ class AuthAndHistoryTests(TestCase):
         self.assertFalse(PredictionHistory.objects.filter(id=prediction_history.id).exists())
         self.assertFalse(ScrapeHistory.objects.filter(id=scrape_history.id).exists())
 
+    def test_pages_render_specific_browser_titles(self):
+        login_response = self.client.get(reverse("login"))
+        self.assertContains(login_response, "<title>Login | Sistem Analisis Sentimen</title>", html=True)
+
+        scrape_history = ScrapeHistory.objects.create(
+            user=self.user,
+            query="judul query",
+            language="in",
+            start_date="2026-01-01",
+            end_date="2026-01-02",
+            tweet_count=1,
+            rows=[{"id": "1", "text": "contoh"}],
+        )
+        prediction_history = PredictionHistory.objects.create(
+            user=self.user,
+            input_type=PredictionHistory.InputType.SINGLE,
+            text_input="contoh kalimat",
+            sample_count=1,
+            rows=[{"text": "contoh kalimat", "knn_label": "Positive", "svm_label": "Positive"}],
+        )
+
+        self.client.force_login(self.user)
+        self.assertContains(
+            self.client.get(reverse("home")),
+            "<title>Beranda | Sistem Analisis Sentimen</title>",
+            html=True,
+        )
+        self.assertContains(
+            self.client.get(reverse("predict")),
+            "<title>Buat Analisis | Sistem Analisis Sentimen</title>",
+            html=True,
+        )
+        self.assertContains(
+            self.client.get(reverse("history_list")),
+            "<title>Riwayat Aktivitas | Sistem Analisis Sentimen</title>",
+            html=True,
+        )
+        self.assertContains(
+            self.client.get(reverse("twitter_fetch")),
+            "<title>Scraping Web X | Sistem Analisis Sentimen</title>",
+            html=True,
+        )
+        self.assertContains(
+            self.client.get(reverse("history_detail", args=[scrape_history.id])),
+            "<title>Detail Riwayat Scraping | Sistem Analisis Sentimen</title>",
+            html=True,
+        )
+        self.assertContains(
+            self.client.get(reverse("prediction_history_detail", args=[prediction_history.id])),
+            "<title>Detail Riwayat Prediksi | Sistem Analisis Sentimen</title>",
+            html=True,
+        )
+
+        self.client.force_login(self.admin)
+        self.assertContains(
+            self.client.get(reverse("admin:index")),
+            "<title>Admin Panel | Sistem Analisis Sentimen</title>",
+            html=True,
+        )
+        self.assertContains(
+            self.client.get(reverse("admin:user_add")),
+            "<title>Tambah User | Sistem Analisis Sentimen</title>",
+            html=True,
+        )
+
     def test_home_shows_owner_scraping_and_prediction_totals(self):
         ScrapeHistory.objects.create(
             user=self.user,

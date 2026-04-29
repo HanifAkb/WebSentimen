@@ -1,4 +1,5 @@
 {% extends "sentiment_app/base.html" %}
+{% block title %}{% if history_mode and history %}Detail Riwayat Scraping{% else %}Scraping Web X{% endif %} | Sistem Analisis Sentimen{% endblock %}
 {% block extra_head %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 {% endblock %}

@@ -190,6 +190,7 @@ class LoginForm(AuthenticationForm):
 
 
 class AdminCreateUserForm(UserCreationForm):
+    username = forms.CharField(label="Username")
     first_name = forms.CharField(required=False, label="Nama depan")
     last_name = forms.CharField(required=False, label="Nama belakang")
     email = forms.EmailField(required=False, label="Email")
