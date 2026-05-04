@@ -706,6 +706,16 @@ body {
     white-space: nowrap;
 }
 
+.predict-results-table .predict-col-text {
+    width: 900px;
+    min-width: 900px;
+}
+
+.predict-results-table tbody td.predict-col-text {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
 .predict-main-scroll {
     overflow-x: auto;
 }

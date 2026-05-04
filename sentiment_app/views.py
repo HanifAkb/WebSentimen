@@ -277,6 +277,22 @@ def _build_prediction_history_preview(
     return headers, preview_rows
 
 
+def _resolve_prediction_text_column(
+    text_column: str,
+    source_columns: list[str],
+) -> str:
+    preferred = str(text_column or "").strip()
+    if preferred:
+        return preferred
+
+    for column in source_columns:
+        normalized = str(column).strip().lower()
+        if normalized in {"text", "tweet", "content", "sentence", "review", "kalimat"}:
+            return str(column)
+
+    return str(source_columns[0]) if source_columns else ""
+
+
 def _safe_parse_iso_date(value: object) -> date | None:
     if value in (None, ""):
         return None
@@ -1860,6 +1876,9 @@ def prediction_history_detail_view(request: HttpRequest, history_id: int) -> Htt
 
     source_columns = _normalize_prediction_source_columns(history.columns, rows)
     preview_headers, preview_rows = _build_prediction_history_preview(page_rows, source_columns)
+    preview_columns = [column for column in source_columns if str(column).strip().lower() != "id"] + PREDICTION_COLUMNS
+    preview_text_column = _resolve_prediction_text_column(history.text_column, source_columns)
+    preview_text_column_index = preview_columns.index(preview_text_column) if preview_text_column in preview_columns else -1
 
     page_start = max(1, current_page - 2)
     page_end = min(total_pages, current_page + 2)
@@ -1879,6 +1898,7 @@ def prediction_history_detail_view(request: HttpRequest, history_id: int) -> Htt
     context.update(
         {
             "source_columns": source_columns,
+            "batch_preview_text_column_index": preview_text_column_index,
             "batch_count": total_rows,
             "batch_preview_headers": preview_headers,
             "batch_preview_rows": preview_rows,
