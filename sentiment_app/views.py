@@ -56,13 +56,24 @@ DEFAULT_PER_PAGE = 10
 MAX_PER_PAGE = 200
 HISTORY_PER_PAGE = 10
 TWITTER_RESULT_SESSION_KEY = "twitter_last_result"
-CURRENT_SCORE_SCHEMA_VERSION = 3
-PREDICTION_COLUMNS = ["knn_label", "knn_score", "svm_label", "svm_score"]
+CURRENT_SCORE_SCHEMA_VERSION = 4
+PREDICTION_LABEL_COLUMNS = ["knn_label", "svm_label", "combined_label"]
+PREDICTION_SCORE_COLUMNS = ["knn_score", "svm_score", "combined_score"]
+PREDICTION_COLUMNS = [
+    "knn_label",
+    "knn_score",
+    "svm_label",
+    "svm_score",
+    "combined_label",
+    "combined_score",
+]
 PREDICTION_HEADERS = {
     "knn_label": "KNN",
     "knn_score": "Skor KNN (0-1)",
     "svm_label": "SVM",
     "svm_score": "Skor SVM (0-1)",
+    "combined_label": "Gabungan",
+    "combined_score": "Skor Gabungan (0-1)",
 }
 PREDICTION_DATE_COLUMN_HINTS = (
     "createdat",
@@ -151,14 +162,16 @@ def _build_batch_preview(
             "knn_score": prediction.get("knn_score"),
             "svm_label": prediction.get("svm_label", ""),
             "svm_score": prediction.get("svm_score"),
+            "combined_label": prediction.get("combined_label", ""),
+            "combined_score": prediction.get("combined_score"),
         }
 
         cells = []
         for column in columns:
             cell_type = "text"
-            if column in ("knn_label", "svm_label"):
+            if column in PREDICTION_LABEL_COLUMNS:
                 cell_type = "label"
-            elif column in ("knn_score", "svm_score"):
+            elif column in PREDICTION_SCORE_COLUMNS:
                 cell_type = "score"
 
             cells.append(
@@ -186,6 +199,8 @@ def _merge_batch_rows_for_history(
                 "knn_score": prediction.get("knn_score"),
                 "svm_label": prediction.get("svm_label", ""),
                 "svm_score": prediction.get("svm_score"),
+                "combined_label": prediction.get("combined_label", ""),
+                "combined_score": prediction.get("combined_score"),
             }
         )
     return merged_rows
@@ -226,9 +241,9 @@ def _build_prediction_history_preview(
         cells: list[dict[str, object]] = []
         for column in columns:
             cell_type = "text"
-            if column in ("knn_label", "svm_label"):
+            if column in PREDICTION_LABEL_COLUMNS:
                 cell_type = "label"
-            elif column in ("knn_score", "svm_score"):
+            elif column in PREDICTION_SCORE_COLUMNS:
                 cell_type = "score"
             cells.append(
                 {
@@ -680,6 +695,8 @@ def _upgrade_prediction_history_scores_if_needed(history: PredictionHistory) -> 
         updated_row = dict(row)
         updated_row["svm_label"] = prediction.get("svm_label", "")
         updated_row["svm_score"] = prediction.get("svm_score")
+        updated_row["combined_label"] = prediction.get("combined_label", "")
+        updated_row["combined_score"] = prediction.get("combined_score")
         updated_rows.append(updated_row)
         export_rows.append(
             {
@@ -688,6 +705,8 @@ def _upgrade_prediction_history_scores_if_needed(history: PredictionHistory) -> 
                 "knn_score": updated_row.get("knn_score"),
                 "svm_label": updated_row.get("svm_label", ""),
                 "svm_score": updated_row.get("svm_score"),
+                "combined_label": updated_row.get("combined_label", ""),
+                "combined_score": updated_row.get("combined_score"),
             }
         )
 
@@ -758,6 +777,8 @@ def _upgrade_scrape_history_scores_if_needed(history: ScrapeHistory) -> ScrapeHi
         updated_row = dict(row)
         updated_row["svm_label"] = prediction.get("svm_label", "")
         updated_row["svm_score"] = prediction.get("svm_score")
+        updated_row["combined_label"] = prediction.get("combined_label", "")
+        updated_row["combined_score"] = prediction.get("combined_score")
         updated_rows.append(updated_row)
 
     _store_scrape_history_rows(history, updated_rows)
@@ -920,6 +941,8 @@ def _combine_tweet_predictions(
                 "knn_score": prediction.get("knn_score"),
                 "svm_label": prediction.get("svm_label", ""),
                 "svm_score": prediction.get("svm_score"),
+                "combined_label": prediction.get("combined_label", ""),
+                "combined_score": prediction.get("combined_score"),
             }
         )
     return combined_rows
@@ -1756,6 +1779,8 @@ def prediction_history_detail_view(request: HttpRequest, history_id: int) -> Htt
             "knn_score": single_row.get("knn_score"),
             "svm_label": single_row.get("svm_label", ""),
             "svm_score": single_row.get("svm_score"),
+            "combined_label": single_row.get("combined_label", ""),
+            "combined_score": single_row.get("combined_score"),
         }
         return render(request, "sentiment_app/history_predict_detail.html", context)
 
@@ -1836,6 +1861,8 @@ def predict_view(request: HttpRequest) -> HttpResponse:
                                 "knn_score": single_result.get("knn_score"),
                                 "svm_label": single_result.get("svm_label", ""),
                                 "svm_score": single_result.get("svm_score"),
+                                "combined_label": single_result.get("combined_label", ""),
+                                "combined_score": single_result.get("combined_score"),
                             }
                         ]
                     ),

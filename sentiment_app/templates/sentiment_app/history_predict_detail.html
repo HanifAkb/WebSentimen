@@ -30,7 +30,7 @@
                         <div class="mt-1 p-3 result-box rounded border">{{ single_result.text }}</div>
                     </div>
                     <div class="row g-3">
-                        <div class="col-md-6">
+                        <div class="col-lg-4 col-md-6">
                             <div class="p-3 border rounded result-box">
                                 <div class="fw-semibold mb-2">KNN</div>
                                 <span class="badge {% if single_result.knn_label == 'Positive' %}text-bg-success{% elif single_result.knn_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
@@ -46,7 +46,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-lg-4 col-md-6">
                             <div class="p-3 border rounded result-box">
                                 <div class="fw-semibold mb-2">SVM</div>
                                 <span class="badge {% if single_result.svm_label == 'Positive' %}text-bg-success{% elif single_result.svm_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
@@ -56,6 +56,22 @@
                                     Skor probabilitas <code>predict_proba</code> (0-1):
                                     {% if single_result.svm_score is not None %}
                                         {{ single_result.svm_score|floatformat:4 }}
+                                    {% else %}
+                                        Tidak tersedia
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4 col-md-6">
+                            <div class="p-3 border rounded result-box">
+                                <div class="fw-semibold mb-2">Soft Weighted Voting</div>
+                                <span class="badge {% if single_result.combined_label == 'Positive' %}text-bg-success{% elif single_result.combined_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
+                                    {% if single_result.combined_label == "Positive" %}Positif{% elif single_result.combined_label == "Negative" %}Negatif{% elif single_result.combined_label == "Neutral" %}Netral{% else %}{{ single_result.combined_label }}{% endif %}
+                                </span>
+                                <div class="text-muted small mt-2">
+                                    Skor gabungan <code>soft weighted voting</code> (0-1):
+                                    {% if single_result.combined_score is not None %}
+                                        {{ single_result.combined_score|floatformat:4 }}
                                     {% else %}
                                         Tidak tersedia
                                     {% endif %}

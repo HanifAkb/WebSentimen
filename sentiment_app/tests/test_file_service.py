@@ -51,6 +51,8 @@ class FileServiceTests(SimpleTestCase):
                     "knn_score": 0.9,
                     "svm_label": "Negative",
                     "svm_score": 0.1,
+                    "combined_label": "Neutral",
+                    "combined_score": 0.5,
                 }
             )
 
@@ -64,6 +66,8 @@ class FileServiceTests(SimpleTestCase):
         self.assertEqual(total_pages, 3)
         self.assertEqual(len(rows), 10)
         self.assertEqual(rows[0]["text"], "tweet-10")
+        self.assertIn("combined_label", rows[0])
+        self.assertIn("combined_score", rows[0])
 
     def test_read_csv_page_clamps_page_out_of_range(self):
         predictions = [
@@ -73,6 +77,8 @@ class FileServiceTests(SimpleTestCase):
                 "knn_score": 0.9,
                 "svm_label": "Positive",
                 "svm_score": 0.9,
+                "combined_label": "Positive",
+                "combined_score": 0.9,
             }
         ]
 

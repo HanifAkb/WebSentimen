@@ -94,6 +94,10 @@ class ModelServiceTests(SimpleTestCase):
         self.assertEqual(rows[0]["knn_label"], "Positive")
         self.assertEqual(rows[1]["svm_label"], "Negative")
         self.assertGreater(rows[0]["svm_score"], 0.5)
+        self.assertEqual(rows[0]["combined_label"], "Positive")
+        self.assertAlmostEqual(rows[0]["combined_score"], 0.9, places=3)
+        self.assertEqual(rows[1]["combined_label"], "Negative")
+        self.assertAlmostEqual(rows[1]["combined_score"], 0.2, places=3)
 
     def test_predict_batch_uses_vectorizer_fallback(self):
         artifacts = ModelArtifacts(
@@ -109,6 +113,8 @@ class ModelServiceTests(SimpleTestCase):
         self.assertEqual(rows[0]["knn_label"], "Positive")
         self.assertEqual(rows[0]["svm_label"], "Positive")
         self.assertAlmostEqual(rows[0]["knn_score"], 0.8, places=3)
+        self.assertEqual(rows[0]["combined_label"], "Positive")
+        self.assertAlmostEqual(rows[0]["combined_score"], 0.8, places=3)
 
     def test_predict_batch_raises_when_vectorizer_required_but_missing(self):
         artifacts = ModelArtifacts(
@@ -150,7 +156,19 @@ class ModelServiceTests(SimpleTestCase):
 
         self.assertEqual(rows[0]["knn_label"], "Neutral")
         self.assertEqual(rows[0]["svm_label"], "Neutral")
+        self.assertEqual(rows[0]["combined_label"], "Neutral")
         self.assertEqual(rows[1]["knn_label"], "Positive")
         self.assertEqual(rows[1]["svm_label"], "Positive")
+        self.assertEqual(rows[1]["combined_label"], "Positive")
         self.assertAlmostEqual(rows[0]["svm_score"], 1.0 / (1.0 + np.exp(-0.05)), places=3)
         self.assertAlmostEqual(rows[1]["svm_score"], 1.0 / (1.0 + np.exp(-0.7)), places=3)
+        self.assertAlmostEqual(
+            rows[0]["combined_score"],
+            (0.5 + (1.0 / (1.0 + np.exp(-0.05)))) / 2.0,
+            places=3,
+        )
+        self.assertAlmostEqual(
+            rows[1]["combined_score"],
+            (0.9 + (1.0 / (1.0 + np.exp(-0.7)))) / 2.0,
+            places=3,
+        )

@@ -218,6 +218,10 @@ KNN_NEUTRAL_MIN = 0.45
 KNN_NEUTRAL_MAX = 0.55
 SVM_NEUTRAL_MIN = 0.45
 SVM_NEUTRAL_MAX = 0.55
+SOFT_VOTING_KNN_WEIGHT = 0.5
+SOFT_VOTING_SVM_WEIGHT = 0.5
+SOFT_VOTING_NEUTRAL_MIN = 0.45
+SOFT_VOTING_NEUTRAL_MAX = 0.55
 
 
 def _load_stopwords() -> set[str]:
@@ -515,6 +519,31 @@ def _apply_neutral_threshold(label: str, score: float | None, model_name: str) -
     return label
 
 
+def _combine_soft_weighted_vote(
+    knn_score: float | None,
+    svm_score: float | None,
+) -> tuple[str, float | None]:
+    weighted_scores: list[tuple[float, float]] = []
+    if knn_score is not None:
+        weighted_scores.append((float(knn_score), SOFT_VOTING_KNN_WEIGHT))
+    if svm_score is not None:
+        weighted_scores.append((float(svm_score), SOFT_VOTING_SVM_WEIGHT))
+
+    if not weighted_scores:
+        return "Unknown", None
+
+    total_weight = sum(weight for _, weight in weighted_scores)
+    if total_weight <= 0:
+        return "Unknown", None
+
+    combined_score = sum(score * weight for score, weight in weighted_scores) / total_weight
+    if combined_score > SOFT_VOTING_NEUTRAL_MAX:
+        return "Positive", float(combined_score)
+    if combined_score < SOFT_VOTING_NEUTRAL_MIN:
+        return "Negative", float(combined_score)
+    return "Neutral", float(combined_score)
+
+
 def _predict_with_optional_vectorizer(
     model: Any,
     texts: list[str],
@@ -590,6 +619,7 @@ def predict_batch(texts: Iterable[str]) -> list[dict[str, Any]]:
             svm_score,
             "svm",
         )
+        combined_label, combined_score = _combine_soft_weighted_vote(knn_score, svm_score)
         rows.append(
             {
                 "text": text,
@@ -597,6 +627,8 @@ def predict_batch(texts: Iterable[str]) -> list[dict[str, Any]]:
                 "knn_score": knn_score,
                 "svm_label": svm_label,
                 "svm_score": svm_score,
+                "combined_label": combined_label,
+                "combined_score": combined_score,
             }
         )
     return rows

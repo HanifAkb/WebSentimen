@@ -463,6 +463,8 @@ class AuthAndHistoryTests(TestCase):
             "knn_score": 0.93,
             "svm_label": "Positive",
             "svm_score": 0.89,
+            "combined_label": "Positive",
+            "combined_score": 0.91,
         }
 
         with patch("sentiment_app.views.predict_single", return_value=mocked_result):
@@ -482,6 +484,8 @@ class AuthAndHistoryTests(TestCase):
         self.assertEqual(history.input_type, PredictionHistory.InputType.SINGLE)
         self.assertEqual(history.sample_count, 1)
         self.assertEqual(history.rows[0]["knn_label"], "Positive")
+        self.assertEqual(history.rows[0]["combined_label"], "Positive")
+        self.assertAlmostEqual(history.rows[0]["combined_score"], 0.91, places=4)
 
     def test_predict_file_creates_prediction_history(self):
         self.client.force_login(self.user)
@@ -498,12 +502,16 @@ class AuthAndHistoryTests(TestCase):
                 "knn_score": 0.91,
                 "svm_label": "Positive",
                 "svm_score": 0.87,
+                "combined_label": "Positive",
+                "combined_score": 0.89,
             },
             {
                 "knn_label": "Negative",
                 "knn_score": 0.16,
                 "svm_label": "Negative",
                 "svm_score": 0.12,
+                "combined_label": "Negative",
+                "combined_score": 0.14,
             },
         ]
 
@@ -538,6 +546,8 @@ class AuthAndHistoryTests(TestCase):
         self.assertEqual(history.output_filename, "uploaded_dummy.csv")
         self.assertEqual(history.rows[0]["text"], "mobil listrik bagus")
         self.assertEqual(history.rows[1]["svm_label"], "Negative")
+        self.assertEqual(history.rows[0]["combined_label"], "Positive")
+        self.assertAlmostEqual(history.rows[1]["combined_score"], 0.14, places=4)
 
     @override_settings(SENTIMENT_WORDCLOUD_MAX_ROWS=1)
     def test_prediction_file_history_detail_shows_dashboard(self):
@@ -665,6 +675,8 @@ class AuthAndHistoryTests(TestCase):
                             "knn_score": 0.91,
                             "svm_label": "Positive",
                             "svm_score": 0.7311,
+                            "combined_label": "Positive",
+                            "combined_score": 0.8205,
                         }
                     ],
                 ):
@@ -673,9 +685,11 @@ class AuthAndHistoryTests(TestCase):
 
         history.refresh_from_db()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(history.score_schema_version, 3)
+        self.assertEqual(history.score_schema_version, 4)
         self.assertEqual(history.rows[0]["svm_label"], "Positive")
         self.assertAlmostEqual(history.rows[0]["svm_score"], 0.7311, places=4)
+        self.assertEqual(history.rows[0]["combined_label"], "Positive")
+        self.assertAlmostEqual(history.rows[0]["combined_score"], 0.8205, places=4)
         self.assertIn("0.731100", refreshed_csv)
         self.assertContains(response, "0,7311")
 
@@ -708,6 +722,8 @@ class AuthAndHistoryTests(TestCase):
                     "knn_score": 0.5,
                     "svm_label": "Neutral",
                     "svm_score": 0.5,
+                    "combined_label": "Neutral",
+                    "combined_score": 0.5,
                 }
             ],
         ):
@@ -715,9 +731,11 @@ class AuthAndHistoryTests(TestCase):
 
         history.refresh_from_db()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(history.score_schema_version, 3)
+        self.assertEqual(history.score_schema_version, 4)
         self.assertEqual(history.rows[0]["svm_label"], "Neutral")
         self.assertAlmostEqual(history.rows[0]["svm_score"], 0.5, places=4)
+        self.assertEqual(history.rows[0]["combined_label"], "Neutral")
+        self.assertAlmostEqual(history.rows[0]["combined_score"], 0.5, places=4)
 
     def test_download_output_upgrades_legacy_prediction_history_csv(self):
         history = PredictionHistory.objects.create(
@@ -755,6 +773,8 @@ class AuthAndHistoryTests(TestCase):
                             "knn_score": 0.12,
                             "svm_label": "Negative",
                             "svm_score": 0.4013,
+                            "combined_label": "Negative",
+                            "combined_score": 0.2607,
                         }
                     ],
                 ):
@@ -763,9 +783,12 @@ class AuthAndHistoryTests(TestCase):
 
         history.refresh_from_db()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(history.score_schema_version, 3)
+        self.assertEqual(history.score_schema_version, 4)
         self.assertAlmostEqual(history.rows[0]["svm_score"], 0.4013, places=4)
+        self.assertEqual(history.rows[0]["combined_label"], "Negative")
+        self.assertAlmostEqual(history.rows[0]["combined_score"], 0.2607, places=4)
         self.assertIn("0.401300", downloaded_csv)
+        self.assertIn("0.260700", downloaded_csv)
 
     def test_scrape_history_detail_upgrades_legacy_svm_scores_in_chunks(self):
         history = ScrapeHistory.objects.create(
@@ -812,6 +835,8 @@ class AuthAndHistoryTests(TestCase):
                     "knn_score": 0.91,
                     "svm_label": "Positive",
                     "svm_score": 0.7311,
+                    "combined_label": "Positive",
+                    "combined_score": 0.8205,
                 },
                 {
                     "text": "servis buruk",
@@ -819,6 +844,8 @@ class AuthAndHistoryTests(TestCase):
                     "knn_score": 0.12,
                     "svm_label": "Negative",
                     "svm_score": 0.4013,
+                    "combined_label": "Negative",
+                    "combined_score": 0.2607,
                 },
             ],
         ):
@@ -827,9 +854,11 @@ class AuthAndHistoryTests(TestCase):
         history.refresh_from_db()
         chunk.refresh_from_db()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(history.score_schema_version, 3)
+        self.assertEqual(history.score_schema_version, 4)
         self.assertAlmostEqual(history.rows[0]["svm_score"], 0.7311, places=4)
         self.assertAlmostEqual(chunk.rows[0]["svm_score"], 0.4013, places=4)
+        self.assertAlmostEqual(history.rows[0]["combined_score"], 0.8205, places=4)
+        self.assertAlmostEqual(chunk.rows[0]["combined_score"], 0.2607, places=4)
 
     @override_settings(SENTIMENT_TWITTER_TEMP_DB_THRESHOLD_DAYS=30)
     def test_scraping_long_range_uses_temp_db_chunks(self):

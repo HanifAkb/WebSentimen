@@ -161,7 +161,15 @@ def generate_classification_csv(
         filename = f"{prefix}_{uuid.uuid4().hex}.csv"
     path = output_dir / filename
 
-    fieldnames = ["text", "knn_label", "knn_score", "svm_label", "svm_score"]
+    fieldnames = [
+        "text",
+        "knn_label",
+        "knn_score",
+        "svm_label",
+        "svm_score",
+        "combined_label",
+        "combined_score",
+    ]
     with path.open("w", encoding="utf-8", newline="") as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
         writer.writeheader()
@@ -173,6 +181,8 @@ def generate_classification_csv(
                     "knn_score": _format_score(row.get("knn_score")),
                     "svm_label": row.get("svm_label", ""),
                     "svm_score": _format_score(row.get("svm_score")),
+                    "combined_label": row.get("combined_label", ""),
+                    "combined_score": _format_score(row.get("combined_score")),
                 }
             )
     return filename
@@ -200,7 +210,14 @@ def generate_tweets_csv(tweets: list[dict[str, Any]], prefix: str = "tweets") ->
         "userName",
         "image_tweet",
     ]
-    prediction_fieldnames = ["knn_label", "knn_score", "svm_label", "svm_score"]
+    prediction_fieldnames = [
+        "knn_label",
+        "knn_score",
+        "svm_label",
+        "svm_score",
+        "combined_label",
+        "combined_score",
+    ]
 
     has_prediction_columns = any(
         any(field in row for field in prediction_fieldnames) for row in tweets
