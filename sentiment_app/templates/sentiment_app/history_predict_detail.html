@@ -53,7 +53,7 @@
                                     {% if single_result.svm_label == "Positive" %}Positif{% elif single_result.svm_label == "Negative" %}Negatif{% elif single_result.svm_label == "Neutral" %}Netral{% else %}{{ single_result.svm_label }}{% endif %}
                                 </span>
                                 <div class="text-muted small mt-2">
-                                    Skor probabilitas sigmoid (0-1):
+                                    Skor probabilitas <code>predict_proba</code> (0-1):
                                     {% if single_result.svm_score is not None %}
                                         {{ single_result.svm_score|floatformat:4 }}
                                     {% else %}

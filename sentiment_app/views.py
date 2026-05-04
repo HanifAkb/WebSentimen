@@ -63,7 +63,7 @@ PREDICTION_HEADERS = {
     "knn_label": "KNN",
     "knn_score": "Skor KNN (0-1)",
     "svm_label": "SVM",
-    "svm_score": "Skor SVM Sigmoid (0-1)",
+    "svm_score": "Skor SVM (0-1)",
 }
 PREDICTION_DATE_COLUMN_HINTS = (
     "createdat",
