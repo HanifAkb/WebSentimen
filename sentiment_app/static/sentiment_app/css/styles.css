@@ -620,9 +620,9 @@ body {
 }
 
 .twitter-results-table {
-    table-layout: fixed;
-    width: 4200px;
-    min-width: 4200px;
+    table-layout: auto;
+    width: max-content;
+    min-width: 100%;
 }
 
 .twitter-col-id,
@@ -668,7 +668,7 @@ body {
 
 .twitter-results-table col.tw-col-knn,
 .twitter-results-table col.tw-col-svm {
-    width: 120px;
+    width: auto;
 }
 
 .twitter-results-table col.tw-col-created {
@@ -681,7 +681,7 @@ body {
 
 .twitter-results-table col.tw-col-knnscore,
 .twitter-results-table col.tw-col-svmscore {
-    width: 220px;
+    width: auto;
 }
 
 .twitter-top-scroll {
