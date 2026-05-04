@@ -596,27 +596,27 @@
                                                 <a href="{{ row.image_tweet }}" target="_blank" rel="noopener noreferrer">Lihat</a>
                                             {% endif %}
                                         </td>
-                                        <td>
+                                        <td class="text-center">
                                             <span class="badge {% if row.knn_label == 'Positive' %}text-bg-success{% elif row.knn_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
                                                 {% if row.knn_label == "Positive" %}Positif{% elif row.knn_label == "Negative" %}Negatif{% elif row.knn_label == "Neutral" %}Netral{% else %}{{ row.knn_label }}{% endif %}
                                             </span>
                                         </td>
-                                        <td>{% if row.knn_positive_score is not None %}{{ row.knn_positive_score|floatformat:4 }}{% endif %}</td>
-                                        <td>{% if row.knn_negative_score is not None %}{{ row.knn_negative_score|floatformat:4 }}{% endif %}</td>
-                                        <td>
+                                        <td class="text-center">{% if row.knn_positive_score is not None %}{{ row.knn_positive_score|floatformat:4 }}{% endif %}</td>
+                                        <td class="text-center">{% if row.knn_negative_score is not None %}{{ row.knn_negative_score|floatformat:4 }}{% endif %}</td>
+                                        <td class="text-center">
                                             <span class="badge {% if row.svm_label == 'Positive' %}text-bg-success{% elif row.svm_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
                                                 {% if row.svm_label == "Positive" %}Positif{% elif row.svm_label == "Negative" %}Negatif{% elif row.svm_label == "Neutral" %}Netral{% else %}{{ row.svm_label }}{% endif %}
                                             </span>
                                         </td>
-                                        <td>{% if row.svm_positive_score is not None %}{{ row.svm_positive_score|floatformat:4 }}{% endif %}</td>
-                                        <td>{% if row.svm_negative_score is not None %}{{ row.svm_negative_score|floatformat:4 }}{% endif %}</td>
-                                        <td>
+                                        <td class="text-center">{% if row.svm_positive_score is not None %}{{ row.svm_positive_score|floatformat:4 }}{% endif %}</td>
+                                        <td class="text-center">{% if row.svm_negative_score is not None %}{{ row.svm_negative_score|floatformat:4 }}{% endif %}</td>
+                                        <td class="text-center">
                                             <span class="badge {% if row.combined_label == 'Positive' %}text-bg-success{% elif row.combined_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
                                                 {% if row.combined_label == "Positive" %}Positif{% elif row.combined_label == "Negative" %}Negatif{% elif row.combined_label == "Neutral" %}Netral{% else %}{{ row.combined_label }}{% endif %}
                                             </span>
                                         </td>
-                                        <td>{% if row.combined_positive_score is not None %}{{ row.combined_positive_score|floatformat:4 }}{% endif %}</td>
-                                        <td>{% if row.combined_negative_score is not None %}{{ row.combined_negative_score|floatformat:4 }}{% endif %}</td>
+                                        <td class="text-center">{% if row.combined_positive_score is not None %}{{ row.combined_positive_score|floatformat:4 }}{% endif %}</td>
+                                        <td class="text-center">{% if row.combined_negative_score is not None %}{{ row.combined_negative_score|floatformat:4 }}{% endif %}</td>
                                     </tr>
                                 {% endfor %}
                             </tbody>

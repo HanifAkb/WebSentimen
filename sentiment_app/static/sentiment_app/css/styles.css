@@ -402,6 +402,7 @@ body {
 
 .twitter-results-table thead th {
     font-size: 0.8rem;
+    white-space: nowrap;
 }
 
 .query-help-inline {

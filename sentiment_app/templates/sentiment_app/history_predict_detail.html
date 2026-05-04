@@ -357,7 +357,7 @@
                                     <tr>
                                         <td>{{ row.index }}</td>
                                         {% for cell in row.cells %}
-                                            <td class="{% if forloop.counter0 == batch_preview_text_column_index %}predict-col-text{% endif %}">
+                                            <td class="{% if forloop.counter0 == batch_preview_text_column_index %}predict-col-text{% endif %}{% if cell.type == 'label' or cell.type == 'score' %} text-center{% endif %}">
                                                 {% if cell.type == "label" %}
                                                     <span class="badge {% if cell.value == 'Positive' %}text-bg-success{% elif cell.value == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
                                                         {% if cell.value == "Positive" %}Positif{% elif cell.value == "Negative" %}Negatif{% elif cell.value == "Neutral" %}Netral{% else %}{{ cell.value }}{% endif %}
