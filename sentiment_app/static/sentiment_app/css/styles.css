@@ -696,9 +696,14 @@ body {
 }
 
 .predict-results-table {
+    font-size: 0.85rem;
     table-layout: auto;
     width: max-content;
     min-width: 100%;
+}
+
+.predict-results-table thead th {
+    font-size: 0.8rem;
 }
 
 .predict-results-table thead th,
