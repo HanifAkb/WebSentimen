@@ -67,15 +67,15 @@ PREDICTION_SCORE_COLUMNS = [
     "combined_negative_score",
 ]
 PREDICTION_COLUMNS = [
-    "knn_label",
     "knn_positive_score",
     "knn_negative_score",
-    "svm_label",
     "svm_positive_score",
     "svm_negative_score",
-    "combined_label",
     "combined_positive_score",
     "combined_negative_score",
+    "knn_label",
+    "svm_label",
+    "combined_label",
 ]
 LEGACY_PREDICTION_COLUMNS = {"knn_score", "svm_score", "combined_score"}
 ALL_PREDICTION_COLUMNS = set(PREDICTION_COLUMNS) | LEGACY_PREDICTION_COLUMNS
@@ -1876,7 +1876,18 @@ def prediction_history_detail_view(request: HttpRequest, history_id: int) -> Htt
 
     source_columns = _normalize_prediction_source_columns(history.columns, rows)
     preview_headers, preview_rows = _build_prediction_history_preview(page_rows, source_columns)
-    preview_columns = [column for column in source_columns if str(column).strip().lower() != "id"] + PREDICTION_COLUMNS
+    visible_source_columns = [column for column in source_columns if str(column).strip().lower() != "id"]
+    preview_columns = visible_source_columns + PREDICTION_COLUMNS
+    preview_source_headers = [PREDICTION_HEADERS.get(column, column) for column in preview_columns[: len(visible_source_columns)]]
+    probability_column_count = len(PREDICTION_SCORE_COLUMNS)
+    preview_probability_headers = [
+        PREDICTION_HEADERS.get(column, column)
+        for column in preview_columns[len(visible_source_columns) : len(visible_source_columns) + probability_column_count]
+    ]
+    preview_label_headers = [
+        PREDICTION_HEADERS.get(column, column)
+        for column in preview_columns[len(visible_source_columns) + probability_column_count :]
+    ]
     preview_text_column = _resolve_prediction_text_column(history.text_column, source_columns)
     preview_text_column_index = preview_columns.index(preview_text_column) if preview_text_column in preview_columns else -1
 
@@ -1899,6 +1910,9 @@ def prediction_history_detail_view(request: HttpRequest, history_id: int) -> Htt
         {
             "source_columns": source_columns,
             "batch_preview_text_column_index": preview_text_column_index,
+            "batch_preview_source_headers": preview_source_headers,
+            "batch_preview_probability_headers": preview_probability_headers,
+            "batch_preview_label_headers": preview_label_headers,
             "batch_count": total_rows,
             "batch_preview_headers": preview_headers,
             "batch_preview_rows": preview_rows,

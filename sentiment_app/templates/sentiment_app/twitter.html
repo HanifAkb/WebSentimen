@@ -530,43 +530,46 @@
                                 <col class="tw-col-inreply">
                                 <col class="tw-col-username">
                                 <col class="tw-col-image">
+                                <col class="tw-col-knnscore">
+                                <col class="tw-col-knnscore">
+                                <col class="tw-col-svmscore">
+                                <col class="tw-col-svmscore">
+                                <col class="tw-col-svmscore">
+                                <col class="tw-col-svmscore">
                                 <col class="tw-col-knn">
-                                <col class="tw-col-knnscore">
-                                <col class="tw-col-knnscore">
                                 <col class="tw-col-svm">
-                                <col class="tw-col-svmscore">
-                                <col class="tw-col-svmscore">
                                 <col class="tw-col-svm">
-                                <col class="tw-col-svmscore">
-                                <col class="tw-col-svmscore">
                             </colgroup>
                             <thead>
                                 <tr>
-                                    <th>#</th>
-                                    <th class="twitter-col-id">ID</th>
-                                    <th>URL</th>
-                                    <th class="twitter-col-text">Teks</th>
-                                    <th>Retweet</th>
-                                    <th>Reply</th>
-                                    <th>Like</th>
-                                    <th>Quote</th>
-                                    <th>View</th>
-                                    <th>CreatedAt</th>
-                                    <th>Lang</th>
-                                    <th>Bookmark</th>
-                                    <th>IsReply</th>
-                                    <th class="twitter-col-inreply">inReplyTold</th>
-                                    <th class="twitter-col-username">User Name</th>
-                                    <th>Gambar Tweet</th>
-                                    <th>KNN</th>
-                                    <th>Probabilitas Positif KNN</th>
-                                    <th>Probabilitas Negatif KNN</th>
-                                    <th>SVM</th>
-                                    <th>Probabilitas Positif SVM</th>
-                                    <th>Probabilitas Negatif SVM</th>
-                                    <th>Soft Voting</th>
-                                    <th>Probabilitas Positif Soft Voting</th>
-                                    <th>Probabilitas Negatif Soft Voting</th>
+                                    <th rowspan="2">#</th>
+                                    <th rowspan="2" class="twitter-col-id">ID</th>
+                                    <th rowspan="2">URL</th>
+                                    <th rowspan="2" class="twitter-col-text">Teks</th>
+                                    <th rowspan="2">Retweet</th>
+                                    <th rowspan="2">Reply</th>
+                                    <th rowspan="2">Like</th>
+                                    <th rowspan="2">Quote</th>
+                                    <th rowspan="2">View</th>
+                                    <th rowspan="2">CreatedAt</th>
+                                    <th rowspan="2">Lang</th>
+                                    <th rowspan="2">Bookmark</th>
+                                    <th rowspan="2">IsReply</th>
+                                    <th rowspan="2" class="twitter-col-inreply">inReplyTold</th>
+                                    <th rowspan="2" class="twitter-col-username">User Name</th>
+                                    <th rowspan="2">Gambar Tweet</th>
+                                    <th colspan="6" class="text-center align-middle">Skor 0-1</th>
+                                    <th rowspan="2" class="text-center align-middle">KNN</th>
+                                    <th rowspan="2" class="text-center align-middle">SVM</th>
+                                    <th rowspan="2" class="text-center align-middle">Soft Voting</th>
+                                </tr>
+                                <tr>
+                                    <th class="text-center">Probabilitas Positif KNN</th>
+                                    <th class="text-center">Probabilitas Negatif KNN</th>
+                                    <th class="text-center">Probabilitas Positif SVM</th>
+                                    <th class="text-center">Probabilitas Negatif SVM</th>
+                                    <th class="text-center">Probabilitas Positif Soft Voting</th>
+                                    <th class="text-center">Probabilitas Negatif Soft Voting</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -596,27 +599,27 @@
                                                 <a href="{{ row.image_tweet }}" target="_blank" rel="noopener noreferrer">Lihat</a>
                                             {% endif %}
                                         </td>
+                                        <td class="text-center">{% if row.knn_positive_score is not None %}{{ row.knn_positive_score|floatformat:4 }}{% endif %}</td>
+                                        <td class="text-center">{% if row.knn_negative_score is not None %}{{ row.knn_negative_score|floatformat:4 }}{% endif %}</td>
+                                        <td class="text-center">{% if row.svm_positive_score is not None %}{{ row.svm_positive_score|floatformat:4 }}{% endif %}</td>
+                                        <td class="text-center">{% if row.svm_negative_score is not None %}{{ row.svm_negative_score|floatformat:4 }}{% endif %}</td>
+                                        <td class="text-center">{% if row.combined_positive_score is not None %}{{ row.combined_positive_score|floatformat:4 }}{% endif %}</td>
+                                        <td class="text-center">{% if row.combined_negative_score is not None %}{{ row.combined_negative_score|floatformat:4 }}{% endif %}</td>
                                         <td class="text-center">
                                             <span class="badge {% if row.knn_label == 'Positive' %}text-bg-success{% elif row.knn_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
                                                 {% if row.knn_label == "Positive" %}Positif{% elif row.knn_label == "Negative" %}Negatif{% elif row.knn_label == "Neutral" %}Netral{% else %}{{ row.knn_label }}{% endif %}
                                             </span>
                                         </td>
-                                        <td class="text-center">{% if row.knn_positive_score is not None %}{{ row.knn_positive_score|floatformat:4 }}{% endif %}</td>
-                                        <td class="text-center">{% if row.knn_negative_score is not None %}{{ row.knn_negative_score|floatformat:4 }}{% endif %}</td>
                                         <td class="text-center">
                                             <span class="badge {% if row.svm_label == 'Positive' %}text-bg-success{% elif row.svm_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
                                                 {% if row.svm_label == "Positive" %}Positif{% elif row.svm_label == "Negative" %}Negatif{% elif row.svm_label == "Neutral" %}Netral{% else %}{{ row.svm_label }}{% endif %}
                                             </span>
                                         </td>
-                                        <td class="text-center">{% if row.svm_positive_score is not None %}{{ row.svm_positive_score|floatformat:4 }}{% endif %}</td>
-                                        <td class="text-center">{% if row.svm_negative_score is not None %}{{ row.svm_negative_score|floatformat:4 }}{% endif %}</td>
                                         <td class="text-center">
                                             <span class="badge {% if row.combined_label == 'Positive' %}text-bg-success{% elif row.combined_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
                                                 {% if row.combined_label == "Positive" %}Positif{% elif row.combined_label == "Negative" %}Negatif{% elif row.combined_label == "Neutral" %}Netral{% else %}{{ row.combined_label }}{% endif %}
                                             </span>
                                         </td>
-                                        <td class="text-center">{% if row.combined_positive_score is not None %}{{ row.combined_positive_score|floatformat:4 }}{% endif %}</td>
-                                        <td class="text-center">{% if row.combined_negative_score is not None %}{{ row.combined_negative_score|floatformat:4 }}{% endif %}</td>
                                     </tr>
                                 {% endfor %}
                             </tbody>

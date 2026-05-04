@@ -346,9 +346,20 @@
                         <table class="table table-striped table-hover align-middle predict-results-table">
                             <thead>
                                 <tr>
-                                    <th>#</th>
-                                    {% for header in batch_preview_headers %}
-                                        <th class="{% if forloop.counter0 == batch_preview_text_column_index %}predict-col-text{% endif %}">{{ header }}</th>
+                                    <th rowspan="2">#</th>
+                                    {% for header in batch_preview_source_headers %}
+                                        <th rowspan="2" class="{% if forloop.counter0 == batch_preview_text_column_index %}predict-col-text{% endif %}">{{ header }}</th>
+                                    {% endfor %}
+                                    {% if batch_preview_probability_headers %}
+                                        <th colspan="{{ batch_preview_probability_headers|length }}" class="text-center align-middle">Skor 0-1</th>
+                                    {% endif %}
+                                    {% for header in batch_preview_label_headers %}
+                                        <th rowspan="2" class="text-center align-middle">{{ header }}</th>
+                                    {% endfor %}
+                                </tr>
+                                <tr>
+                                    {% for header in batch_preview_probability_headers %}
+                                        <th class="text-center">{{ header }}</th>
                                     {% endfor %}
                                 </tr>
                             </thead>
