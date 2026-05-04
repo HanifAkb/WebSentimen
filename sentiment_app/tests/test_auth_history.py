@@ -673,11 +673,51 @@ class AuthAndHistoryTests(TestCase):
 
         history.refresh_from_db()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(history.score_schema_version, 2)
+        self.assertEqual(history.score_schema_version, 3)
         self.assertEqual(history.rows[0]["svm_label"], "Positive")
         self.assertAlmostEqual(history.rows[0]["svm_score"], 0.7311, places=4)
         self.assertIn("0.731100", refreshed_csv)
         self.assertContains(response, "0,7311")
+
+    def test_prediction_history_detail_reupgrades_version_two_history(self):
+        history = PredictionHistory.objects.create(
+            user=self.user,
+            input_type=PredictionHistory.InputType.FILE,
+            source_name="version2.csv",
+            text_column="review",
+            sample_count=1,
+            score_schema_version=2,
+            rows=[
+                {
+                    "review": "teks netral",
+                    "knn_label": "Neutral",
+                    "knn_score": 0.5,
+                    "svm_label": "Positive",
+                    "svm_score": 0.52,
+                }
+            ],
+        )
+
+        self.client.force_login(self.user)
+        with patch(
+            "sentiment_app.views.predict_batch",
+            return_value=[
+                {
+                    "text": "teks netral",
+                    "knn_label": "Neutral",
+                    "knn_score": 0.5,
+                    "svm_label": "Neutral",
+                    "svm_score": 0.5,
+                }
+            ],
+        ):
+            response = self.client.get(reverse("prediction_history_detail", args=[history.id]))
+
+        history.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(history.score_schema_version, 3)
+        self.assertEqual(history.rows[0]["svm_label"], "Neutral")
+        self.assertAlmostEqual(history.rows[0]["svm_score"], 0.5, places=4)
 
     def test_download_output_upgrades_legacy_prediction_history_csv(self):
         history = PredictionHistory.objects.create(
@@ -723,7 +763,7 @@ class AuthAndHistoryTests(TestCase):
 
         history.refresh_from_db()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(history.score_schema_version, 2)
+        self.assertEqual(history.score_schema_version, 3)
         self.assertAlmostEqual(history.rows[0]["svm_score"], 0.4013, places=4)
         self.assertIn("0.401300", downloaded_csv)
 
@@ -787,7 +827,7 @@ class AuthAndHistoryTests(TestCase):
         history.refresh_from_db()
         chunk.refresh_from_db()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(history.score_schema_version, 2)
+        self.assertEqual(history.score_schema_version, 3)
         self.assertAlmostEqual(history.rows[0]["svm_score"], 0.7311, places=4)
         self.assertAlmostEqual(chunk.rows[0]["svm_score"], 0.4013, places=4)
 

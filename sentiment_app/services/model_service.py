@@ -216,8 +216,8 @@ class ModelArtifacts:
 _ARTIFACTS_CACHE: ModelArtifacts | None = None
 KNN_NEUTRAL_MIN = 0.45
 KNN_NEUTRAL_MAX = 0.55
-SVM_NEUTRAL_MIN = 0.475
-SVM_NEUTRAL_MAX = 0.525
+SVM_NEUTRAL_MIN = 0.45
+SVM_NEUTRAL_MAX = 0.55
 
 
 def _load_stopwords() -> set[str]:

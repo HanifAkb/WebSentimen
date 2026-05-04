@@ -47,10 +47,8 @@ from .services.model_service import (
 from .services.scraping_service import TwitterAPIError, TwitterRateLimitError, TwitterTimeoutError, fetch_tweets
 
 try:
-    from wordcloud import STOPWORDS as WORDCLOUD_BASE_STOPWORDS
     from wordcloud import WordCloud
 except Exception:
-    WORDCLOUD_BASE_STOPWORDS = set()
     WordCloud = None
 
 SAFE_OUTPUT_RE = re.compile(r"^[A-Za-z0-9_-]+\.csv$")
@@ -58,7 +56,7 @@ DEFAULT_PER_PAGE = 10
 MAX_PER_PAGE = 200
 HISTORY_PER_PAGE = 10
 TWITTER_RESULT_SESSION_KEY = "twitter_last_result"
-CURRENT_SCORE_SCHEMA_VERSION = 2
+CURRENT_SCORE_SCHEMA_VERSION = 3
 PREDICTION_COLUMNS = ["knn_label", "knn_score", "svm_label", "svm_score"]
 PREDICTION_HEADERS = {
     "knn_label": "KNN",
@@ -76,86 +74,8 @@ PREDICTION_DATE_COLUMN_HINTS = (
     "tanggal",
     "waktu",
 )
-WORDCLOUD_STOPWORDS = {
-    "dan",
-    "atau",
-    "yang",
-    "untuk",
-    "dengan",
-    "pada",
-    "dari",
-    "ke",
-    "di",
-    "ini",
-    "itu",
-    "kamu",
-    "kami",
-    "kita",
-    "mereka",
-    "saya",
-    "aku",
-    "nya",
-    "aja",
-    "juga",
-    "udah",
-    "sudah",
-    "belum",
-    "nih",
-    "ya",
-    "yah",
-    "deh",
-    "dong",
-    "lagi",
-    "jadi",
-    "karena",
-    "agar",
-    "buat",
-    "lebih",
-    "dalam",
-    "about",
-    "after",
-    "again",
-    "all",
-    "also",
-    "and",
-    "are",
-    "but",
-    "for",
-    "from",
-    "has",
-    "have",
-    "his",
-    "her",
-    "him",
-    "how",
-    "its",
-    "just",
-    "like",
-    "not",
-    "our",
-    "out",
-    "that",
-    "the",
-    "their",
-    "them",
-    "there",
-    "these",
-    "they",
-    "this",
-    "too",
-    "was",
-    "were",
-    "what",
-    "when",
-    "where",
-    "which",
-    "who",
-    "will",
-    "with",
-    "you",
-    "your",
-}
-
+WORDCLOUD_STOPWORDS_PATH = Path(settings.BASE_DIR) / "sentiment_site" / "models" / "stopwords-id.txt"
+_WORDCLOUD_STOPWORDS_CACHE: set[str] | None = None
 
 def _setting_positive_int(name: str, default: int) -> int:
     raw_value = getattr(settings, name, default)
@@ -449,6 +369,22 @@ def _normalize_sentiment_label(value: object) -> str:
     return "Neutral"
 
 
+def _load_wordcloud_stopwords() -> set[str]:
+    global _WORDCLOUD_STOPWORDS_CACHE
+    if _WORDCLOUD_STOPWORDS_CACHE is not None:
+        return _WORDCLOUD_STOPWORDS_CACHE
+
+    try:
+        _WORDCLOUD_STOPWORDS_CACHE = {
+            line.strip().lower()
+            for line in WORDCLOUD_STOPWORDS_PATH.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        }
+    except Exception:
+        _WORDCLOUD_STOPWORDS_CACHE = set()
+    return _WORDCLOUD_STOPWORDS_CACHE
+
+
 def _clean_text_for_wordcloud(text: str) -> str:
     # Align with model preprocessing so WordCloud reflects the same cleaned language space.
     cleaned = preprocess_text(str(text or ""), apply_stemming=False)
@@ -475,12 +411,11 @@ def _build_wordcloud_image(texts: list[str], colormap: str) -> str | None:
     if not bigram_counter:
         return None
 
-    stopwords = set(WORDCLOUD_BASE_STOPWORDS) | WORDCLOUD_STOPWORDS
     cloud = WordCloud(
         width=1400,
         height=800,
         background_color="white",
-        stopwords=stopwords,
+        stopwords=_load_wordcloud_stopwords(),
         collocations=False,
         max_words=140,
         margin=24,
