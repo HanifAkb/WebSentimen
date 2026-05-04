@@ -338,8 +338,12 @@
                         </nav>
                     </div>
 
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover align-middle">
+                    <div id="predict-top-scroll" class="predict-top-scroll">
+                        <div id="predict-top-scroll-inner" class="predict-top-scroll-inner"></div>
+                    </div>
+
+                    <div id="predict-main-scroll" class="table-responsive predict-main-scroll">
+                        <table class="table table-striped table-hover align-middle predict-results-table">
                             <thead>
                                 <tr>
                                     <th>#</th>
@@ -353,7 +357,7 @@
                                     <tr>
                                         <td>{{ row.index }}</td>
                                         {% for cell in row.cells %}
-                                            <td class="text-break">
+                                            <td>
                                                 {% if cell.type == "label" %}
                                                     <span class="badge {% if cell.value == 'Positive' %}text-bg-success{% elif cell.value == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
                                                         {% if cell.value == "Positive" %}Positif{% elif cell.value == "Negative" %}Negatif{% elif cell.value == "Neutral" %}Netral{% else %}{{ cell.value }}{% endif %}
@@ -575,4 +579,43 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 </script>
 {% endif %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const topScroll = document.getElementById("predict-top-scroll");
+    const topScrollInner = document.getElementById("predict-top-scroll-inner");
+    const mainScroll = document.getElementById("predict-main-scroll");
+    const table = mainScroll ? mainScroll.querySelector("table") : null;
+
+    if (!topScroll || !topScrollInner || !mainScroll || !table) {
+        return;
+    }
+
+    const syncTopWidth = function () {
+        topScrollInner.style.width = table.scrollWidth + "px";
+    };
+
+    syncTopWidth();
+    let isSyncing = false;
+
+    topScroll.addEventListener("scroll", function () {
+        if (isSyncing) {
+            return;
+        }
+        isSyncing = true;
+        mainScroll.scrollLeft = topScroll.scrollLeft;
+        isSyncing = false;
+    });
+
+    mainScroll.addEventListener("scroll", function () {
+        if (isSyncing) {
+            return;
+        }
+        isSyncing = true;
+        topScroll.scrollLeft = mainScroll.scrollLeft;
+        isSyncing = false;
+    });
+
+    window.addEventListener("resize", syncTopWidth);
+});
+</script>
 {% endblock %}

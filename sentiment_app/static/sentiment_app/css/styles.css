@@ -696,13 +696,18 @@ body {
 }
 
 .predict-results-table {
-    table-layout: fixed;
-    width: 3000px;
-    min-width: 3000px;
+    table-layout: auto;
+    width: max-content;
+    min-width: 100%;
 }
 
-.predict-main-scroll .text-break {
-    overflow-wrap: anywhere;
+.predict-results-table thead th,
+.predict-results-table tbody td {
+    white-space: nowrap;
+}
+
+.predict-main-scroll {
+    overflow-x: auto;
 }
 
 .predict-top-scroll {
