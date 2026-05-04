@@ -459,6 +459,17 @@ def _normalize_sentiment_label(value: object) -> str:
     return "Neutral"
 
 
+def _display_sentiment_label_id(value: object) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in {"positive", "positif"}:
+        return "Positif"
+    if normalized in {"negative", "negatif"}:
+        return "Negatif"
+    if normalized in {"neutral", "netral"}:
+        return "Netral"
+    return str(value or "")
+
+
 def _load_wordcloud_stopwords() -> set[str]:
     global _WORDCLOUD_STOPWORDS_CACHE
     if _WORDCLOUD_STOPWORDS_CACHE is not None:
@@ -1044,6 +1055,8 @@ def _safe_download_filename(base_name: str, fallback_prefix: str) -> str:
 def _export_cell_value(column: str, value: object) -> str:
     if value is None:
         return ""
+    if column in PREDICTION_LABEL_COLUMNS:
+        return _display_sentiment_label_id(value)
     if column in PREDICTION_SCORE_COLUMNS:
         try:
             return f"{float(value):.6f}"

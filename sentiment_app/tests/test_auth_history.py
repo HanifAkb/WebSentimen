@@ -706,6 +706,8 @@ class AuthAndHistoryTests(TestCase):
         self.assertNotIn("Skor 0-1", csv_text)
         self.assertIn("abc-001", csv_text)
         self.assertIn("0.910000", csv_text)
+        self.assertIn("Positif", csv_text)
+        self.assertNotIn("Positive", csv_text)
 
     def test_scrape_history_csv_download_uses_flat_headers(self):
         history = ScrapeHistory.objects.create(
@@ -762,6 +764,8 @@ class AuthAndHistoryTests(TestCase):
         self.assertNotIn("Skor 0-1", csv_text)
         self.assertIn("mobil listrik bagus", csv_text)
         self.assertIn("0.890000", csv_text)
+        self.assertIn("Positif", csv_text)
+        self.assertNotIn("Positive", csv_text)
 
     def test_prediction_history_detail_upgrades_legacy_svm_scores(self):
         history = PredictionHistory.objects.create(
