@@ -402,6 +402,7 @@ body {
 
 .twitter-results-table thead th {
     font-size: 0.8rem;
+    border: 1px solid rgba(37, 99, 235, 0.18);
 }
 
 .query-help-inline {
@@ -642,7 +643,10 @@ body {
 }
 
 .twitter-results-table col.tw-col-id,
-.twitter-results-table col.tw-col-inreply,
+.twitter-results-table col.tw-col-inreply {
+    width: 90px;
+}
+
 .twitter-results-table col.tw-col-username {
     width: 120px;
 }
@@ -653,7 +657,7 @@ body {
 }
 
 .twitter-results-table col.tw-col-text {
-    width: 900px;
+    width: 400px;
 }
 
 .twitter-results-table col.tw-col-retweet,
@@ -707,6 +711,7 @@ body {
 
 .predict-results-table thead th {
     font-size: 0.8rem;
+    border: 1px solid rgba(37, 99, 235, 0.18);
 }
 
 .predict-results-table thead th,
