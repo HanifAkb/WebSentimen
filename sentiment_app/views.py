@@ -81,14 +81,14 @@ LEGACY_PREDICTION_COLUMNS = {"knn_score", "svm_score", "combined_score"}
 ALL_PREDICTION_COLUMNS = set(PREDICTION_COLUMNS) | LEGACY_PREDICTION_COLUMNS
 PREDICTION_HEADERS = {
     "knn_label": "KNN",
-    "knn_positive_score": "Skor predict_proba positif KNN",
-    "knn_negative_score": "Skor predict_proba negatif KNN",
+    "knn_positive_score": "Probabilitas Positif KNN",
+    "knn_negative_score": "Probabilitas Negatif KNN",
     "svm_label": "SVM",
-    "svm_positive_score": "Skor predict_proba positif SVM",
-    "svm_negative_score": "Skor predict_proba negatif SVM",
+    "svm_positive_score": "Probabilitas Positif SVM",
+    "svm_negative_score": "Probabilitas Negatif SVM",
     "combined_label": "Soft Voting",
-    "combined_positive_score": "Skor Soft Voting positif",
-    "combined_negative_score": "Skor Soft Voting negatif",
+    "combined_positive_score": "Probabilitas Positif Soft Voting",
+    "combined_negative_score": "Probabilitas Negatif Soft Voting",
 }
 PREDICTION_DATE_COLUMN_HINTS = (
     "createdat",
