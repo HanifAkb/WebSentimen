@@ -402,7 +402,6 @@ body {
 
 .twitter-results-table thead th {
     font-size: 0.8rem;
-    white-space: nowrap;
 }
 
 .query-help-inline {
@@ -622,8 +621,8 @@ body {
 
 .twitter-results-table {
     table-layout: fixed;
-    width: 3000px;
-    min-width: 3000px;
+    width: 4200px;
+    min-width: 4200px;
 }
 
 .twitter-col-id,
@@ -663,10 +662,13 @@ body {
 .twitter-results-table col.tw-col-quote,
 .twitter-results-table col.tw-col-view,
 .twitter-results-table col.tw-col-bookmark,
-.twitter-results-table col.tw-col-isreply,
+.twitter-results-table col.tw-col-isreply {
+    width: 92px;
+}
+
 .twitter-results-table col.tw-col-knn,
 .twitter-results-table col.tw-col-svm {
-    width: 92px;
+    width: 120px;
 }
 
 .twitter-results-table col.tw-col-created {
@@ -679,7 +681,7 @@ body {
 
 .twitter-results-table col.tw-col-knnscore,
 .twitter-results-table col.tw-col-svmscore {
-    width: 82px;
+    width: 220px;
 }
 
 .twitter-top-scroll {
