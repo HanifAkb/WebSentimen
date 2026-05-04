@@ -712,8 +712,8 @@ body {
 }
 
 .predict-results-table .predict-col-text {
-    width: 900px;
-    min-width: 900px;
+    width: 400px;
+    min-width: 400px;
 }
 
 .predict-results-table tbody td.predict-col-text {
