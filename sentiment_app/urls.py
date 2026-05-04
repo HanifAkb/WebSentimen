@@ -3,6 +3,8 @@ from django.urls import path
 from .views import (
     beranda_view,
     delete_all_history_view,
+    download_prediction_history_csv_view,
+    download_scrape_history_csv_view,
     delete_prediction_history_view,
     delete_scrape_history_view,
     delete_selected_history_view,
@@ -35,5 +37,15 @@ urlpatterns = [
     path("history/<int:history_id>/", history_detail_view, name="history_detail"),
     path("history/<int:history_id>/resume/", resume_scrape_view, name="resume_scrape"),
     path("history/predict/<int:history_id>/", prediction_history_detail_view, name="prediction_history_detail"),
+    path(
+        "history/predict/<int:history_id>/download/",
+        download_prediction_history_csv_view,
+        name="download_prediction_history_csv",
+    ),
+    path(
+        "history/scrape/<int:history_id>/download/",
+        download_scrape_history_csv_view,
+        name="download_scrape_history_csv",
+    ),
     path("download/<str:filename>/", download_output_view, name="download_output"),
 ]

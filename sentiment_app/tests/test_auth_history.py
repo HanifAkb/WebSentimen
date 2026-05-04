@@ -665,6 +665,104 @@ class AuthAndHistoryTests(TestCase):
         forbidden_detail = self.client.get(reverse("prediction_history_detail", args=[other_history.id]))
         self.assertEqual(forbidden_detail.status_code, 404)
 
+    def test_prediction_history_csv_download_uses_flat_headers_and_keeps_source_id(self):
+        history = PredictionHistory.objects.create(
+            user=self.user,
+            input_type=PredictionHistory.InputType.FILE,
+            source_name="uji.csv",
+            text_column="review",
+            sample_count=1,
+            columns=["id", "review"],
+            rows=[
+                {
+                    "id": "abc-001",
+                    "review": "mobil listrik bagus",
+                    "knn_label": "Positive",
+                    "knn_positive_score": 0.91,
+                    "knn_negative_score": 0.09,
+                    "svm_label": "Positive",
+                    "svm_positive_score": 0.87,
+                    "svm_negative_score": 0.13,
+                    "combined_label": "Positive",
+                    "combined_positive_score": 0.89,
+                    "combined_negative_score": 0.11,
+                }
+            ],
+        )
+
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("download_prediction_history_csv", args=[history.id]))
+        csv_text = response.content.decode("utf-8")
+        header_row = csv_text.splitlines()[0]
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        self.assertIn("attachment; filename=\"uji.csv\"", response["Content-Disposition"])
+        self.assertIn("id", header_row)
+        self.assertIn("review", header_row)
+        self.assertIn("Probabilitas Positif KNN", header_row)
+        self.assertIn("Probabilitas Negatif Soft Voting", header_row)
+        self.assertIn("Soft Voting", header_row)
+        self.assertNotIn("Skor 0-1", csv_text)
+        self.assertIn("abc-001", csv_text)
+        self.assertIn("0.910000", csv_text)
+
+    def test_scrape_history_csv_download_uses_flat_headers(self):
+        history = ScrapeHistory.objects.create(
+            user=self.user,
+            query="dataset scraping",
+            language="in",
+            start_date="2026-01-01",
+            end_date="2026-01-02",
+            tweet_count=1,
+            rows=[
+                {
+                    "id": "1",
+                    "url": "https://x.com/status/1",
+                    "text": "mobil listrik bagus",
+                    "retweetCount": 4,
+                    "replyCount": 2,
+                    "likeCount": 9,
+                    "quoteCount": 1,
+                    "viewCount": 30,
+                    "CreatedAt": "2026-01-01T10:00:00+00:00",
+                    "lang": "in",
+                    "bookmarkCount": 0,
+                    "isReply": False,
+                    "inReplyTold": "",
+                    "userName": "akun_uji",
+                    "image_tweet": "https://example.com/image.jpg",
+                    "knn_label": "Positive",
+                    "knn_positive_score": 0.91,
+                    "knn_negative_score": 0.09,
+                    "svm_label": "Positive",
+                    "svm_positive_score": 0.87,
+                    "svm_negative_score": 0.13,
+                    "combined_label": "Positive",
+                    "combined_positive_score": 0.89,
+                    "combined_negative_score": 0.11,
+                }
+            ],
+        )
+
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("download_scrape_history_csv", args=[history.id]))
+        csv_text = response.content.decode("utf-8")
+        header_row = csv_text.splitlines()[0]
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        self.assertIn("attachment; filename=\"scrape_history_{}.csv\"".format(history.id), response["Content-Disposition"])
+        self.assertIn("ID", header_row)
+        self.assertIn("Teks", header_row)
+        self.assertIn("Probabilitas Positif KNN", header_row)
+        self.assertIn("Probabilitas Negatif Soft Voting", header_row)
+        self.assertIn("KNN", header_row)
+        self.assertIn("Soft Voting", header_row)
+        self.assertNotIn("Skor 0-1", csv_text)
+        self.assertIn("mobil listrik bagus", csv_text)
+        self.assertIn("0.890000", csv_text)
+
     def test_prediction_history_detail_upgrades_legacy_svm_scores(self):
         history = PredictionHistory.objects.create(
             user=self.user,

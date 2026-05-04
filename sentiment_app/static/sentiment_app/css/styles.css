@@ -402,6 +402,8 @@ body {
 
 .twitter-results-table thead th {
     font-size: 0.8rem;
+    text-align: center;
+    vertical-align: middle;
     border: 1px solid rgba(37, 99, 235, 0.18);
 }
 
@@ -711,6 +713,8 @@ body {
 
 .predict-results-table thead th {
     font-size: 0.8rem;
+    text-align: center;
+    vertical-align: middle;
     border: 1px solid rgba(37, 99, 235, 0.18);
 }
 

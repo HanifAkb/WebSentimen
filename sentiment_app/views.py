@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import csv
 import io
 import re
 from collections import Counter
@@ -90,6 +91,42 @@ PREDICTION_HEADERS = {
     "combined_positive_score": "Probabilitas Positif Soft Voting",
     "combined_negative_score": "Probabilitas Negatif Soft Voting",
 }
+SCRAPE_BASE_COLUMNS = [
+    "id",
+    "url",
+    "text",
+    "retweetCount",
+    "replyCount",
+    "likeCount",
+    "quoteCount",
+    "viewCount",
+    "CreatedAt",
+    "lang",
+    "bookmarkCount",
+    "isReply",
+    "inReplyTold",
+    "userName",
+    "image_tweet",
+]
+SCRAPE_EXPORT_COLUMNS = SCRAPE_BASE_COLUMNS + PREDICTION_COLUMNS
+SCRAPE_HEADERS = {
+    "id": "ID",
+    "url": "URL",
+    "text": "Teks",
+    "retweetCount": "Retweet",
+    "replyCount": "Reply",
+    "likeCount": "Like",
+    "quoteCount": "Quote",
+    "viewCount": "View",
+    "CreatedAt": "CreatedAt",
+    "lang": "Lang",
+    "bookmarkCount": "Bookmark",
+    "isReply": "IsReply",
+    "inReplyTold": "inReplyTold",
+    "userName": "User Name",
+    "image_tweet": "Gambar Tweet",
+    **PREDICTION_HEADERS,
+}
 PREDICTION_DATE_COLUMN_HINTS = (
     "createdat",
     "created_at",
@@ -102,6 +139,7 @@ PREDICTION_DATE_COLUMN_HINTS = (
 )
 WORDCLOUD_STOPWORDS_PATH = Path(settings.BASE_DIR) / "sentiment_site" / "models" / "stopwords-id.txt"
 _WORDCLOUD_STOPWORDS_CACHE: set[str] | None = None
+
 
 def _setting_positive_int(name: str, default: int) -> int:
     raw_value = getattr(settings, name, default)
@@ -918,6 +956,7 @@ def _apply_scraping_context(
     per_page: int,
     start_date_value: object,
     end_date_value: object,
+    history_id: int | None = None,
     dashboard_enabled: bool = False,
 ) -> bool:
     page_rows, total_rows, current_page, total_pages = _paginate_rows(rows, requested_page, per_page)
@@ -933,6 +972,8 @@ def _apply_scraping_context(
     context["page_numbers"] = range(page_start, page_end + 1)
     context["per_page"] = per_page
     context["dashboard_enabled"] = bool(dashboard_enabled)
+    if history_id:
+        context["classified_download_url"] = reverse("download_scrape_history_csv", args=[history_id])
     if not dashboard_enabled:
         context["dashboard"] = None
         context["dashboard_error"] = ""
@@ -990,6 +1031,40 @@ def _serialize_history_rows(rows: list[dict[str, object]]) -> list[dict[str, obj
     for row in rows:
         serialized.append({str(key): _json_safe_value(value) for key, value in row.items()})
     return serialized
+
+
+def _safe_download_filename(base_name: str, fallback_prefix: str) -> str:
+    stem = Path(str(base_name or "").strip()).stem
+    sanitized = re.sub(r"[^A-Za-z0-9_-]+", "_", stem).strip("_")
+    if not sanitized:
+        sanitized = fallback_prefix
+    return f"{sanitized}.csv"
+
+
+def _export_cell_value(column: str, value: object) -> str:
+    if value is None:
+        return ""
+    if column in PREDICTION_SCORE_COLUMNS:
+        try:
+            return f"{float(value):.6f}"
+        except (TypeError, ValueError):
+            return str(value)
+    return str(value)
+
+
+def _csv_download_response(
+    filename: str,
+    columns: list[str],
+    headers: list[str],
+    rows: list[dict[str, object]],
+) -> HttpResponse:
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    writer = csv.writer(response)
+    writer.writerow(headers)
+    for row in rows:
+        writer.writerow([_export_cell_value(column, row.get(column, "")) for column in columns])
+    return response
 
 
 def _combine_tweet_predictions(
@@ -1748,6 +1823,7 @@ def history_detail_view(request: HttpRequest, history_id: int) -> HttpResponse:
         per_page,
         history.start_date.isoformat(),
         history.end_date.isoformat(),
+        history_id=history.id,
         dashboard_enabled=dashboard_enabled,
     ):
         messages.warning(request, "Data riwayat scraping kosong.")
@@ -1923,8 +1999,7 @@ def prediction_history_detail_view(request: HttpRequest, history_id: int) -> Htt
         }
     )
 
-    if history.output_filename:
-        context["download_url"] = reverse("download_output", args=[history.output_filename])
+    context["download_url"] = reverse("download_prediction_history_csv", args=[history.id])
 
     return render(request, "sentiment_app/history_predict_detail.html", context)
 
@@ -2287,6 +2362,7 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
             per_page,
             history.start_date.isoformat(),
             history.end_date.isoformat(),
+            history_id=history.id,
             dashboard_enabled=dashboard_enabled,
         )
         return render(request, "sentiment_app/twitter.html", context)
@@ -2338,6 +2414,7 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
         per_page,
         saved_history.start_date.isoformat(),
         saved_history.end_date.isoformat(),
+        history_id=saved_history.id,
         dashboard_enabled=dashboard_enabled,
     ):
         request.session.pop(TWITTER_RESULT_SESSION_KEY, None)
@@ -2349,6 +2426,36 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
     request.session.modified = True
 
     return render(request, "sentiment_app/twitter.html", context)
+
+
+@login_required
+def download_prediction_history_csv_view(request: HttpRequest, history_id: int) -> HttpResponse:
+    history = get_object_or_404(_prediction_history_queryset_for_detail(request), id=history_id)
+    history = _upgrade_prediction_history_scores_if_needed(history)
+
+    rows = [row for row in (history.rows if isinstance(history.rows, list) else []) if isinstance(row, dict)]
+    if not rows:
+        raise Http404("Data prediksi tidak ditemukan.")
+
+    source_columns = _normalize_prediction_source_columns(history.columns, rows)
+    export_columns = source_columns + PREDICTION_COLUMNS
+    export_headers = [PREDICTION_HEADERS.get(column, column) for column in export_columns]
+    filename = _safe_download_filename(history.source_name or f"prediction_history_{history.id}", "prediction_history")
+    return _csv_download_response(filename, export_columns, export_headers, rows)
+
+
+@login_required
+def download_scrape_history_csv_view(request: HttpRequest, history_id: int) -> HttpResponse:
+    history = get_object_or_404(_scrape_history_queryset_for_detail(request), id=history_id)
+    history = _upgrade_scrape_history_scores_if_needed(history)
+
+    rows = _load_scrape_rows(history)
+    if not rows:
+        raise Http404("Data scraping tidak ditemukan.")
+
+    export_headers = [SCRAPE_HEADERS.get(column, column) for column in SCRAPE_EXPORT_COLUMNS]
+    filename = _safe_download_filename(f"scrape_history_{history.id}", "scrape_history")
+    return _csv_download_response(filename, SCRAPE_EXPORT_COLUMNS, export_headers, rows)
 
 
 @login_required
