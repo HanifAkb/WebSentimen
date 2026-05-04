@@ -216,8 +216,8 @@ class ModelArtifacts:
 _ARTIFACTS_CACHE: ModelArtifacts | None = None
 KNN_NEUTRAL_MIN = 0.45
 KNN_NEUTRAL_MAX = 0.55
-SVM_NEUTRAL_MIN = -0.10
-SVM_NEUTRAL_MAX = 0.10
+SVM_NEUTRAL_MIN = 0.475
+SVM_NEUTRAL_MAX = 0.525
 
 
 def _load_stopwords() -> set[str]:
@@ -441,6 +441,11 @@ def _score_from_proba(probabilities: Any, classes: Any) -> list[float]:
     return [float(row[positive_index]) for row in values]
 
 
+def _sigmoid(values: Any) -> np.ndarray:
+    clipped = np.clip(np.asarray(values, dtype=float), -50.0, 50.0)
+    return 1.0 / (1.0 + np.exp(-clipped))
+
+
 def _score_from_decision(decision_values: Any, classes: Any) -> list[float]:
     values = np.asarray(decision_values)
     if values.ndim == 1:
@@ -451,9 +456,8 @@ def _score_from_decision(decision_values: Any, classes: Any) -> list[float]:
             positive_index = 1 if values.shape[1] > 1 else 0
         selected = values[:, positive_index]
 
-    # Keep raw decision score in [-1, 1] range for UI consistency.
-    clipped = np.clip(selected, -1.0, 1.0)
-    return [float(value) for value in clipped]
+    probabilities = _sigmoid(selected)
+    return [float(value) for value in probabilities]
 
 
 def _extract_scores(model: Any, features: Any) -> list[float | None]:

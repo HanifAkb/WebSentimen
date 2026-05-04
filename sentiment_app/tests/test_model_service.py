@@ -152,3 +152,5 @@ class ModelServiceTests(SimpleTestCase):
         self.assertEqual(rows[0]["svm_label"], "Neutral")
         self.assertEqual(rows[1]["knn_label"], "Positive")
         self.assertEqual(rows[1]["svm_label"], "Positive")
+        self.assertAlmostEqual(rows[0]["svm_score"], 1.0 / (1.0 + np.exp(-0.05)), places=3)
+        self.assertAlmostEqual(rows[1]["svm_score"], 1.0 / (1.0 + np.exp(-0.7)), places=3)
