@@ -1,3 +1,5 @@
+import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -626,6 +628,168 @@ class AuthAndHistoryTests(TestCase):
         self.assertEqual(response.status_code, 200)
         forbidden_detail = self.client.get(reverse("prediction_history_detail", args=[other_history.id]))
         self.assertEqual(forbidden_detail.status_code, 404)
+
+    def test_prediction_history_detail_upgrades_legacy_svm_scores(self):
+        history = PredictionHistory.objects.create(
+            user=self.user,
+            input_type=PredictionHistory.InputType.FILE,
+            source_name="legacy.csv",
+            text_column="review",
+            sample_count=1,
+            score_schema_version=1,
+            rows=[
+                {
+                    "review": "mobil listrik bagus",
+                    "knn_label": "Positive",
+                    "knn_score": 0.91,
+                    "svm_label": "Positive",
+                    "svm_score": 0.7,
+                }
+            ],
+            output_filename="legacy.csv",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            outputs_dir = Path(tmp_dir) / "outputs"
+            outputs_dir.mkdir(parents=True, exist_ok=True)
+            (outputs_dir / "legacy.csv").write_text("old", encoding="utf-8")
+
+            self.client.force_login(self.user)
+            with self.settings(MEDIA_ROOT=tmp_dir):
+                with patch(
+                    "sentiment_app.views.predict_batch",
+                    return_value=[
+                        {
+                            "text": "mobil listrik bagus",
+                            "knn_label": "Positive",
+                            "knn_score": 0.91,
+                            "svm_label": "Positive",
+                            "svm_score": 0.7311,
+                        }
+                    ],
+                ):
+                    response = self.client.get(reverse("prediction_history_detail", args=[history.id]))
+                refreshed_csv = (outputs_dir / "legacy.csv").read_text(encoding="utf-8")
+
+        history.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(history.score_schema_version, 2)
+        self.assertEqual(history.rows[0]["svm_label"], "Positive")
+        self.assertAlmostEqual(history.rows[0]["svm_score"], 0.7311, places=4)
+        self.assertIn("0.731100", refreshed_csv)
+        self.assertContains(response, "0,7311")
+
+    def test_download_output_upgrades_legacy_prediction_history_csv(self):
+        history = PredictionHistory.objects.create(
+            user=self.user,
+            input_type=PredictionHistory.InputType.FILE,
+            source_name="legacy.csv",
+            text_column="review",
+            sample_count=1,
+            score_schema_version=1,
+            rows=[
+                {
+                    "review": "servis buruk",
+                    "knn_label": "Negative",
+                    "knn_score": 0.12,
+                    "svm_label": "Negative",
+                    "svm_score": -0.4,
+                }
+            ],
+            output_filename="legacy.csv",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            outputs_dir = Path(tmp_dir) / "outputs"
+            outputs_dir.mkdir(parents=True, exist_ok=True)
+            (outputs_dir / "legacy.csv").write_text("outdated", encoding="utf-8")
+
+            self.client.force_login(self.user)
+            with self.settings(MEDIA_ROOT=tmp_dir):
+                with patch(
+                    "sentiment_app.views.predict_batch",
+                    return_value=[
+                        {
+                            "text": "servis buruk",
+                            "knn_label": "Negative",
+                            "knn_score": 0.12,
+                            "svm_label": "Negative",
+                            "svm_score": 0.4013,
+                        }
+                    ],
+                ):
+                    response = self.client.get(reverse("download_output", args=["legacy.csv"]))
+                    downloaded_csv = b"".join(response.streaming_content).decode("utf-8")
+
+        history.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(history.score_schema_version, 2)
+        self.assertAlmostEqual(history.rows[0]["svm_score"], 0.4013, places=4)
+        self.assertIn("0.401300", downloaded_csv)
+
+    def test_scrape_history_detail_upgrades_legacy_svm_scores_in_chunks(self):
+        history = ScrapeHistory.objects.create(
+            user=self.user,
+            query="dataset scraping",
+            language="in",
+            start_date="2026-01-01",
+            end_date="2026-01-02",
+            tweet_count=2,
+            score_schema_version=1,
+            rows=[
+                {
+                    "id": "1",
+                    "text": "mobil listrik bagus",
+                    "knn_label": "Positive",
+                    "knn_score": 0.91,
+                    "svm_label": "Positive",
+                    "svm_score": 0.7,
+                }
+            ],
+        )
+        chunk = ScrapeTempChunk.objects.create(
+            history=history,
+            chunk_index=0,
+            rows=[
+                {
+                    "id": "2",
+                    "text": "servis buruk",
+                    "knn_label": "Negative",
+                    "knn_score": 0.12,
+                    "svm_label": "Negative",
+                    "svm_score": -0.4,
+                }
+            ],
+        )
+
+        self.client.force_login(self.user)
+        with patch(
+            "sentiment_app.views.predict_batch",
+            return_value=[
+                {
+                    "text": "mobil listrik bagus",
+                    "knn_label": "Positive",
+                    "knn_score": 0.91,
+                    "svm_label": "Positive",
+                    "svm_score": 0.7311,
+                },
+                {
+                    "text": "servis buruk",
+                    "knn_label": "Negative",
+                    "knn_score": 0.12,
+                    "svm_label": "Negative",
+                    "svm_score": 0.4013,
+                },
+            ],
+        ):
+            response = self.client.get(reverse("history_detail", args=[history.id]))
+
+        history.refresh_from_db()
+        chunk.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(history.score_schema_version, 2)
+        self.assertAlmostEqual(history.rows[0]["svm_score"], 0.7311, places=4)
+        self.assertAlmostEqual(chunk.rows[0]["svm_score"], 0.4013, places=4)
 
     @override_settings(SENTIMENT_TWITTER_TEMP_DB_THRESHOLD_DAYS=30)
     def test_scraping_long_range_uses_temp_db_chunks(self):

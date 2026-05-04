@@ -151,9 +151,14 @@ def ensure_output_dir() -> Path:
     return output_dir
 
 
-def generate_classification_csv(predictions: list[dict[str, Any]], prefix: str = "results") -> str:
+def generate_classification_csv(
+    predictions: list[dict[str, Any]],
+    prefix: str = "results",
+    filename: str | None = None,
+) -> str:
     output_dir = ensure_output_dir()
-    filename = f"{prefix}_{uuid.uuid4().hex}.csv"
+    if not filename:
+        filename = f"{prefix}_{uuid.uuid4().hex}.csv"
     path = output_dir / filename
 
     fieldnames = ["text", "knn_label", "knn_score", "svm_label", "svm_score"]

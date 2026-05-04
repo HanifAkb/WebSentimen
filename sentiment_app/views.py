@@ -58,6 +58,7 @@ DEFAULT_PER_PAGE = 10
 MAX_PER_PAGE = 200
 HISTORY_PER_PAGE = 10
 TWITTER_RESULT_SESSION_KEY = "twitter_last_result"
+CURRENT_SCORE_SCHEMA_VERSION = 2
 PREDICTION_COLUMNS = ["knn_label", "knn_score", "svm_label", "svm_score"]
 PREDICTION_HEADERS = {
     "knn_label": "KNN",
@@ -706,6 +707,126 @@ def _prediction_row_date_value(row: dict[str, object]) -> object:
             return value
 
     return ""
+
+
+def _history_score_schema_version(history: PredictionHistory | ScrapeHistory) -> int:
+    try:
+        return int(getattr(history, "score_schema_version", CURRENT_SCORE_SCHEMA_VERSION) or 0)
+    except (TypeError, ValueError):
+        return CURRENT_SCORE_SCHEMA_VERSION
+
+
+def _upgrade_prediction_history_scores_if_needed(history: PredictionHistory) -> PredictionHistory:
+    if _history_score_schema_version(history) >= CURRENT_SCORE_SCHEMA_VERSION:
+        return history
+
+    stored_rows = history.rows if isinstance(history.rows, list) else []
+    if not stored_rows:
+        history.score_schema_version = CURRENT_SCORE_SCHEMA_VERSION
+        history.save(update_fields=["score_schema_version"])
+        return history
+
+    source_columns = _normalize_prediction_source_columns(
+        history.columns,
+        [row for row in stored_rows if isinstance(row, dict)],
+    )
+    normalized_rows: list[dict[str, object]] = []
+    texts: list[str] = []
+    for row in stored_rows:
+        normalized_row = dict(row) if isinstance(row, dict) else {}
+        normalized_rows.append(normalized_row)
+        texts.append(_prediction_row_text(normalized_row, history.text_column, source_columns))
+
+    predictions = predict_batch(texts)
+    updated_rows: list[dict[str, object]] = []
+    export_rows: list[dict[str, object]] = []
+
+    for row, prediction in zip(normalized_rows, predictions):
+        updated_row = dict(row)
+        updated_row["svm_label"] = prediction.get("svm_label", "")
+        updated_row["svm_score"] = prediction.get("svm_score")
+        updated_rows.append(updated_row)
+        export_rows.append(
+            {
+                "text": _prediction_row_text(updated_row, history.text_column, source_columns),
+                "knn_label": updated_row.get("knn_label", ""),
+                "knn_score": updated_row.get("knn_score"),
+                "svm_label": updated_row.get("svm_label", ""),
+                "svm_score": updated_row.get("svm_score"),
+            }
+        )
+
+    history.rows = _serialize_history_rows(updated_rows)
+    history.score_schema_version = CURRENT_SCORE_SCHEMA_VERSION
+    update_fields = ["rows", "score_schema_version"]
+
+    if history.input_type == PredictionHistory.InputType.FILE and export_rows:
+        if history.output_filename and SAFE_OUTPUT_RE.match(history.output_filename):
+            generate_classification_csv(export_rows, filename=history.output_filename)
+        else:
+            history.output_filename = generate_classification_csv(export_rows, prefix="uploaded")
+            update_fields.append("output_filename")
+
+    history.save(update_fields=update_fields)
+    return history
+
+
+def _store_scrape_history_rows(history: ScrapeHistory, rows: list[dict[str, object]]) -> None:
+    serialized_rows = _serialize_history_rows(rows)
+    base_rows = history.rows if isinstance(history.rows, list) else []
+    base_count = len(base_rows)
+    chunk_objects = list(history.temp_chunks.order_by("chunk_index", "id"))
+
+    if not chunk_objects:
+        history.rows = serialized_rows
+        history.score_schema_version = CURRENT_SCORE_SCHEMA_VERSION
+        history.save(update_fields=["rows", "score_schema_version"])
+        return
+
+    history.rows = serialized_rows[:base_count]
+    history.score_schema_version = CURRENT_SCORE_SCHEMA_VERSION
+    history.save(update_fields=["rows", "score_schema_version"])
+
+    offset = base_count
+    for chunk in chunk_objects:
+        current_chunk_rows = chunk.rows if isinstance(chunk.rows, list) else []
+        chunk_count = len(current_chunk_rows)
+        chunk.rows = serialized_rows[offset : offset + chunk_count]
+        chunk.save(update_fields=["rows"])
+        offset += chunk_count
+
+    if offset < len(serialized_rows):
+        history.rows = list(history.rows) + serialized_rows[offset:]
+        history.save(update_fields=["rows"])
+
+
+def _upgrade_scrape_history_scores_if_needed(history: ScrapeHistory) -> ScrapeHistory:
+    if _history_score_schema_version(history) >= CURRENT_SCORE_SCHEMA_VERSION:
+        return history
+
+    stored_rows = _load_scrape_rows(history)
+    if not stored_rows:
+        history.score_schema_version = CURRENT_SCORE_SCHEMA_VERSION
+        history.save(update_fields=["score_schema_version"])
+        return history
+
+    normalized_rows: list[dict[str, object]] = []
+    texts: list[str] = []
+    for row in stored_rows:
+        normalized_row = dict(row) if isinstance(row, dict) else {}
+        normalized_rows.append(normalized_row)
+        texts.append(str(normalized_row.get("text", "") or "").strip())
+
+    predictions = predict_batch(texts)
+    updated_rows: list[dict[str, object]] = []
+    for row, prediction in zip(normalized_rows, predictions):
+        updated_row = dict(row)
+        updated_row["svm_label"] = prediction.get("svm_label", "")
+        updated_row["svm_score"] = prediction.get("svm_score")
+        updated_rows.append(updated_row)
+
+    _store_scrape_history_rows(history, updated_rows)
+    return history
 
 
 def _history_created_date(history: PredictionHistory) -> date:
@@ -1554,6 +1675,7 @@ def delete_selected_history_view(request: HttpRequest) -> HttpResponse:
 @login_required
 def history_detail_view(request: HttpRequest, history_id: int) -> HttpResponse:
     history = get_object_or_404(_scrape_history_queryset_for_detail(request), id=history_id)
+    history = _upgrade_scrape_history_scores_if_needed(history)
     form = TwitterFetchForm()
     resume_form = ResumeScrapeForm()
     resume_done_days, resume_total_days, resume_progress_pct = _history_resume_progress(history)
@@ -1682,6 +1804,7 @@ def resume_scrape_view(request: HttpRequest, history_id: int) -> HttpResponse:
 @login_required
 def prediction_history_detail_view(request: HttpRequest, history_id: int) -> HttpResponse:
     history = get_object_or_404(_prediction_history_queryset_for_detail(request), id=history_id)
+    history = _upgrade_prediction_history_scores_if_needed(history)
     context: dict[str, object] = {
         "history": history,
     }
@@ -1769,6 +1892,7 @@ def predict_view(request: HttpRequest) -> HttpResponse:
                     input_type=PredictionHistory.InputType.SINGLE,
                     text_input=text_input,
                     sample_count=1,
+                    score_schema_version=CURRENT_SCORE_SCHEMA_VERSION,
                     rows=_serialize_history_rows(
                         [
                             {
@@ -1794,6 +1918,7 @@ def predict_view(request: HttpRequest) -> HttpResponse:
                     source_name=getattr(upload_file, "name", "") or "",
                     text_column=(detected_column or text_column or "").strip(),
                     sample_count=len(merged_rows),
+                    score_schema_version=CURRENT_SCORE_SCHEMA_VERSION,
                     columns=[str(column) for column in source_columns],
                     rows=_serialize_history_rows(merged_rows),
                     output_filename=output_filename,
@@ -1874,6 +1999,7 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                     end_date=end_date,
                     tweet_count=0,
                     rows=[],
+                    score_schema_version=CURRENT_SCORE_SCHEMA_VERSION,
                     is_complete=False,
                     resume_next_date=start_date,
                     stop_reason="partial",
@@ -2020,6 +2146,7 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                 end_date=end_date,
                 tweet_count=len(history_rows),
                 rows=history_rows,
+                score_schema_version=CURRENT_SCORE_SCHEMA_VERSION,
                 is_complete=True,
                 resume_next_date=None,
                 stop_reason="",
@@ -2159,6 +2286,14 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
 def download_output_view(request: HttpRequest, filename: str) -> FileResponse:
     if not SAFE_OUTPUT_RE.match(filename):
         raise Http404("Nama file tidak valid.")
+
+    linked_history = (
+        PredictionHistory.objects.filter(user=request.user, output_filename=filename)
+        .only("id", "input_type", "text_column", "columns", "rows", "output_filename", "score_schema_version")
+        .first()
+    )
+    if linked_history is not None:
+        _upgrade_prediction_history_scores_if_needed(linked_history)
 
     outputs_dir = (Path(settings.MEDIA_ROOT) / "outputs").resolve()
     target_file = (outputs_dir / filename).resolve()
