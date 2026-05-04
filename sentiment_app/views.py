@@ -56,24 +56,39 @@ DEFAULT_PER_PAGE = 10
 MAX_PER_PAGE = 200
 HISTORY_PER_PAGE = 10
 TWITTER_RESULT_SESSION_KEY = "twitter_last_result"
-CURRENT_SCORE_SCHEMA_VERSION = 4
+CURRENT_SCORE_SCHEMA_VERSION = 6
 PREDICTION_LABEL_COLUMNS = ["knn_label", "svm_label", "combined_label"]
-PREDICTION_SCORE_COLUMNS = ["knn_score", "svm_score", "combined_score"]
+PREDICTION_SCORE_COLUMNS = [
+    "knn_positive_score",
+    "knn_negative_score",
+    "svm_positive_score",
+    "svm_negative_score",
+    "combined_positive_score",
+    "combined_negative_score",
+]
 PREDICTION_COLUMNS = [
     "knn_label",
-    "knn_score",
+    "knn_positive_score",
+    "knn_negative_score",
     "svm_label",
-    "svm_score",
+    "svm_positive_score",
+    "svm_negative_score",
     "combined_label",
-    "combined_score",
+    "combined_positive_score",
+    "combined_negative_score",
 ]
+LEGACY_PREDICTION_COLUMNS = {"knn_score", "svm_score", "combined_score"}
+ALL_PREDICTION_COLUMNS = set(PREDICTION_COLUMNS) | LEGACY_PREDICTION_COLUMNS
 PREDICTION_HEADERS = {
     "knn_label": "KNN",
-    "knn_score": "Skor KNN (0-1)",
+    "knn_positive_score": "Skor predict_proba positif KNN",
+    "knn_negative_score": "Skor predict_proba negatif KNN",
     "svm_label": "SVM",
-    "svm_score": "Skor SVM (0-1)",
-    "combined_label": "Gabungan",
-    "combined_score": "Skor Gabungan (0-1)",
+    "svm_positive_score": "Skor predict_proba positif SVM",
+    "svm_negative_score": "Skor predict_proba negatif SVM",
+    "combined_label": "Soft Voting",
+    "combined_positive_score": "Skor Soft Voting positif",
+    "combined_negative_score": "Skor Soft Voting negatif",
 }
 PREDICTION_DATE_COLUMN_HINTS = (
     "createdat",
@@ -159,11 +174,14 @@ def _build_batch_preview(
         merged = {
             **source_row,
             "knn_label": prediction.get("knn_label", ""),
-            "knn_score": prediction.get("knn_score"),
+            "knn_positive_score": prediction.get("knn_positive_score"),
+            "knn_negative_score": prediction.get("knn_negative_score"),
             "svm_label": prediction.get("svm_label", ""),
-            "svm_score": prediction.get("svm_score"),
+            "svm_positive_score": prediction.get("svm_positive_score"),
+            "svm_negative_score": prediction.get("svm_negative_score"),
             "combined_label": prediction.get("combined_label", ""),
-            "combined_score": prediction.get("combined_score"),
+            "combined_positive_score": prediction.get("combined_positive_score"),
+            "combined_negative_score": prediction.get("combined_negative_score"),
         }
 
         cells = []
@@ -196,11 +214,14 @@ def _merge_batch_rows_for_history(
             {
                 **source_row,
                 "knn_label": prediction.get("knn_label", ""),
-                "knn_score": prediction.get("knn_score"),
+                "knn_positive_score": prediction.get("knn_positive_score"),
+                "knn_negative_score": prediction.get("knn_negative_score"),
                 "svm_label": prediction.get("svm_label", ""),
-                "svm_score": prediction.get("svm_score"),
+                "svm_positive_score": prediction.get("svm_positive_score"),
+                "svm_negative_score": prediction.get("svm_negative_score"),
                 "combined_label": prediction.get("combined_label", ""),
-                "combined_score": prediction.get("combined_score"),
+                "combined_positive_score": prediction.get("combined_positive_score"),
+                "combined_negative_score": prediction.get("combined_negative_score"),
             }
         )
     return merged_rows
@@ -223,7 +244,7 @@ def _normalize_prediction_source_columns(
     first_row = rows[0]
     derived_columns: list[str] = []
     for key in first_row.keys():
-        if key not in PREDICTION_COLUMNS and key != "row_number":
+        if key not in ALL_PREDICTION_COLUMNS and key != "row_number":
             derived_columns.append(str(key))
     return derived_columns
 
@@ -633,7 +654,7 @@ def _prediction_row_text(
             return text
 
     for key, value in row.items():
-        if key in PREDICTION_COLUMNS or key == "row_number":
+        if key in ALL_PREDICTION_COLUMNS or key == "row_number":
             continue
         text = str(value or "").strip()
         if text:
@@ -649,7 +670,7 @@ def _prediction_row_date_value(row: dict[str, object]) -> object:
 
     for key, value in row.items():
         normalized_key = str(key).strip().lower()
-        if key in PREDICTION_COLUMNS or key == "row_number":
+        if key in ALL_PREDICTION_COLUMNS or key == "row_number":
             continue
         if not any(hint in normalized_key for hint in PREDICTION_DATE_COLUMN_HINTS):
             continue
@@ -666,11 +687,32 @@ def _history_score_schema_version(history: PredictionHistory | ScrapeHistory) ->
         return CURRENT_SCORE_SCHEMA_VERSION
 
 
+def _rows_need_probability_split_upgrade(rows: list[dict[str, object]]) -> bool:
+    required_columns = {
+        "knn_positive_score",
+        "knn_negative_score",
+        "svm_positive_score",
+        "svm_negative_score",
+        "combined_label",
+        "combined_positive_score",
+        "combined_negative_score",
+    }
+    for row in rows:
+        if not isinstance(row, dict):
+            return True
+        if not required_columns.issubset(set(row.keys())):
+            return True
+    return False
+
+
 def _upgrade_prediction_history_scores_if_needed(history: PredictionHistory) -> PredictionHistory:
-    if _history_score_schema_version(history) >= CURRENT_SCORE_SCHEMA_VERSION:
+    stored_rows = history.rows if isinstance(history.rows, list) else []
+    if (
+        _history_score_schema_version(history) >= CURRENT_SCORE_SCHEMA_VERSION
+        and not _rows_need_probability_split_upgrade([row for row in stored_rows if isinstance(row, dict)])
+    ):
         return history
 
-    stored_rows = history.rows if isinstance(history.rows, list) else []
     if not stored_rows:
         history.score_schema_version = CURRENT_SCORE_SCHEMA_VERSION
         history.save(update_fields=["score_schema_version"])
@@ -693,20 +735,31 @@ def _upgrade_prediction_history_scores_if_needed(history: PredictionHistory) -> 
 
     for row, prediction in zip(normalized_rows, predictions):
         updated_row = dict(row)
+        updated_row["knn_label"] = prediction.get("knn_label", "")
+        updated_row["knn_positive_score"] = prediction.get("knn_positive_score")
+        updated_row["knn_negative_score"] = prediction.get("knn_negative_score")
         updated_row["svm_label"] = prediction.get("svm_label", "")
-        updated_row["svm_score"] = prediction.get("svm_score")
+        updated_row["svm_positive_score"] = prediction.get("svm_positive_score")
+        updated_row["svm_negative_score"] = prediction.get("svm_negative_score")
         updated_row["combined_label"] = prediction.get("combined_label", "")
-        updated_row["combined_score"] = prediction.get("combined_score")
+        updated_row["combined_positive_score"] = prediction.get("combined_positive_score")
+        updated_row["combined_negative_score"] = prediction.get("combined_negative_score")
+        updated_row.pop("knn_score", None)
+        updated_row.pop("svm_score", None)
+        updated_row.pop("combined_score", None)
         updated_rows.append(updated_row)
         export_rows.append(
             {
                 "text": _prediction_row_text(updated_row, history.text_column, source_columns),
                 "knn_label": updated_row.get("knn_label", ""),
-                "knn_score": updated_row.get("knn_score"),
+                "knn_positive_score": updated_row.get("knn_positive_score"),
+                "knn_negative_score": updated_row.get("knn_negative_score"),
                 "svm_label": updated_row.get("svm_label", ""),
-                "svm_score": updated_row.get("svm_score"),
+                "svm_positive_score": updated_row.get("svm_positive_score"),
+                "svm_negative_score": updated_row.get("svm_negative_score"),
                 "combined_label": updated_row.get("combined_label", ""),
-                "combined_score": updated_row.get("combined_score"),
+                "combined_positive_score": updated_row.get("combined_positive_score"),
+                "combined_negative_score": updated_row.get("combined_negative_score"),
             }
         )
 
@@ -755,10 +808,13 @@ def _store_scrape_history_rows(history: ScrapeHistory, rows: list[dict[str, obje
 
 
 def _upgrade_scrape_history_scores_if_needed(history: ScrapeHistory) -> ScrapeHistory:
-    if _history_score_schema_version(history) >= CURRENT_SCORE_SCHEMA_VERSION:
+    stored_rows = _load_scrape_rows(history)
+    if (
+        _history_score_schema_version(history) >= CURRENT_SCORE_SCHEMA_VERSION
+        and not _rows_need_probability_split_upgrade([row for row in stored_rows if isinstance(row, dict)])
+    ):
         return history
 
-    stored_rows = _load_scrape_rows(history)
     if not stored_rows:
         history.score_schema_version = CURRENT_SCORE_SCHEMA_VERSION
         history.save(update_fields=["score_schema_version"])
@@ -775,10 +831,18 @@ def _upgrade_scrape_history_scores_if_needed(history: ScrapeHistory) -> ScrapeHi
     updated_rows: list[dict[str, object]] = []
     for row, prediction in zip(normalized_rows, predictions):
         updated_row = dict(row)
+        updated_row["knn_label"] = prediction.get("knn_label", "")
+        updated_row["knn_positive_score"] = prediction.get("knn_positive_score")
+        updated_row["knn_negative_score"] = prediction.get("knn_negative_score")
         updated_row["svm_label"] = prediction.get("svm_label", "")
-        updated_row["svm_score"] = prediction.get("svm_score")
+        updated_row["svm_positive_score"] = prediction.get("svm_positive_score")
+        updated_row["svm_negative_score"] = prediction.get("svm_negative_score")
         updated_row["combined_label"] = prediction.get("combined_label", "")
-        updated_row["combined_score"] = prediction.get("combined_score")
+        updated_row["combined_positive_score"] = prediction.get("combined_positive_score")
+        updated_row["combined_negative_score"] = prediction.get("combined_negative_score")
+        updated_row.pop("knn_score", None)
+        updated_row.pop("svm_score", None)
+        updated_row.pop("combined_score", None)
         updated_rows.append(updated_row)
 
     _store_scrape_history_rows(history, updated_rows)
@@ -938,11 +1002,14 @@ def _combine_tweet_predictions(
                 "_week_start": tweet.get("_week_start", ""),
                 "_week_end": tweet.get("_week_end", ""),
                 "knn_label": prediction.get("knn_label", ""),
-                "knn_score": prediction.get("knn_score"),
+                "knn_positive_score": prediction.get("knn_positive_score"),
+                "knn_negative_score": prediction.get("knn_negative_score"),
                 "svm_label": prediction.get("svm_label", ""),
-                "svm_score": prediction.get("svm_score"),
+                "svm_positive_score": prediction.get("svm_positive_score"),
+                "svm_negative_score": prediction.get("svm_negative_score"),
                 "combined_label": prediction.get("combined_label", ""),
-                "combined_score": prediction.get("combined_score"),
+                "combined_positive_score": prediction.get("combined_positive_score"),
+                "combined_negative_score": prediction.get("combined_negative_score"),
             }
         )
     return combined_rows
@@ -1776,11 +1843,14 @@ def prediction_history_detail_view(request: HttpRequest, history_id: int) -> Htt
         context["single_result"] = {
             "text": single_row.get("text", history.text_input),
             "knn_label": single_row.get("knn_label", ""),
-            "knn_score": single_row.get("knn_score"),
+            "knn_positive_score": single_row.get("knn_positive_score"),
+            "knn_negative_score": single_row.get("knn_negative_score"),
             "svm_label": single_row.get("svm_label", ""),
-            "svm_score": single_row.get("svm_score"),
+            "svm_positive_score": single_row.get("svm_positive_score"),
+            "svm_negative_score": single_row.get("svm_negative_score"),
             "combined_label": single_row.get("combined_label", ""),
-            "combined_score": single_row.get("combined_score"),
+            "combined_positive_score": single_row.get("combined_positive_score"),
+            "combined_negative_score": single_row.get("combined_negative_score"),
         }
         return render(request, "sentiment_app/history_predict_detail.html", context)
 
@@ -1858,11 +1928,14 @@ def predict_view(request: HttpRequest) -> HttpResponse:
                             {
                                 "text": single_result.get("text", text_input),
                                 "knn_label": single_result.get("knn_label", ""),
-                                "knn_score": single_result.get("knn_score"),
+                                "knn_positive_score": single_result.get("knn_positive_score"),
+                                "knn_negative_score": single_result.get("knn_negative_score"),
                                 "svm_label": single_result.get("svm_label", ""),
-                                "svm_score": single_result.get("svm_score"),
+                                "svm_positive_score": single_result.get("svm_positive_score"),
+                                "svm_negative_score": single_result.get("svm_negative_score"),
                                 "combined_label": single_result.get("combined_label", ""),
-                                "combined_score": single_result.get("combined_score"),
+                                "combined_positive_score": single_result.get("combined_positive_score"),
+                                "combined_negative_score": single_result.get("combined_negative_score"),
                             }
                         ]
                     ),

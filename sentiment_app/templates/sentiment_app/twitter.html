@@ -532,7 +532,12 @@
                                 <col class="tw-col-image">
                                 <col class="tw-col-knn">
                                 <col class="tw-col-knnscore">
+                                <col class="tw-col-knnscore">
                                 <col class="tw-col-svm">
+                                <col class="tw-col-svmscore">
+                                <col class="tw-col-svmscore">
+                                <col class="tw-col-svm">
+                                <col class="tw-col-svmscore">
                                 <col class="tw-col-svmscore">
                             </colgroup>
                             <thead>
@@ -554,11 +559,14 @@
                                     <th class="twitter-col-username">User Name</th>
                                     <th>Gambar Tweet</th>
                                     <th>KNN</th>
-                                    <th>Skor KNN (0-1)</th>
+                                    <th>Skor predict_proba positif KNN</th>
+                                    <th>Skor predict_proba negatif KNN</th>
                                     <th>SVM</th>
-                                    <th>Skor SVM (0-1)</th>
-                                    <th>Gabungan</th>
-                                    <th>Skor Gabungan (0-1)</th>
+                                    <th>Skor predict_proba positif SVM</th>
+                                    <th>Skor predict_proba negatif SVM</th>
+                                    <th>Soft Voting</th>
+                                    <th>Skor Soft Voting positif</th>
+                                    <th>Skor Soft Voting negatif</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -593,19 +601,22 @@
                                                 {% if row.knn_label == "Positive" %}Positif{% elif row.knn_label == "Negative" %}Negatif{% elif row.knn_label == "Neutral" %}Netral{% else %}{{ row.knn_label }}{% endif %}
                                             </span>
                                         </td>
-                                        <td>{% if row.knn_score is not None %}{{ row.knn_score|floatformat:4 }}{% endif %}</td>
+                                        <td>{% if row.knn_positive_score is not None %}{{ row.knn_positive_score|floatformat:4 }}{% endif %}</td>
+                                        <td>{% if row.knn_negative_score is not None %}{{ row.knn_negative_score|floatformat:4 }}{% endif %}</td>
                                         <td>
                                             <span class="badge {% if row.svm_label == 'Positive' %}text-bg-success{% elif row.svm_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
                                                 {% if row.svm_label == "Positive" %}Positif{% elif row.svm_label == "Negative" %}Negatif{% elif row.svm_label == "Neutral" %}Netral{% else %}{{ row.svm_label }}{% endif %}
                                             </span>
                                         </td>
-                                        <td>{% if row.svm_score is not None %}{{ row.svm_score|floatformat:4 }}{% endif %}</td>
+                                        <td>{% if row.svm_positive_score is not None %}{{ row.svm_positive_score|floatformat:4 }}{% endif %}</td>
+                                        <td>{% if row.svm_negative_score is not None %}{{ row.svm_negative_score|floatformat:4 }}{% endif %}</td>
                                         <td>
                                             <span class="badge {% if row.combined_label == 'Positive' %}text-bg-success{% elif row.combined_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
                                                 {% if row.combined_label == "Positive" %}Positif{% elif row.combined_label == "Negative" %}Negatif{% elif row.combined_label == "Neutral" %}Netral{% else %}{{ row.combined_label }}{% endif %}
                                             </span>
                                         </td>
-                                        <td>{% if row.combined_score is not None %}{{ row.combined_score|floatformat:4 }}{% endif %}</td>
+                                        <td>{% if row.combined_positive_score is not None %}{{ row.combined_positive_score|floatformat:4 }}{% endif %}</td>
+                                        <td>{% if row.combined_negative_score is not None %}{{ row.combined_negative_score|floatformat:4 }}{% endif %}</td>
                                     </tr>
                                 {% endfor %}
                             </tbody>

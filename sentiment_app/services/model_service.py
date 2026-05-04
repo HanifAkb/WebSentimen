@@ -433,16 +433,34 @@ def _positive_class_index(classes: Any) -> int | None:
     return None
 
 
-def _score_from_proba(probabilities: Any, classes: Any) -> list[float]:
+def _probability_pairs_from_positive_scores(positive_scores: Any) -> list[tuple[float, float]]:
+    pairs: list[tuple[float, float]] = []
+    for raw_score in np.asarray(positive_scores, dtype=float):
+        positive_score = float(np.clip(raw_score, 0.0, 1.0))
+        negative_score = float(np.clip(1.0 - positive_score, 0.0, 1.0))
+        pairs.append((negative_score, positive_score))
+    return pairs
+
+
+def _probability_pairs_from_proba(probabilities: Any, classes: Any) -> list[tuple[float, float]]:
     values = np.asarray(probabilities)
     if values.ndim == 1:
-        return [float(score) for score in values]
+        return _probability_pairs_from_positive_scores(values)
 
     positive_index = _positive_class_index(classes)
     if positive_index is None:
         positive_index = 1 if values.shape[1] > 1 else 0
 
-    return [float(row[positive_index]) for row in values]
+    negative_index = 0 if positive_index != 0 else (1 if values.shape[1] > 1 else None)
+    pairs: list[tuple[float, float]] = []
+    for row in values:
+        positive_score = float(row[positive_index])
+        if negative_index is None:
+            negative_score = float(np.clip(1.0 - positive_score, 0.0, 1.0))
+        else:
+            negative_score = float(row[negative_index])
+        pairs.append((negative_score, positive_score))
+    return pairs
 
 
 def _sigmoid(values: Any) -> np.ndarray:
@@ -450,7 +468,7 @@ def _sigmoid(values: Any) -> np.ndarray:
     return 1.0 / (1.0 + np.exp(-clipped))
 
 
-def _score_from_decision(decision_values: Any, classes: Any) -> list[float]:
+def _probability_pairs_from_decision(decision_values: Any, classes: Any) -> list[tuple[float, float]]:
     values = np.asarray(decision_values)
     if values.ndim == 1:
         selected = values
@@ -461,25 +479,25 @@ def _score_from_decision(decision_values: Any, classes: Any) -> list[float]:
         selected = values[:, positive_index]
 
     probabilities = _sigmoid(selected)
-    return [float(value) for value in probabilities]
+    return _probability_pairs_from_positive_scores(probabilities)
 
 
-def _extract_scores(model: Any, features: Any) -> list[float | None]:
+def _extract_probability_pairs(model: Any, features: Any) -> list[tuple[float | None, float | None]]:
     if hasattr(model, "predict_proba"):
         try:
             probabilities = model.predict_proba(features)
-            return _score_from_proba(probabilities, getattr(model, "classes_", None))
+            return _probability_pairs_from_proba(probabilities, getattr(model, "classes_", None))
         except Exception:
             pass
 
     if hasattr(model, "decision_function"):
         try:
             decisions = model.decision_function(features)
-            return _score_from_decision(decisions, getattr(model, "classes_", None))
+            return _probability_pairs_from_decision(decisions, getattr(model, "classes_", None))
         except Exception:
             pass
 
-    return [None] * _row_count(features)
+    return [(None, None)] * _row_count(features)
 
 
 def _normalize_label(predicted: Any, label_encoder: Any | None) -> str:
@@ -520,28 +538,57 @@ def _apply_neutral_threshold(label: str, score: float | None, model_name: str) -
 
 
 def _combine_soft_weighted_vote(
-    knn_score: float | None,
-    svm_score: float | None,
-) -> tuple[str, float | None]:
-    weighted_scores: list[tuple[float, float]] = []
-    if knn_score is not None:
-        weighted_scores.append((float(knn_score), SOFT_VOTING_KNN_WEIGHT))
-    if svm_score is not None:
-        weighted_scores.append((float(svm_score), SOFT_VOTING_SVM_WEIGHT))
+    knn_negative_score: float | None,
+    knn_positive_score: float | None,
+    svm_negative_score: float | None,
+    svm_positive_score: float | None,
+) -> tuple[str, float | None, float | None]:
+    weighted_positive_scores: list[tuple[float, float]] = []
+    weighted_negative_scores: list[tuple[float, float]] = []
+    if knn_positive_score is not None:
+        weighted_positive_scores.append((float(knn_positive_score), SOFT_VOTING_KNN_WEIGHT))
+    if knn_negative_score is not None:
+        weighted_negative_scores.append((float(knn_negative_score), SOFT_VOTING_KNN_WEIGHT))
+    if svm_positive_score is not None:
+        weighted_positive_scores.append((float(svm_positive_score), SOFT_VOTING_SVM_WEIGHT))
+    if svm_negative_score is not None:
+        weighted_negative_scores.append((float(svm_negative_score), SOFT_VOTING_SVM_WEIGHT))
 
-    if not weighted_scores:
-        return "Unknown", None
+    if not weighted_positive_scores and not weighted_negative_scores:
+        return "Unknown", None, None
 
-    total_weight = sum(weight for _, weight in weighted_scores)
-    if total_weight <= 0:
-        return "Unknown", None
+    positive_total_weight = sum(weight for _, weight in weighted_positive_scores)
+    negative_total_weight = sum(weight for _, weight in weighted_negative_scores)
 
-    combined_score = sum(score * weight for score, weight in weighted_scores) / total_weight
-    if combined_score > SOFT_VOTING_NEUTRAL_MAX:
-        return "Positive", float(combined_score)
-    if combined_score < SOFT_VOTING_NEUTRAL_MIN:
-        return "Negative", float(combined_score)
-    return "Neutral", float(combined_score)
+    combined_positive_score = (
+        sum(score * weight for score, weight in weighted_positive_scores) / positive_total_weight
+        if positive_total_weight > 0
+        else None
+    )
+    combined_negative_score = (
+        sum(score * weight for score, weight in weighted_negative_scores) / negative_total_weight
+        if negative_total_weight > 0
+        else None
+    )
+
+    if combined_positive_score is None and combined_negative_score is None:
+        return "Unknown", None, None
+    if combined_positive_score is None:
+        if combined_negative_score is not None and combined_negative_score > SOFT_VOTING_NEUTRAL_MAX:
+            return "Negative", None, float(combined_negative_score)
+        return "Neutral", None, float(combined_negative_score) if combined_negative_score is not None else None
+    if combined_negative_score is None:
+        if combined_positive_score > SOFT_VOTING_NEUTRAL_MAX:
+            return "Positive", float(combined_positive_score), None
+        return "Neutral", float(combined_positive_score), None
+
+    if combined_positive_score >= combined_negative_score:
+        if combined_positive_score > SOFT_VOTING_NEUTRAL_MAX:
+            return "Positive", float(combined_positive_score), float(combined_negative_score)
+        return "Neutral", float(combined_positive_score), float(combined_negative_score)
+    if combined_negative_score > SOFT_VOTING_NEUTRAL_MAX:
+        return "Negative", float(combined_positive_score), float(combined_negative_score)
+    return "Neutral", float(combined_positive_score), float(combined_negative_score)
 
 
 def _predict_with_optional_vectorizer(
@@ -549,11 +596,11 @@ def _predict_with_optional_vectorizer(
     texts: list[str],
     artifacts: ModelArtifacts,
     model_name: str,
-) -> tuple[list[Any], list[float | None]]:
+) -> tuple[list[Any], list[tuple[float | None, float | None]]]:
     try:
         predictions = model.predict(texts)
-        scores = _extract_scores(model, texts)
-        return list(predictions), scores
+        probability_pairs = _extract_probability_pairs(model, texts)
+        return list(predictions), probability_pairs
     except Exception as direct_error:
         if artifacts.vectorizer is None:
             if isinstance(direct_error, NotFittedError):
@@ -582,12 +629,12 @@ def _predict_with_optional_vectorizer(
 
         try:
             predictions = model.predict(vectorized)
-            scores = _extract_scores(model, vectorized)
+            probability_pairs = _extract_probability_pairs(model, vectorized)
         except Exception as model_error:
             raise ModelServiceError(
                 f"Prediksi {model_name} gagal meskipun sudah melalui vectorization: {model_error}"
             ) from model_error
-        return list(predictions), scores
+        return list(predictions), probability_pairs
 
 
 def predict_batch(texts: Iterable[str]) -> list[dict[str, Any]]:
@@ -598,37 +645,49 @@ def predict_batch(texts: Iterable[str]) -> list[dict[str, Any]]:
     processed_texts = [preprocess_text(text) for text in texts_list]
     artifacts = _load_artifacts()
 
-    knn_predictions, knn_scores = _predict_with_optional_vectorizer(
+    knn_predictions, knn_probability_pairs = _predict_with_optional_vectorizer(
         artifacts.knn_model, processed_texts, artifacts, "KNN model"
     )
-    svm_predictions, svm_scores = _predict_with_optional_vectorizer(
+    svm_predictions, svm_probability_pairs = _predict_with_optional_vectorizer(
         artifacts.svm_model, processed_texts, artifacts, "SVM model"
     )
 
     rows: list[dict[str, Any]] = []
     for index, text in enumerate(texts_list):
-        knn_score = knn_scores[index] if index < len(knn_scores) else None
-        svm_score = svm_scores[index] if index < len(svm_scores) else None
+        knn_negative_score, knn_positive_score = (
+            knn_probability_pairs[index] if index < len(knn_probability_pairs) else (None, None)
+        )
+        svm_negative_score, svm_positive_score = (
+            svm_probability_pairs[index] if index < len(svm_probability_pairs) else (None, None)
+        )
         knn_label = _apply_neutral_threshold(
             _normalize_label(knn_predictions[index], artifacts.label_encoder),
-            knn_score,
+            knn_positive_score,
             "knn",
         )
         svm_label = _apply_neutral_threshold(
             _normalize_label(svm_predictions[index], artifacts.label_encoder),
-            svm_score,
+            svm_positive_score,
             "svm",
         )
-        combined_label, combined_score = _combine_soft_weighted_vote(knn_score, svm_score)
+        combined_label, combined_positive_score, combined_negative_score = _combine_soft_weighted_vote(
+            knn_negative_score,
+            knn_positive_score,
+            svm_negative_score,
+            svm_positive_score,
+        )
         rows.append(
             {
                 "text": text,
                 "knn_label": knn_label,
-                "knn_score": knn_score,
+                "knn_positive_score": knn_positive_score,
+                "knn_negative_score": knn_negative_score,
                 "svm_label": svm_label,
-                "svm_score": svm_score,
+                "svm_positive_score": svm_positive_score,
+                "svm_negative_score": svm_negative_score,
                 "combined_label": combined_label,
-                "combined_score": combined_score,
+                "combined_positive_score": combined_positive_score,
+                "combined_negative_score": combined_negative_score,
             }
         )
     return rows

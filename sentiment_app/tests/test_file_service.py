@@ -48,11 +48,14 @@ class FileServiceTests(SimpleTestCase):
                 {
                     "text": f"tweet-{idx}",
                     "knn_label": "Positive",
-                    "knn_score": 0.9,
+                    "knn_positive_score": 0.9,
+                    "knn_negative_score": 0.1,
                     "svm_label": "Negative",
-                    "svm_score": 0.1,
+                    "svm_positive_score": 0.1,
+                    "svm_negative_score": 0.9,
                     "combined_label": "Neutral",
-                    "combined_score": 0.5,
+                    "combined_positive_score": 0.5,
+                    "combined_negative_score": 0.5,
                 }
             )
 
@@ -66,19 +69,25 @@ class FileServiceTests(SimpleTestCase):
         self.assertEqual(total_pages, 3)
         self.assertEqual(len(rows), 10)
         self.assertEqual(rows[0]["text"], "tweet-10")
+        self.assertIn("knn_positive_score", rows[0])
+        self.assertIn("svm_negative_score", rows[0])
         self.assertIn("combined_label", rows[0])
-        self.assertIn("combined_score", rows[0])
+        self.assertIn("combined_positive_score", rows[0])
+        self.assertIn("combined_negative_score", rows[0])
 
     def test_read_csv_page_clamps_page_out_of_range(self):
         predictions = [
             {
                 "text": "sample",
                 "knn_label": "Positive",
-                "knn_score": 0.9,
+                "knn_positive_score": 0.9,
+                "knn_negative_score": 0.1,
                 "svm_label": "Positive",
-                "svm_score": 0.9,
+                "svm_positive_score": 0.9,
+                "svm_negative_score": 0.1,
                 "combined_label": "Positive",
-                "combined_score": 0.9,
+                "combined_positive_score": 0.9,
+                "combined_negative_score": 0.1,
             }
         ]
 

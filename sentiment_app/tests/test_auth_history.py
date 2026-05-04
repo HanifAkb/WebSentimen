@@ -358,9 +358,14 @@ class AuthAndHistoryTests(TestCase):
             {
                 "text": "mobil listrik makin bagus",
                 "knn_label": "Positive",
-                "knn_score": 0.91,
+                "knn_positive_score": 0.91,
+                "knn_negative_score": 0.09,
                 "svm_label": "Positive",
-                "svm_score": 0.88,
+                "svm_positive_score": 0.88,
+                "svm_negative_score": 0.12,
+                "combined_label": "Positive",
+                "combined_positive_score": 0.895,
+                "combined_negative_score": 0.105,
             }
         ]
 
@@ -460,11 +465,14 @@ class AuthAndHistoryTests(TestCase):
         mocked_result = {
             "text": "mobil listrik bagus",
             "knn_label": "Positive",
-            "knn_score": 0.93,
+            "knn_positive_score": 0.93,
+            "knn_negative_score": 0.07,
             "svm_label": "Positive",
-            "svm_score": 0.89,
+            "svm_positive_score": 0.89,
+            "svm_negative_score": 0.11,
             "combined_label": "Positive",
-            "combined_score": 0.91,
+            "combined_positive_score": 0.91,
+            "combined_negative_score": 0.09,
         }
 
         with patch("sentiment_app.views.predict_single", return_value=mocked_result):
@@ -484,8 +492,11 @@ class AuthAndHistoryTests(TestCase):
         self.assertEqual(history.input_type, PredictionHistory.InputType.SINGLE)
         self.assertEqual(history.sample_count, 1)
         self.assertEqual(history.rows[0]["knn_label"], "Positive")
+        self.assertAlmostEqual(history.rows[0]["knn_positive_score"], 0.93, places=4)
+        self.assertAlmostEqual(history.rows[0]["knn_negative_score"], 0.07, places=4)
         self.assertEqual(history.rows[0]["combined_label"], "Positive")
-        self.assertAlmostEqual(history.rows[0]["combined_score"], 0.91, places=4)
+        self.assertAlmostEqual(history.rows[0]["combined_positive_score"], 0.91, places=4)
+        self.assertAlmostEqual(history.rows[0]["combined_negative_score"], 0.09, places=4)
 
     def test_predict_file_creates_prediction_history(self):
         self.client.force_login(self.user)
@@ -499,19 +510,25 @@ class AuthAndHistoryTests(TestCase):
         mocked_predictions = [
             {
                 "knn_label": "Positive",
-                "knn_score": 0.91,
+                "knn_positive_score": 0.91,
+                "knn_negative_score": 0.09,
                 "svm_label": "Positive",
-                "svm_score": 0.87,
+                "svm_positive_score": 0.87,
+                "svm_negative_score": 0.13,
                 "combined_label": "Positive",
-                "combined_score": 0.89,
+                "combined_positive_score": 0.89,
+                "combined_negative_score": 0.11,
             },
             {
                 "knn_label": "Negative",
-                "knn_score": 0.16,
+                "knn_positive_score": 0.16,
+                "knn_negative_score": 0.84,
                 "svm_label": "Negative",
-                "svm_score": 0.12,
+                "svm_positive_score": 0.12,
+                "svm_negative_score": 0.88,
                 "combined_label": "Negative",
-                "combined_score": 0.14,
+                "combined_positive_score": 0.14,
+                "combined_negative_score": 0.86,
             },
         ]
 
@@ -546,8 +563,11 @@ class AuthAndHistoryTests(TestCase):
         self.assertEqual(history.output_filename, "uploaded_dummy.csv")
         self.assertEqual(history.rows[0]["text"], "mobil listrik bagus")
         self.assertEqual(history.rows[1]["svm_label"], "Negative")
+        self.assertAlmostEqual(history.rows[0]["svm_positive_score"], 0.87, places=4)
+        self.assertAlmostEqual(history.rows[1]["svm_negative_score"], 0.88, places=4)
         self.assertEqual(history.rows[0]["combined_label"], "Positive")
-        self.assertAlmostEqual(history.rows[1]["combined_score"], 0.14, places=4)
+        self.assertAlmostEqual(history.rows[1]["combined_positive_score"], 0.14, places=4)
+        self.assertAlmostEqual(history.rows[1]["combined_negative_score"], 0.86, places=4)
 
     @override_settings(SENTIMENT_WORDCLOUD_MAX_ROWS=1)
     def test_prediction_file_history_detail_shows_dashboard(self):
@@ -563,17 +583,21 @@ class AuthAndHistoryTests(TestCase):
                     "review": "mobil listrik bagus",
                     "tanggal": "2026-01-01",
                     "knn_label": "Positive",
-                    "knn_score": 0.91,
+                    "knn_positive_score": 0.91,
+                    "knn_negative_score": 0.09,
                     "svm_label": "Positive",
-                    "svm_score": 0.87,
+                    "svm_positive_score": 0.87,
+                    "svm_negative_score": 0.13,
                 },
                 {
                     "review": "servis buruk",
                     "tanggal": "2026-01-02",
                     "knn_label": "Negative",
-                    "knn_score": 0.16,
+                    "knn_positive_score": 0.16,
+                    "knn_negative_score": 0.84,
                     "svm_label": "Negative",
-                    "svm_score": 0.12,
+                    "svm_positive_score": 0.12,
+                    "svm_negative_score": 0.88,
                 },
             ],
         )
@@ -600,9 +624,11 @@ class AuthAndHistoryTests(TestCase):
                     "id": "abc-001",
                     "review": "mobil listrik bagus",
                     "knn_label": "Positive",
-                    "knn_score": 0.91,
+                    "knn_positive_score": 0.91,
+                    "knn_negative_score": 0.09,
                     "svm_label": "Positive",
-                    "svm_score": 0.87,
+                    "svm_positive_score": 0.87,
+                    "svm_negative_score": 0.13,
                 }
             ],
             output_filename="uji_hasil.csv",
@@ -672,11 +698,14 @@ class AuthAndHistoryTests(TestCase):
                         {
                             "text": "mobil listrik bagus",
                             "knn_label": "Positive",
-                            "knn_score": 0.91,
+                            "knn_positive_score": 0.91,
+                            "knn_negative_score": 0.09,
                             "svm_label": "Positive",
-                            "svm_score": 0.7311,
+                            "svm_positive_score": 0.7311,
+                            "svm_negative_score": 0.2689,
                             "combined_label": "Positive",
-                            "combined_score": 0.8205,
+                            "combined_positive_score": 0.8205,
+                            "combined_negative_score": 0.1795,
                         }
                     ],
                 ):
@@ -685,11 +714,14 @@ class AuthAndHistoryTests(TestCase):
 
         history.refresh_from_db()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(history.score_schema_version, 4)
+        self.assertEqual(history.score_schema_version, 6)
         self.assertEqual(history.rows[0]["svm_label"], "Positive")
-        self.assertAlmostEqual(history.rows[0]["svm_score"], 0.7311, places=4)
+        self.assertAlmostEqual(history.rows[0]["svm_positive_score"], 0.7311, places=4)
+        self.assertAlmostEqual(history.rows[0]["svm_negative_score"], 0.2689, places=4)
+        self.assertNotIn("svm_score", history.rows[0])
         self.assertEqual(history.rows[0]["combined_label"], "Positive")
-        self.assertAlmostEqual(history.rows[0]["combined_score"], 0.8205, places=4)
+        self.assertAlmostEqual(history.rows[0]["combined_positive_score"], 0.8205, places=4)
+        self.assertAlmostEqual(history.rows[0]["combined_negative_score"], 0.1795, places=4)
         self.assertIn("0.731100", refreshed_csv)
         self.assertContains(response, "0,7311")
 
@@ -719,11 +751,14 @@ class AuthAndHistoryTests(TestCase):
                 {
                     "text": "teks netral",
                     "knn_label": "Neutral",
-                    "knn_score": 0.5,
+                    "knn_positive_score": 0.5,
+                    "knn_negative_score": 0.5,
                     "svm_label": "Neutral",
-                    "svm_score": 0.5,
+                    "svm_positive_score": 0.5,
+                    "svm_negative_score": 0.5,
                     "combined_label": "Neutral",
-                    "combined_score": 0.5,
+                    "combined_positive_score": 0.5,
+                    "combined_negative_score": 0.5,
                 }
             ],
         ):
@@ -731,11 +766,13 @@ class AuthAndHistoryTests(TestCase):
 
         history.refresh_from_db()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(history.score_schema_version, 4)
+        self.assertEqual(history.score_schema_version, 6)
         self.assertEqual(history.rows[0]["svm_label"], "Neutral")
-        self.assertAlmostEqual(history.rows[0]["svm_score"], 0.5, places=4)
+        self.assertAlmostEqual(history.rows[0]["svm_positive_score"], 0.5, places=4)
+        self.assertAlmostEqual(history.rows[0]["svm_negative_score"], 0.5, places=4)
         self.assertEqual(history.rows[0]["combined_label"], "Neutral")
-        self.assertAlmostEqual(history.rows[0]["combined_score"], 0.5, places=4)
+        self.assertAlmostEqual(history.rows[0]["combined_positive_score"], 0.5, places=4)
+        self.assertAlmostEqual(history.rows[0]["combined_negative_score"], 0.5, places=4)
 
     def test_download_output_upgrades_legacy_prediction_history_csv(self):
         history = PredictionHistory.objects.create(
@@ -770,11 +807,14 @@ class AuthAndHistoryTests(TestCase):
                         {
                             "text": "servis buruk",
                             "knn_label": "Negative",
-                            "knn_score": 0.12,
+                            "knn_positive_score": 0.12,
+                            "knn_negative_score": 0.88,
                             "svm_label": "Negative",
-                            "svm_score": 0.4013,
+                            "svm_positive_score": 0.4013,
+                            "svm_negative_score": 0.5987,
                             "combined_label": "Negative",
-                            "combined_score": 0.2607,
+                            "combined_positive_score": 0.2607,
+                            "combined_negative_score": 0.7393,
                         }
                     ],
                 ):
@@ -783,10 +823,12 @@ class AuthAndHistoryTests(TestCase):
 
         history.refresh_from_db()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(history.score_schema_version, 4)
-        self.assertAlmostEqual(history.rows[0]["svm_score"], 0.4013, places=4)
+        self.assertEqual(history.score_schema_version, 6)
+        self.assertAlmostEqual(history.rows[0]["svm_positive_score"], 0.4013, places=4)
+        self.assertAlmostEqual(history.rows[0]["svm_negative_score"], 0.5987, places=4)
         self.assertEqual(history.rows[0]["combined_label"], "Negative")
-        self.assertAlmostEqual(history.rows[0]["combined_score"], 0.2607, places=4)
+        self.assertAlmostEqual(history.rows[0]["combined_positive_score"], 0.2607, places=4)
+        self.assertAlmostEqual(history.rows[0]["combined_negative_score"], 0.7393, places=4)
         self.assertIn("0.401300", downloaded_csv)
         self.assertIn("0.260700", downloaded_csv)
 
@@ -832,20 +874,26 @@ class AuthAndHistoryTests(TestCase):
                 {
                     "text": "mobil listrik bagus",
                     "knn_label": "Positive",
-                    "knn_score": 0.91,
+                    "knn_positive_score": 0.91,
+                    "knn_negative_score": 0.09,
                     "svm_label": "Positive",
-                    "svm_score": 0.7311,
+                    "svm_positive_score": 0.7311,
+                    "svm_negative_score": 0.2689,
                     "combined_label": "Positive",
-                    "combined_score": 0.8205,
+                    "combined_positive_score": 0.8205,
+                    "combined_negative_score": 0.1795,
                 },
                 {
                     "text": "servis buruk",
                     "knn_label": "Negative",
-                    "knn_score": 0.12,
+                    "knn_positive_score": 0.12,
+                    "knn_negative_score": 0.88,
                     "svm_label": "Negative",
-                    "svm_score": 0.4013,
+                    "svm_positive_score": 0.4013,
+                    "svm_negative_score": 0.5987,
                     "combined_label": "Negative",
-                    "combined_score": 0.2607,
+                    "combined_positive_score": 0.2607,
+                    "combined_negative_score": 0.7393,
                 },
             ],
         ):
@@ -854,11 +902,15 @@ class AuthAndHistoryTests(TestCase):
         history.refresh_from_db()
         chunk.refresh_from_db()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(history.score_schema_version, 4)
-        self.assertAlmostEqual(history.rows[0]["svm_score"], 0.7311, places=4)
-        self.assertAlmostEqual(chunk.rows[0]["svm_score"], 0.4013, places=4)
-        self.assertAlmostEqual(history.rows[0]["combined_score"], 0.8205, places=4)
-        self.assertAlmostEqual(chunk.rows[0]["combined_score"], 0.2607, places=4)
+        self.assertEqual(history.score_schema_version, 6)
+        self.assertAlmostEqual(history.rows[0]["svm_positive_score"], 0.7311, places=4)
+        self.assertAlmostEqual(history.rows[0]["svm_negative_score"], 0.2689, places=4)
+        self.assertAlmostEqual(chunk.rows[0]["svm_positive_score"], 0.4013, places=4)
+        self.assertAlmostEqual(chunk.rows[0]["svm_negative_score"], 0.5987, places=4)
+        self.assertAlmostEqual(history.rows[0]["combined_positive_score"], 0.8205, places=4)
+        self.assertAlmostEqual(history.rows[0]["combined_negative_score"], 0.1795, places=4)
+        self.assertAlmostEqual(chunk.rows[0]["combined_positive_score"], 0.2607, places=4)
+        self.assertAlmostEqual(chunk.rows[0]["combined_negative_score"], 0.7393, places=4)
 
     @override_settings(SENTIMENT_TWITTER_TEMP_DB_THRESHOLD_DAYS=30)
     def test_scraping_long_range_uses_temp_db_chunks(self):
@@ -875,9 +927,14 @@ class AuthAndHistoryTests(TestCase):
             {
                 "text": "mobil listrik hemat energi",
                 "knn_label": "Positive",
-                "knn_score": 0.9,
+                "knn_positive_score": 0.9,
+                "knn_negative_score": 0.1,
                 "svm_label": "Positive",
-                "svm_score": 0.85,
+                "svm_positive_score": 0.85,
+                "svm_negative_score": 0.15,
+                "combined_label": "Positive",
+                "combined_positive_score": 0.875,
+                "combined_negative_score": 0.125,
             }
         ]
 
@@ -923,9 +980,14 @@ class AuthAndHistoryTests(TestCase):
             {
                 "text": "uji timeout parsial",
                 "knn_label": "Positive",
-                "knn_score": 0.9,
+                "knn_positive_score": 0.9,
+                "knn_negative_score": 0.1,
                 "svm_label": "Positive",
-                "svm_score": 0.8,
+                "svm_positive_score": 0.8,
+                "svm_negative_score": 0.2,
+                "combined_label": "Positive",
+                "combined_positive_score": 0.85,
+                "combined_negative_score": 0.15,
             }
         ]
         mocked_meta = {
@@ -991,9 +1053,14 @@ class AuthAndHistoryTests(TestCase):
             {
                 "text": "data lanjutan",
                 "knn_label": "Negative",
-                "knn_score": 0.2,
+                "knn_positive_score": 0.2,
+                "knn_negative_score": 0.8,
                 "svm_label": "Negative",
-                "svm_score": 0.3,
+                "svm_positive_score": 0.3,
+                "svm_negative_score": 0.7,
+                "combined_label": "Negative",
+                "combined_positive_score": 0.25,
+                "combined_negative_score": 0.75,
             }
         ]
 
@@ -1049,9 +1116,14 @@ class AuthAndHistoryTests(TestCase):
             {
                 "text": "data lanjutan ajax",
                 "knn_label": "Positive",
-                "knn_score": 0.7,
+                "knn_positive_score": 0.7,
+                "knn_negative_score": 0.3,
                 "svm_label": "Positive",
-                "svm_score": 0.6,
+                "svm_positive_score": 0.6,
+                "svm_negative_score": 0.4,
+                "combined_label": "Positive",
+                "combined_positive_score": 0.65,
+                "combined_negative_score": 0.35,
             }
         ]
 

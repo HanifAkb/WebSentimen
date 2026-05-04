@@ -164,11 +164,14 @@ def generate_classification_csv(
     fieldnames = [
         "text",
         "knn_label",
-        "knn_score",
+        "knn_positive_score",
+        "knn_negative_score",
         "svm_label",
-        "svm_score",
+        "svm_positive_score",
+        "svm_negative_score",
         "combined_label",
-        "combined_score",
+        "combined_positive_score",
+        "combined_negative_score",
     ]
     with path.open("w", encoding="utf-8", newline="") as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
@@ -178,11 +181,14 @@ def generate_classification_csv(
                 {
                     "text": row.get("text", ""),
                     "knn_label": row.get("knn_label", ""),
-                    "knn_score": _format_score(row.get("knn_score")),
+                    "knn_positive_score": _format_score(row.get("knn_positive_score")),
+                    "knn_negative_score": _format_score(row.get("knn_negative_score")),
                     "svm_label": row.get("svm_label", ""),
-                    "svm_score": _format_score(row.get("svm_score")),
+                    "svm_positive_score": _format_score(row.get("svm_positive_score")),
+                    "svm_negative_score": _format_score(row.get("svm_negative_score")),
                     "combined_label": row.get("combined_label", ""),
-                    "combined_score": _format_score(row.get("combined_score")),
+                    "combined_positive_score": _format_score(row.get("combined_positive_score")),
+                    "combined_negative_score": _format_score(row.get("combined_negative_score")),
                 }
             )
     return filename
@@ -212,11 +218,14 @@ def generate_tweets_csv(tweets: list[dict[str, Any]], prefix: str = "tweets") ->
     ]
     prediction_fieldnames = [
         "knn_label",
-        "knn_score",
+        "knn_positive_score",
+        "knn_negative_score",
         "svm_label",
-        "svm_score",
+        "svm_positive_score",
+        "svm_negative_score",
         "combined_label",
-        "combined_score",
+        "combined_positive_score",
+        "combined_negative_score",
     ]
 
     has_prediction_columns = any(

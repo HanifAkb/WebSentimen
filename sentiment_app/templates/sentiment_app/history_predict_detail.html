@@ -37,9 +37,17 @@
                                     {% if single_result.knn_label == "Positive" %}Positif{% elif single_result.knn_label == "Negative" %}Negatif{% elif single_result.knn_label == "Neutral" %}Netral{% else %}{{ single_result.knn_label }}{% endif %}
                                 </span>
                                 <div class="text-muted small mt-2">
-                                    Skor probabilitas <code>predict_proba</code> (0-1):
-                                    {% if single_result.knn_score is not None %}
-                                        {{ single_result.knn_score|floatformat:4 }}
+                                    Skor <code>predict_proba</code> positif:
+                                    {% if single_result.knn_positive_score is not None %}
+                                        {{ single_result.knn_positive_score|floatformat:4 }}
+                                    {% else %}
+                                        Tidak tersedia
+                                    {% endif %}
+                                </div>
+                                <div class="text-muted small mt-1">
+                                    Skor <code>predict_proba</code> negatif:
+                                    {% if single_result.knn_negative_score is not None %}
+                                        {{ single_result.knn_negative_score|floatformat:4 }}
                                     {% else %}
                                         Tidak tersedia
                                     {% endif %}
@@ -53,9 +61,17 @@
                                     {% if single_result.svm_label == "Positive" %}Positif{% elif single_result.svm_label == "Negative" %}Negatif{% elif single_result.svm_label == "Neutral" %}Netral{% else %}{{ single_result.svm_label }}{% endif %}
                                 </span>
                                 <div class="text-muted small mt-2">
-                                    Skor probabilitas <code>predict_proba</code> (0-1):
-                                    {% if single_result.svm_score is not None %}
-                                        {{ single_result.svm_score|floatformat:4 }}
+                                    Skor <code>predict_proba</code> positif:
+                                    {% if single_result.svm_positive_score is not None %}
+                                        {{ single_result.svm_positive_score|floatformat:4 }}
+                                    {% else %}
+                                        Tidak tersedia
+                                    {% endif %}
+                                </div>
+                                <div class="text-muted small mt-1">
+                                    Skor <code>predict_proba</code> negatif:
+                                    {% if single_result.svm_negative_score is not None %}
+                                        {{ single_result.svm_negative_score|floatformat:4 }}
                                     {% else %}
                                         Tidak tersedia
                                     {% endif %}
@@ -64,14 +80,22 @@
                         </div>
                         <div class="col-lg-4 col-md-6">
                             <div class="p-3 border rounded result-box">
-                                <div class="fw-semibold mb-2">Soft Weighted Voting</div>
+                                <div class="fw-semibold mb-2">Soft Voting</div>
                                 <span class="badge {% if single_result.combined_label == 'Positive' %}text-bg-success{% elif single_result.combined_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
                                     {% if single_result.combined_label == "Positive" %}Positif{% elif single_result.combined_label == "Negative" %}Negatif{% elif single_result.combined_label == "Neutral" %}Netral{% else %}{{ single_result.combined_label }}{% endif %}
                                 </span>
                                 <div class="text-muted small mt-2">
-                                    Skor gabungan <code>soft weighted voting</code> (0-1):
-                                    {% if single_result.combined_score is not None %}
-                                        {{ single_result.combined_score|floatformat:4 }}
+                                    Skor Soft Voting positif:
+                                    {% if single_result.combined_positive_score is not None %}
+                                        {{ single_result.combined_positive_score|floatformat:4 }}
+                                    {% else %}
+                                        Tidak tersedia
+                                    {% endif %}
+                                </div>
+                                <div class="text-muted small mt-1">
+                                    Skor Soft Voting negatif:
+                                    {% if single_result.combined_negative_score is not None %}
+                                        {{ single_result.combined_negative_score|floatformat:4 }}
                                     {% else %}
                                         Tidak tersedia
                                     {% endif %}
