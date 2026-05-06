@@ -607,7 +607,8 @@ class AuthAndHistoryTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Dashboard Hasil Prediksi")
-        self.assertContains(response, "KNN Positif: 1")
+        self.assertContains(response, "Sentimen Positif: 1")
+        self.assertContains(response, "Sentimen Negatif: 1")
         self.assertContains(response, "prediction-dashboard-data")
         self.assertEqual(response.context["dashboard"]["charts"]["trend_title"], "Jumlah Data per Harian")
 

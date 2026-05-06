@@ -85,7 +85,7 @@ class ScrapingDashboardTests(SimpleTestCase):
         self.assertEqual(dashboard["charts"]["trend_title"], "Jumlah Data per Harian")
         self.assertEqual(dashboard["charts"]["trend_values"], [1, 1])
 
-    def test_wordcloud_uses_unigram_and_bigram_frequencies(self):
+    def test_wordcloud_uses_unigram_frequencies(self):
         with patch("sentiment_app.views.WordCloud", _WordCloudStub):
             result = _build_wordcloud_image(["mobil listrik bagus"], colormap="Greens")
 
@@ -93,5 +93,5 @@ class ScrapingDashboardTests(SimpleTestCase):
         self.assertEqual(_WordCloudStub.last_frequencies["mobil"], 1)
         self.assertEqual(_WordCloudStub.last_frequencies["listrik"], 1)
         self.assertEqual(_WordCloudStub.last_frequencies["bagus"], 1)
-        self.assertEqual(_WordCloudStub.last_frequencies["mobil listrik"], 1)
-        self.assertEqual(_WordCloudStub.last_frequencies["listrik bagus"], 1)
+        self.assertNotIn("mobil listrik", _WordCloudStub.last_frequencies)
+        self.assertNotIn("listrik bagus", _WordCloudStub.last_frequencies)
