@@ -143,6 +143,7 @@ WORDCLOUD_STOPWORDS_PATHS = [
     Path(settings.BASE_DIR) / "sentiment_site" / "models" / "stopwords-id.txt",
 ]
 _WORDCLOUD_STOPWORDS_CACHE: set[str] | None = None
+_WORDCLOUD_STOPWORDS_CACHE_SIGNATURE: tuple[tuple[str, bool, int | None, int | None], ...] | None = None
 WORDCLOUD_POSITIVE_COLORS = ["#14532d", "#166534", "#15803d", "#16a34a", "#22c55e"]
 WORDCLOUD_NEGATIVE_COLORS = ["#7f1d1d", "#991b1b", "#b91c1c", "#dc2626", "#ef4444"]
 
@@ -477,8 +478,21 @@ def _display_sentiment_label_id(value: object) -> str:
 
 
 def _load_wordcloud_stopwords() -> set[str]:
-    global _WORDCLOUD_STOPWORDS_CACHE
-    if _WORDCLOUD_STOPWORDS_CACHE is not None:
+    global _WORDCLOUD_STOPWORDS_CACHE, _WORDCLOUD_STOPWORDS_CACHE_SIGNATURE
+
+    current_signature: list[tuple[str, bool, int | None, int | None]] = []
+    for path in WORDCLOUD_STOPWORDS_PATHS:
+        try:
+            stat_result = path.stat()
+            current_signature.append((str(path), True, stat_result.st_mtime_ns, stat_result.st_size))
+        except OSError:
+            current_signature.append((str(path), False, None, None))
+
+    signature_tuple = tuple(current_signature)
+    if (
+        _WORDCLOUD_STOPWORDS_CACHE is not None
+        and _WORDCLOUD_STOPWORDS_CACHE_SIGNATURE == signature_tuple
+    ):
         return _WORDCLOUD_STOPWORDS_CACHE
 
     for path in WORDCLOUD_STOPWORDS_PATHS:
@@ -492,11 +506,13 @@ def _load_wordcloud_stopwords() -> set[str]:
             }
             if loaded:
                 _WORDCLOUD_STOPWORDS_CACHE = loaded
+                _WORDCLOUD_STOPWORDS_CACHE_SIGNATURE = signature_tuple
                 return _WORDCLOUD_STOPWORDS_CACHE
         except Exception:
             continue
 
     _WORDCLOUD_STOPWORDS_CACHE = set()
+    _WORDCLOUD_STOPWORDS_CACHE_SIGNATURE = signature_tuple
     return _WORDCLOUD_STOPWORDS_CACHE
 
 

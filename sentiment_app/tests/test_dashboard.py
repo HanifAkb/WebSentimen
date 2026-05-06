@@ -1,9 +1,12 @@
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from datetime import date, datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.test import SimpleTestCase, override_settings
 
+import sentiment_app.views as view_module
 from sentiment_app.views import _build_prediction_dashboard, _build_scraping_dashboard, _build_wordcloud_image
 
 
@@ -95,3 +98,20 @@ class ScrapingDashboardTests(SimpleTestCase):
         self.assertEqual(_WordCloudStub.last_frequencies["bagus"], 1)
         self.assertNotIn("mobil listrik", _WordCloudStub.last_frequencies)
         self.assertNotIn("listrik bagus", _WordCloudStub.last_frequencies)
+
+    def test_wordcloud_stopwords_reload_when_file_changes(self):
+        with TemporaryDirectory() as temp_dir:
+            stopwords_path = Path(temp_dir) / "stopwords-id(wordcloud).txt"
+            stopwords_path.write_text("anda\n", encoding="utf-8")
+
+            with patch.object(view_module, "WORDCLOUD_STOPWORDS_PATHS", [stopwords_path]):
+                view_module._WORDCLOUD_STOPWORDS_CACHE = None
+                view_module._WORDCLOUD_STOPWORDS_CACHE_SIGNATURE = None
+
+                first_load = view_module._load_wordcloud_stopwords()
+                self.assertEqual(first_load, {"anda"})
+
+                stopwords_path.write_text("lagi\n", encoding="utf-8")
+
+                second_load = view_module._load_wordcloud_stopwords()
+                self.assertEqual(second_load, {"lagi"})
