@@ -160,19 +160,27 @@
                                 data-dashboard-title="Halaman 1: Pie Chart"
                             >
                                 <div class="row g-3 mb-2">
-                                    <div class="col-12 col-xl-6">
+                                    <div class="col-12 col-md-6 col-xl-3">
                                         <div class="dashboard-chart-card h-100">
                                             <h3 class="h6 fw-semibold mb-2">Distribusi Sentimen KNN</h3>
-                                            <div class="dashboard-chart-wrap">
+                                            <div class="dashboard-chart-wrap dashboard-chart-wrap-sm">
                                                 <canvas id="knnPieChart"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-6 col-xl-3">
+                                        <div class="dashboard-chart-card h-100">
+                                            <h3 class="h6 fw-semibold mb-2">Distribusi Sentimen SVM</h3>
+                                            <div class="dashboard-chart-wrap dashboard-chart-wrap-sm">
+                                                <canvas id="svmPieChart"></canvas>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="col-12 col-xl-6">
                                         <div class="dashboard-chart-card h-100">
-                                            <h3 class="h6 fw-semibold mb-2">Distribusi Sentimen SVM</h3>
+                                            <h3 class="h6 fw-semibold mb-2">Distribusi Sentimen Soft Voting</h3>
                                             <div class="dashboard-chart-wrap">
-                                                <canvas id="svmPieChart"></canvas>
+                                                <canvas id="combinedPieChart"></canvas>
                                             </div>
                                         </div>
                                     </div>
@@ -546,6 +554,34 @@ document.addEventListener("DOMContentLoaded", function () {
                 },
             });
             dashboardCharts.push(svmPie);
+        }
+
+        const combinedCanvas = document.getElementById("combinedPieChart");
+        if (combinedCanvas) {
+            const combinedPie = new Chart(combinedCanvas, {
+                type: "pie",
+                data: {
+                    labels: pieLabels,
+                    datasets: [
+                        {
+                            data: chartData.combined_pie || [],
+                            backgroundColor: ["#0ea5e9", "#f97316", "#94a3b8"],
+                            borderColor: "#ffffff",
+                            borderWidth: 2,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: "bottom",
+                        },
+                    },
+                },
+            });
+            dashboardCharts.push(combinedPie);
         }
 
         const trendCanvas = document.getElementById("tweetTrendChart");

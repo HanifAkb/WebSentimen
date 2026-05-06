@@ -130,9 +130,9 @@ Bobot saat ini seimbang yaitu:
 
 Threshold label netral saat ini:
 
-- KNN: `0.45 - 0.55`
-- SVM: `0.45 - 0.55` setelah sigmoid
-- Soft Voting: `0.45 - 0.55`
+- KNN: `0.4 - 0.6`
+- SVM: `0.4 - 0.6` setelah sigmoid
+- Soft Voting: `0.4 - 0.6`
 
 ## Ekspor CSV
 

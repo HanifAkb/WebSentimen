@@ -853,6 +853,10 @@ body {
     min-height: 250px;
 }
 
+.dashboard-chart-wrap-sm {
+    min-height: 190px;
+}
+
 .dashboard-line-wrap {
     position: relative;
     min-height: 300px;
@@ -1124,6 +1128,10 @@ span.flatpickr-weekday {
 
     .dashboard-chart-wrap {
         min-height: 220px;
+    }
+
+    .dashboard-chart-wrap-sm {
+        min-height: 170px;
     }
 
     .dashboard-line-wrap {

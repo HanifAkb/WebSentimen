@@ -79,6 +79,44 @@ class NeutralThresholdSVMModel:
         return np.array(decisions)
 
 
+class NeutralBoundaryKNNModel:
+    classes_ = np.array([0, 1])
+
+    def predict(self, values):
+        return np.array([1 for _ in values])
+
+    def predict_proba(self, values):
+        probabilities = []
+        for value in values:
+            text = str(value).lower()
+            if "batas atas" in text or "batas-atas" in text:
+                probabilities.append([0.4, 0.6])
+            elif "lewat atas" in text or "lewat-atas" in text:
+                probabilities.append([0.39, 0.61])
+            else:
+                probabilities.append([0.6, 0.4])
+        return np.array(probabilities)
+
+
+class NeutralBoundarySVMModel:
+    classes_ = np.array([0, 1])
+
+    def predict(self, values):
+        return np.array([1 for _ in values])
+
+    def decision_function(self, values):
+        decisions = []
+        for value in values:
+            text = str(value).lower()
+            if "batas atas" in text or "batas-atas" in text:
+                decisions.append(np.log(0.6 / 0.4))
+            elif "lewat atas" in text or "lewat-atas" in text:
+                decisions.append(np.log(0.61 / 0.39))
+            else:
+                decisions.append(np.log(0.4 / 0.6))
+        return np.array(decisions)
+
+
 class ModelServiceTests(SimpleTestCase):
     def test_predict_batch_with_direct_pipeline_path(self):
         artifacts = ModelArtifacts(
@@ -187,3 +225,25 @@ class ModelServiceTests(SimpleTestCase):
         )
         self.assertAlmostEqual(rows[0]["combined_negative_score"], 1.0 - rows[0]["combined_positive_score"], places=3)
         self.assertAlmostEqual(rows[1]["combined_negative_score"], 1.0 - rows[1]["combined_positive_score"], places=3)
+
+    def test_predict_batch_uses_new_neutral_boundaries_of_zero_point_four_to_zero_point_six(self):
+        artifacts = ModelArtifacts(
+            knn_model=NeutralBoundaryKNNModel(),
+            svm_model=NeutralBoundarySVMModel(),
+            vectorizer=None,
+            label_encoder=None,
+        )
+
+        with patch("sentiment_app.services.model_service._load_artifacts", return_value=artifacts):
+            rows = predict_batch(["batas-atas", "lewat-atas"])
+
+        self.assertEqual(rows[0]["knn_label"], "Neutral")
+        self.assertEqual(rows[0]["svm_label"], "Neutral")
+        self.assertEqual(rows[0]["combined_label"], "Neutral")
+        self.assertEqual(rows[1]["knn_label"], "Positive")
+        self.assertEqual(rows[1]["svm_label"], "Positive")
+        self.assertEqual(rows[1]["combined_label"], "Positive")
+        self.assertAlmostEqual(rows[0]["knn_positive_score"], 0.6, places=3)
+        self.assertAlmostEqual(rows[0]["svm_positive_score"], 0.6, places=3)
+        self.assertAlmostEqual(rows[1]["knn_positive_score"], 0.61, places=3)
+        self.assertAlmostEqual(rows[1]["svm_positive_score"], 0.61, places=3)

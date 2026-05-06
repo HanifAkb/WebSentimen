@@ -57,7 +57,7 @@ DEFAULT_PER_PAGE = 10
 MAX_PER_PAGE = 200
 HISTORY_PER_PAGE = 10
 TWITTER_RESULT_SESSION_KEY = "twitter_last_result"
-CURRENT_SCORE_SCHEMA_VERSION = 6
+CURRENT_SCORE_SCHEMA_VERSION = 7
 PREDICTION_LABEL_COLUMNS = ["knn_label", "svm_label", "combined_label"]
 PREDICTION_SCORE_COLUMNS = [
     "knn_positive_score",
@@ -562,6 +562,7 @@ def _build_scraping_dashboard(
     svm_negative_chars = 0
     knn_counts: Counter[str] = Counter()
     svm_counts: Counter[str] = Counter()
+    combined_counts: Counter[str] = Counter()
     row_dates: list[date] = []
 
     for row in rows:
@@ -569,8 +570,10 @@ def _build_scraping_dashboard(
 
         knn_label = _normalize_sentiment_label(row.get("knn_label"))
         svm_label = _normalize_sentiment_label(row.get("svm_label"))
+        combined_label = _normalize_sentiment_label(row.get("combined_label"))
         knn_counts[knn_label] += 1
         svm_counts[svm_label] += 1
+        combined_counts[combined_label] += 1
 
         if text:
             if knn_label == "Positive":
@@ -663,6 +666,11 @@ def _build_scraping_dashboard(
             "negative": int(svm_counts.get("Negative", 0)),
             "neutral": int(svm_counts.get("Neutral", 0)),
         },
+        "combined_counts": {
+            "positive": int(combined_counts.get("Positive", 0)),
+            "negative": int(combined_counts.get("Negative", 0)),
+            "neutral": int(combined_counts.get("Neutral", 0)),
+        },
         "wordcloud_available": WordCloud is not None and not wordcloud_error,
         "wordcloud_error": wordcloud_error,
         "wordclouds": wordclouds,
@@ -677,6 +685,11 @@ def _build_scraping_dashboard(
                 int(svm_counts.get("Positive", 0)),
                 int(svm_counts.get("Negative", 0)),
                 int(svm_counts.get("Neutral", 0)),
+            ],
+            "combined_pie": [
+                int(combined_counts.get("Positive", 0)),
+                int(combined_counts.get("Negative", 0)),
+                int(combined_counts.get("Neutral", 0)),
             ],
             "trend_labels": chart_labels,
             "trend_values": chart_values,
@@ -946,6 +959,7 @@ def _build_prediction_dashboard(
                 "CreatedAt": created_at_value,
                 "knn_label": row.get("knn_label", ""),
                 "svm_label": row.get("svm_label", ""),
+                "combined_label": row.get("combined_label", ""),
             }
         )
 

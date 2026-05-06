@@ -14,7 +14,7 @@ class ScrapeHistory(models.Model):
     end_date = models.DateField()
     tweet_count = models.PositiveIntegerField(default=0)
     rows = models.JSONField(default=list)
-    score_schema_version = models.PositiveSmallIntegerField(default=6)
+    score_schema_version = models.PositiveSmallIntegerField(default=7)
     is_complete = models.BooleanField(default=True)
     resume_next_date = models.DateField(null=True, blank=True)
     stop_reason = models.CharField(max_length=32, blank=True)
@@ -62,7 +62,7 @@ class PredictionHistory(models.Model):
     sample_count = models.PositiveIntegerField(default=1)
     columns = models.JSONField(default=list, blank=True)
     rows = models.JSONField(default=list, blank=True)
-    score_schema_version = models.PositiveSmallIntegerField(default=6)
+    score_schema_version = models.PositiveSmallIntegerField(default=7)
     output_filename = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

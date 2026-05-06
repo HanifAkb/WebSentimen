@@ -9,10 +9,10 @@ from sentiment_app.views import _build_prediction_dashboard, _build_scraping_das
 class ScrapingDashboardTests(SimpleTestCase):
     def test_weekly_trend_uses_start_date_as_bucket_anchor(self):
         rows = [
-            {"CreatedAt": "2026-02-01T10:00:00+00:00", "text": "a", "knn_label": "Positive", "svm_label": "Positive"},
-            {"CreatedAt": "2026-02-02T10:00:00+00:00", "text": "b", "knn_label": "Negative", "svm_label": "Negative"},
-            {"CreatedAt": "2026-02-10T10:00:00+00:00", "text": "c", "knn_label": "Positive", "svm_label": "Positive"},
-            {"CreatedAt": "2026-02-20T10:00:00+00:00", "text": "d", "knn_label": "Negative", "svm_label": "Negative"},
+            {"CreatedAt": "2026-02-01T10:00:00+00:00", "text": "a", "knn_label": "Positive", "svm_label": "Positive", "combined_label": "Positive"},
+            {"CreatedAt": "2026-02-02T10:00:00+00:00", "text": "b", "knn_label": "Negative", "svm_label": "Negative", "combined_label": "Negative"},
+            {"CreatedAt": "2026-02-10T10:00:00+00:00", "text": "c", "knn_label": "Positive", "svm_label": "Positive", "combined_label": "Positive"},
+            {"CreatedAt": "2026-02-20T10:00:00+00:00", "text": "d", "knn_label": "Negative", "svm_label": "Negative", "combined_label": "Negative"},
         ]
 
         dashboard = _build_scraping_dashboard(rows, date(2026, 2, 1), date(2026, 2, 20))
@@ -24,7 +24,7 @@ class ScrapingDashboardTests(SimpleTestCase):
 
     def test_dashboard_accepts_unix_timestamp_created_at(self):
         rows = [
-            {"CreatedAt": "1706745600", "text": "a", "knn_label": "Positive", "svm_label": "Positive"},
+            {"CreatedAt": "1706745600", "text": "a", "knn_label": "Positive", "svm_label": "Positive", "combined_label": "Positive"},
         ]
         dashboard = _build_scraping_dashboard(rows, date(2024, 2, 1), date(2024, 2, 1))
         charts = dashboard["charts"]
@@ -42,12 +42,14 @@ class ScrapingDashboardTests(SimpleTestCase):
                 "tanggal": "2026-01-01",
                 "knn_label": "Positive",
                 "svm_label": "Positive",
+                "combined_label": "Positive",
             },
             {
                 "review": "servis kendaraan buruk",
                 "tanggal": "2026-01-02",
                 "knn_label": "Negative",
                 "svm_label": "Negative",
+                "combined_label": "Negative",
             },
         ]
 
@@ -55,5 +57,6 @@ class ScrapingDashboardTests(SimpleTestCase):
 
         self.assertEqual(dashboard["charts"]["knn_pie"], [1, 1, 0])
         self.assertEqual(dashboard["charts"]["svm_pie"], [1, 1, 0])
+        self.assertEqual(dashboard["charts"]["combined_pie"], [1, 1, 0])
         self.assertEqual(dashboard["charts"]["trend_title"], "Jumlah Data per Harian")
         self.assertEqual(dashboard["charts"]["trend_values"], [1, 1])

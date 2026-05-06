@@ -816,7 +816,7 @@ class AuthAndHistoryTests(TestCase):
 
         history.refresh_from_db()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(history.score_schema_version, 6)
+        self.assertEqual(history.score_schema_version, 7)
         self.assertEqual(history.rows[0]["svm_label"], "Positive")
         self.assertAlmostEqual(history.rows[0]["svm_positive_score"], 0.7311, places=4)
         self.assertAlmostEqual(history.rows[0]["svm_negative_score"], 0.2689, places=4)
@@ -868,13 +868,64 @@ class AuthAndHistoryTests(TestCase):
 
         history.refresh_from_db()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(history.score_schema_version, 6)
+        self.assertEqual(history.score_schema_version, 7)
         self.assertEqual(history.rows[0]["svm_label"], "Neutral")
         self.assertAlmostEqual(history.rows[0]["svm_positive_score"], 0.5, places=4)
         self.assertAlmostEqual(history.rows[0]["svm_negative_score"], 0.5, places=4)
         self.assertEqual(history.rows[0]["combined_label"], "Neutral")
         self.assertAlmostEqual(history.rows[0]["combined_positive_score"], 0.5, places=4)
         self.assertAlmostEqual(history.rows[0]["combined_negative_score"], 0.5, places=4)
+
+    def test_prediction_history_detail_reupgrades_version_six_history_for_new_neutral_threshold(self):
+        history = PredictionHistory.objects.create(
+            user=self.user,
+            input_type=PredictionHistory.InputType.FILE,
+            source_name="version6.csv",
+            text_column="review",
+            sample_count=1,
+            score_schema_version=6,
+            rows=[
+                {
+                    "review": "teks agak netral",
+                    "knn_label": "Positive",
+                    "knn_positive_score": 0.58,
+                    "knn_negative_score": 0.42,
+                    "svm_label": "Positive",
+                    "svm_positive_score": 0.58,
+                    "svm_negative_score": 0.42,
+                    "combined_label": "Positive",
+                    "combined_positive_score": 0.58,
+                    "combined_negative_score": 0.42,
+                }
+            ],
+        )
+
+        self.client.force_login(self.user)
+        with patch(
+            "sentiment_app.views.predict_batch",
+            return_value=[
+                {
+                    "text": "teks agak netral",
+                    "knn_label": "Neutral",
+                    "knn_positive_score": 0.58,
+                    "knn_negative_score": 0.42,
+                    "svm_label": "Neutral",
+                    "svm_positive_score": 0.58,
+                    "svm_negative_score": 0.42,
+                    "combined_label": "Neutral",
+                    "combined_positive_score": 0.58,
+                    "combined_negative_score": 0.42,
+                }
+            ],
+        ):
+            response = self.client.get(reverse("prediction_history_detail", args=[history.id]))
+
+        history.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(history.score_schema_version, 7)
+        self.assertEqual(history.rows[0]["knn_label"], "Neutral")
+        self.assertEqual(history.rows[0]["svm_label"], "Neutral")
+        self.assertEqual(history.rows[0]["combined_label"], "Neutral")
 
     def test_download_output_upgrades_legacy_prediction_history_csv(self):
         history = PredictionHistory.objects.create(
@@ -925,7 +976,7 @@ class AuthAndHistoryTests(TestCase):
 
         history.refresh_from_db()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(history.score_schema_version, 6)
+        self.assertEqual(history.score_schema_version, 7)
         self.assertAlmostEqual(history.rows[0]["svm_positive_score"], 0.4013, places=4)
         self.assertAlmostEqual(history.rows[0]["svm_negative_score"], 0.5987, places=4)
         self.assertEqual(history.rows[0]["combined_label"], "Negative")
@@ -1004,7 +1055,7 @@ class AuthAndHistoryTests(TestCase):
         history.refresh_from_db()
         chunk.refresh_from_db()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(history.score_schema_version, 6)
+        self.assertEqual(history.score_schema_version, 7)
         self.assertAlmostEqual(history.rows[0]["svm_positive_score"], 0.7311, places=4)
         self.assertAlmostEqual(history.rows[0]["svm_negative_score"], 0.2689, places=4)
         self.assertAlmostEqual(chunk.rows[0]["svm_positive_score"], 0.4013, places=4)
