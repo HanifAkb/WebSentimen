@@ -498,18 +498,19 @@ def _build_wordcloud_image(texts: list[str], colormap: str) -> str | None:
     if WordCloud is None:
         return None
 
-    bigram_counter: Counter[str] = Counter()
+    ngram_counter: Counter[str] = Counter()
     for raw_text in texts:
         cleaned_text = _clean_text_for_wordcloud(str(raw_text or ""))
         if not cleaned_text:
             continue
         tokens = [token for token in cleaned_text.split() if token]
-        if len(tokens) < 2:
+        if not tokens:
             continue
+        ngram_counter.update(tokens)
         for idx in range(len(tokens) - 1):
-            bigram_counter[f"{tokens[idx]} {tokens[idx + 1]}"] += 1
+            ngram_counter[f"{tokens[idx]} {tokens[idx + 1]}"] += 1
 
-    if not bigram_counter:
+    if not ngram_counter:
         return None
 
     cloud = WordCloud(
@@ -525,7 +526,7 @@ def _build_wordcloud_image(texts: list[str], colormap: str) -> str | None:
         relative_scaling=0.35,
         prefer_horizontal=1.0,
         colormap=colormap,
-    ).generate_from_frequencies(bigram_counter)
+    ).generate_from_frequencies(ngram_counter)
 
     buffer = io.BytesIO()
     cloud.to_image().save(buffer, format="PNG")

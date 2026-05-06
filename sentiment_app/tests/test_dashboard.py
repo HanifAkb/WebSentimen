@@ -1,9 +1,29 @@
 from datetime import date, datetime, timezone
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.test import SimpleTestCase, override_settings
 
-from sentiment_app.views import _build_prediction_dashboard, _build_scraping_dashboard
+from sentiment_app.views import _build_prediction_dashboard, _build_scraping_dashboard, _build_wordcloud_image
+
+
+class _WordCloudImageStub:
+    def save(self, buffer, format="PNG"):
+        buffer.write(b"png")
+
+
+class _WordCloudStub:
+    last_frequencies = None
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    def generate_from_frequencies(self, frequencies):
+        type(self).last_frequencies = dict(frequencies)
+        return self
+
+    def to_image(self):
+        return _WordCloudImageStub()
 
 
 class ScrapingDashboardTests(SimpleTestCase):
@@ -64,3 +84,14 @@ class ScrapingDashboardTests(SimpleTestCase):
         self.assertNotIn("svm_positive_image", dashboard["wordclouds"])
         self.assertEqual(dashboard["charts"]["trend_title"], "Jumlah Data per Harian")
         self.assertEqual(dashboard["charts"]["trend_values"], [1, 1])
+
+    def test_wordcloud_uses_unigram_and_bigram_frequencies(self):
+        with patch("sentiment_app.views.WordCloud", _WordCloudStub):
+            result = _build_wordcloud_image(["mobil listrik bagus"], colormap="Greens")
+
+        self.assertIsNotNone(result)
+        self.assertEqual(_WordCloudStub.last_frequencies["mobil"], 1)
+        self.assertEqual(_WordCloudStub.last_frequencies["listrik"], 1)
+        self.assertEqual(_WordCloudStub.last_frequencies["bagus"], 1)
+        self.assertEqual(_WordCloudStub.last_frequencies["mobil listrik"], 1)
+        self.assertEqual(_WordCloudStub.last_frequencies["listrik bagus"], 1)
