@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import csv
 import io
+import random
 import re
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
@@ -142,6 +143,8 @@ WORDCLOUD_STOPWORDS_PATHS = [
     Path(settings.BASE_DIR) / "sentiment_site" / "models" / "stopwords-id.txt",
 ]
 _WORDCLOUD_STOPWORDS_CACHE: set[str] | None = None
+WORDCLOUD_POSITIVE_COLORS = ["#14532d", "#166534", "#15803d", "#16a34a", "#22c55e"]
+WORDCLOUD_NEGATIVE_COLORS = ["#7f1d1d", "#991b1b", "#b91c1c", "#dc2626", "#ef4444"]
 
 
 def _setting_positive_int(name: str, default: int) -> int:
@@ -505,7 +508,15 @@ def _clean_text_for_wordcloud(text: str) -> str:
     return cleaned.strip()
 
 
-def _build_wordcloud_image(texts: list[str], colormap: str) -> str | None:
+def _palette_color_func(colors: list[str]):
+    def color_func(word, font_size, position, orientation, random_state=None, **kwargs):
+        picker = random_state if random_state is not None else random
+        return colors[picker.randint(0, len(colors) - 1)]
+
+    return color_func
+
+
+def _build_wordcloud_image(texts: list[str], colormap: str | list[str]) -> str | None:
     if WordCloud is None:
         return None
 
@@ -522,6 +533,7 @@ def _build_wordcloud_image(texts: list[str], colormap: str) -> str | None:
     if not unigram_counter:
         return None
 
+    use_palette = isinstance(colormap, list)
     cloud = WordCloud(
         width=1400,
         height=800,
@@ -534,7 +546,8 @@ def _build_wordcloud_image(texts: list[str], colormap: str) -> str | None:
         max_font_size=96,
         relative_scaling=0.35,
         prefer_horizontal=1.0,
-        colormap=colormap,
+        color_func=_palette_color_func(colormap) if use_palette else None,
+        colormap=None if use_palette else colormap,
     ).generate_from_frequencies(unigram_counter)
 
     buffer = io.BytesIO()
@@ -639,8 +652,14 @@ def _build_scraping_dashboard(
         )
     else:
         try:
-            wordclouds["combined_positive_image"] = _build_wordcloud_image(combined_positive_texts, colormap="Greens")
-            wordclouds["combined_negative_image"] = _build_wordcloud_image(combined_negative_texts, colormap="Reds")
+            wordclouds["combined_positive_image"] = _build_wordcloud_image(
+                combined_positive_texts,
+                colormap=WORDCLOUD_POSITIVE_COLORS,
+            )
+            wordclouds["combined_negative_image"] = _build_wordcloud_image(
+                combined_negative_texts,
+                colormap=WORDCLOUD_NEGATIVE_COLORS,
+            )
         except Exception as exc:
             wordcloud_error = f"Gagal membuat WordCloud: {exc}"
 
