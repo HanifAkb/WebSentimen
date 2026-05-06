@@ -87,7 +87,7 @@ PREDICTION_HEADERS = {
     "svm_label": "SVM",
     "svm_positive_score": "Probabilitas Positif SVM",
     "svm_negative_score": "Probabilitas Negatif SVM",
-    "combined_label": "Soft Voting",
+    "combined_label": "Gabungan (Soft Voting)",
     "combined_positive_score": "Probabilitas Positif Soft Voting",
     "combined_negative_score": "Probabilitas Negatif Soft Voting",
 }

@@ -124,10 +124,8 @@
                                 </div>
                             </div>
                             <div class="d-flex flex-wrap gap-2">
-                                <span class="badge text-bg-success">KNN Positif: {{ dashboard.knn_counts.positive }}</span>
-                                <span class="badge text-bg-danger">KNN Negatif: {{ dashboard.knn_counts.negative }}</span>
-                                <span class="badge text-bg-success">SVM Positif: {{ dashboard.svm_counts.positive }}</span>
-                                <span class="badge text-bg-danger">SVM Negatif: {{ dashboard.svm_counts.negative }}</span>
+                                <span class="badge text-bg-success">Sentimen Positif: {{ dashboard.combined_counts.positive }}</span>
+                                <span class="badge text-bg-danger">Sentimen Negatif: {{ dashboard.combined_counts.negative }}</span>
                             </div>
                         </div>
 
@@ -178,7 +176,7 @@
                                     </div>
                                     <div class="col-12 col-xl-6">
                                         <div class="dashboard-chart-card h-100">
-                                            <h3 class="h6 fw-semibold mb-2">Distribusi Sentimen Soft Voting</h3>
+                                            <h3 class="h6 fw-semibold mb-2">Distribusi Sentimen Gabungan (<em>Soft Voting</em>)</h3>
                                             <div class="dashboard-chart-wrap">
                                                 <canvas id="combinedPieChart"></canvas>
                                             </div>
@@ -201,7 +199,7 @@
                                 <div class="row g-3 mb-2">
                                     <div class="col-12 col-lg-6">
                                         <div class="dashboard-chart-card h-100">
-                                            <h3 class="h6 fw-semibold mb-2">WordCloud Soft Voting Positif</h3>
+                                            <h3 class="h6 fw-semibold mb-2">Wordcloud Positif</h3>
                                             <div class="wordcloud-image-wrap">
                                                 {% if dashboard.wordclouds.combined_positive_image %}
                                                     <img
@@ -217,7 +215,7 @@
                                     </div>
                                     <div class="col-12 col-lg-6">
                                         <div class="dashboard-chart-card h-100">
-                                            <h3 class="h6 fw-semibold mb-2">WordCloud Soft Voting Negatif</h3>
+                                            <h3 class="h6 fw-semibold mb-2">Wordcloud Negatif</h3>
                                             <div class="wordcloud-image-wrap">
                                                 {% if dashboard.wordclouds.combined_negative_image %}
                                                     <img
@@ -330,7 +328,13 @@
                                         <th colspan="{{ batch_preview_probability_headers|length }}" class="text-center align-middle">Skor 0-1</th>
                                     {% endif %}
                                     {% for header in batch_preview_label_headers %}
-                                        <th rowspan="2" class="text-center align-middle">{{ header }}</th>
+                                        <th rowspan="2" class="text-center align-middle">
+                                            {% if header == "Gabungan (Soft Voting)" %}
+                                                <span>Gabungan</span><br><span>(<em>Soft Voting</em>)</span>
+                                            {% else %}
+                                                {{ header }}
+                                            {% endif %}
+                                        </th>
                                     {% endfor %}
                                 </tr>
                                 <tr>
