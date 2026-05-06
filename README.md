@@ -149,6 +149,7 @@ Preprocessing utama ada di:
 
 File pendukung preprocessing:
 - `sentiment_site/models/stopwords-id.txt`
+- `sentiment_site/models/stopwords-id(wordcloud).txt` untuk WordCloud
 - `sentiment_site/models/singkatan.tsv`
 
 ## Struktur Model

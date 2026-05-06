@@ -137,7 +137,10 @@ PREDICTION_DATE_COLUMN_HINTS = (
     "tanggal",
     "waktu",
 )
-WORDCLOUD_STOPWORDS_PATH = Path(settings.BASE_DIR) / "sentiment_site" / "models" / "stopwords-id.txt"
+WORDCLOUD_STOPWORDS_PATHS = [
+    Path(settings.BASE_DIR) / "sentiment_site" / "models" / "stopwords-id(wordcloud).txt",
+    Path(settings.BASE_DIR) / "sentiment_site" / "models" / "stopwords-id.txt",
+]
 _WORDCLOUD_STOPWORDS_CACHE: set[str] | None = None
 
 
@@ -475,14 +478,22 @@ def _load_wordcloud_stopwords() -> set[str]:
     if _WORDCLOUD_STOPWORDS_CACHE is not None:
         return _WORDCLOUD_STOPWORDS_CACHE
 
-    try:
-        _WORDCLOUD_STOPWORDS_CACHE = {
-            line.strip().lower()
-            for line in WORDCLOUD_STOPWORDS_PATH.read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        }
-    except Exception:
-        _WORDCLOUD_STOPWORDS_CACHE = set()
+    for path in WORDCLOUD_STOPWORDS_PATHS:
+        if not path.exists():
+            continue
+        try:
+            loaded = {
+                line.strip().lower()
+                for line in path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            }
+            if loaded:
+                _WORDCLOUD_STOPWORDS_CACHE = loaded
+                return _WORDCLOUD_STOPWORDS_CACHE
+        except Exception:
+            continue
+
+    _WORDCLOUD_STOPWORDS_CACHE = set()
     return _WORDCLOUD_STOPWORDS_CACHE
 
 
