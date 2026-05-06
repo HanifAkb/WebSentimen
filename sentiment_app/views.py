@@ -552,14 +552,10 @@ def _build_scraping_dashboard(
     max_texts_per_label = _setting_positive_int("SENTIMENT_WORDCLOUD_MAX_TEXTS_PER_LABEL", 1200)
     max_chars_per_label = _setting_positive_int("SENTIMENT_WORDCLOUD_MAX_CHARS_PER_LABEL", 160000)
 
-    knn_positive_texts: list[str] = []
-    knn_negative_texts: list[str] = []
-    svm_positive_texts: list[str] = []
-    svm_negative_texts: list[str] = []
-    knn_positive_chars = 0
-    knn_negative_chars = 0
-    svm_positive_chars = 0
-    svm_negative_chars = 0
+    combined_positive_texts: list[str] = []
+    combined_negative_texts: list[str] = []
+    combined_positive_chars = 0
+    combined_negative_chars = 0
     knn_counts: Counter[str] = Counter()
     svm_counts: Counter[str] = Counter()
     combined_counts: Counter[str] = Counter()
@@ -576,27 +572,16 @@ def _build_scraping_dashboard(
         combined_counts[combined_label] += 1
 
         if text:
-            if knn_label == "Positive":
-                if len(knn_positive_texts) < max_texts_per_label and knn_positive_chars < max_chars_per_label:
-                    clipped_text = text[: max(1, max_chars_per_label - knn_positive_chars)]
-                    knn_positive_chars += len(clipped_text)
-                    knn_positive_texts.append(clipped_text)
-            elif knn_label == "Negative":
-                if len(knn_negative_texts) < max_texts_per_label and knn_negative_chars < max_chars_per_label:
-                    clipped_text = text[: max(1, max_chars_per_label - knn_negative_chars)]
-                    knn_negative_chars += len(clipped_text)
-                    knn_negative_texts.append(clipped_text)
-
-            if svm_label == "Positive":
-                if len(svm_positive_texts) < max_texts_per_label and svm_positive_chars < max_chars_per_label:
-                    clipped_text = text[: max(1, max_chars_per_label - svm_positive_chars)]
-                    svm_positive_chars += len(clipped_text)
-                    svm_positive_texts.append(clipped_text)
-            elif svm_label == "Negative":
-                if len(svm_negative_texts) < max_texts_per_label and svm_negative_chars < max_chars_per_label:
-                    clipped_text = text[: max(1, max_chars_per_label - svm_negative_chars)]
-                    svm_negative_chars += len(clipped_text)
-                    svm_negative_texts.append(clipped_text)
+            if combined_label == "Positive":
+                if len(combined_positive_texts) < max_texts_per_label and combined_positive_chars < max_chars_per_label:
+                    clipped_text = text[: max(1, max_chars_per_label - combined_positive_chars)]
+                    combined_positive_chars += len(clipped_text)
+                    combined_positive_texts.append(clipped_text)
+            elif combined_label == "Negative":
+                if len(combined_negative_texts) < max_texts_per_label and combined_negative_chars < max_chars_per_label:
+                    clipped_text = text[: max(1, max_chars_per_label - combined_negative_chars)]
+                    combined_negative_chars += len(clipped_text)
+                    combined_negative_texts.append(clipped_text)
 
         created_date = _parse_created_at_date(row.get("CreatedAt"))
         if created_date is None:
@@ -629,10 +614,8 @@ def _build_scraping_dashboard(
     wordcloud_error = ""
     max_wordcloud_rows = _setting_positive_int("SENTIMENT_WORDCLOUD_MAX_ROWS", 1500)
     wordclouds: dict[str, str | None] = {
-        "knn_positive_image": None,
-        "knn_negative_image": None,
-        "svm_positive_image": None,
-        "svm_negative_image": None,
+        "combined_positive_image": None,
+        "combined_negative_image": None,
     }
     if len(rows) > max_wordcloud_rows:
         wordcloud_error = (
@@ -646,10 +629,8 @@ def _build_scraping_dashboard(
         )
     else:
         try:
-            wordclouds["knn_positive_image"] = _build_wordcloud_image(knn_positive_texts, colormap="Greens")
-            wordclouds["knn_negative_image"] = _build_wordcloud_image(knn_negative_texts, colormap="Reds")
-            wordclouds["svm_positive_image"] = _build_wordcloud_image(svm_positive_texts, colormap="Greens")
-            wordclouds["svm_negative_image"] = _build_wordcloud_image(svm_negative_texts, colormap="Reds")
+            wordclouds["combined_positive_image"] = _build_wordcloud_image(combined_positive_texts, colormap="Greens")
+            wordclouds["combined_negative_image"] = _build_wordcloud_image(combined_negative_texts, colormap="Reds")
         except Exception as exc:
             wordcloud_error = f"Gagal membuat WordCloud: {exc}"
 

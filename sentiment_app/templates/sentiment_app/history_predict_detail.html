@@ -201,64 +201,32 @@
                                 <div class="row g-3 mb-2">
                                     <div class="col-12 col-lg-6">
                                         <div class="dashboard-chart-card h-100">
-                                            <h3 class="h6 fw-semibold mb-2">WordCloud KNN Positif</h3>
+                                            <h3 class="h6 fw-semibold mb-2">WordCloud Soft Voting Positif</h3>
                                             <div class="wordcloud-image-wrap">
-                                                {% if dashboard.wordclouds.knn_positive_image %}
+                                                {% if dashboard.wordclouds.combined_positive_image %}
                                                     <img
                                                         class="wordcloud-image"
-                                                        src="data:image/png;base64,{{ dashboard.wordclouds.knn_positive_image }}"
-                                                        alt="WordCloud KNN Positif"
+                                                        src="data:image/png;base64,{{ dashboard.wordclouds.combined_positive_image }}"
+                                                        alt="WordCloud Soft Voting Positif"
                                                     >
                                                 {% else %}
-                                                    <div class="wordcloud-empty">Data kata sentimen positif KNN belum cukup.</div>
+                                                    <div class="wordcloud-empty">Data kata sentimen positif Soft Voting belum cukup.</div>
                                                 {% endif %}
                                             </div>
                                         </div>
                                     </div>
                                     <div class="col-12 col-lg-6">
                                         <div class="dashboard-chart-card h-100">
-                                            <h3 class="h6 fw-semibold mb-2">WordCloud KNN Negatif</h3>
+                                            <h3 class="h6 fw-semibold mb-2">WordCloud Soft Voting Negatif</h3>
                                             <div class="wordcloud-image-wrap">
-                                                {% if dashboard.wordclouds.knn_negative_image %}
+                                                {% if dashboard.wordclouds.combined_negative_image %}
                                                     <img
                                                         class="wordcloud-image"
-                                                        src="data:image/png;base64,{{ dashboard.wordclouds.knn_negative_image }}"
-                                                        alt="WordCloud KNN Negatif"
+                                                        src="data:image/png;base64,{{ dashboard.wordclouds.combined_negative_image }}"
+                                                        alt="WordCloud Soft Voting Negatif"
                                                     >
                                                 {% else %}
-                                                    <div class="wordcloud-empty">Data kata sentimen negatif KNN belum cukup.</div>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-12 col-lg-6">
-                                        <div class="dashboard-chart-card h-100">
-                                            <h3 class="h6 fw-semibold mb-2">WordCloud SVM Positif</h3>
-                                            <div class="wordcloud-image-wrap">
-                                                {% if dashboard.wordclouds.svm_positive_image %}
-                                                    <img
-                                                        class="wordcloud-image"
-                                                        src="data:image/png;base64,{{ dashboard.wordclouds.svm_positive_image }}"
-                                                        alt="WordCloud SVM Positif"
-                                                    >
-                                                {% else %}
-                                                    <div class="wordcloud-empty">Data kata sentimen positif SVM belum cukup.</div>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-12 col-lg-6">
-                                        <div class="dashboard-chart-card h-100">
-                                            <h3 class="h6 fw-semibold mb-2">WordCloud SVM Negatif</h3>
-                                            <div class="wordcloud-image-wrap">
-                                                {% if dashboard.wordclouds.svm_negative_image %}
-                                                    <img
-                                                        class="wordcloud-image"
-                                                        src="data:image/png;base64,{{ dashboard.wordclouds.svm_negative_image }}"
-                                                        alt="WordCloud SVM Negatif"
-                                                    >
-                                                {% else %}
-                                                    <div class="wordcloud-empty">Data kata sentimen negatif SVM belum cukup.</div>
+                                                    <div class="wordcloud-empty">Data kata sentimen negatif Soft Voting belum cukup.</div>
                                                 {% endif %}
                                             </div>
                                         </div>
@@ -537,7 +505,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     datasets: [
                         {
                             data: chartData.svm_pie || [],
-                            backgroundColor: ["#22c55e", "#ef4444", "#94a3b8"],
+                            backgroundColor: ["#16a34a", "#dc2626", "#64748b"],
                             borderColor: "#ffffff",
                             borderWidth: 2,
                         },
@@ -565,7 +533,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     datasets: [
                         {
                             data: chartData.combined_pie || [],
-                            backgroundColor: ["#0ea5e9", "#f97316", "#94a3b8"],
+                            backgroundColor: ["#22c55e", "#ef4444", "#94a3b8"],
                             borderColor: "#ffffff",
                             borderWidth: 2,
                         },
