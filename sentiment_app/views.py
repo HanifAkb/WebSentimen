@@ -92,6 +92,17 @@ PREDICTION_HEADERS = {
     "combined_positive_score": "Probabilitas Positif Soft Voting",
     "combined_negative_score": "Probabilitas Negatif Soft Voting",
 }
+PREDICTION_TABLE_HEADERS = {
+    "knn_label": "KNN",
+    "knn_positive_score": "Positif (KNN)",
+    "knn_negative_score": "Negatif (KNN)",
+    "svm_label": "SVM",
+    "svm_positive_score": "Positif (SVM)",
+    "svm_negative_score": "Negatif (SVM)",
+    "combined_label": "Gabungan (Soft Voting)",
+    "combined_positive_score": "Positif (Soft Voting)",
+    "combined_negative_score": "Negatif (Soft Voting)",
+}
 SCRAPE_BASE_COLUMNS = [
     "id",
     "url",
@@ -212,7 +223,7 @@ def _build_batch_preview(
     predictions: list[dict[str, object]],
 ) -> tuple[list[str], list[dict[str, object]]]:
     columns = [column for column in source_columns if str(column).strip().lower() != "id"] + PREDICTION_COLUMNS
-    headers = [PREDICTION_HEADERS.get(column, column) for column in columns]
+    headers = [PREDICTION_TABLE_HEADERS.get(column, column) for column in columns]
 
     preview_rows: list[dict[str, object]] = []
     for index, (source_row, prediction) in enumerate(zip(source_rows, predictions), start=1):
@@ -299,7 +310,7 @@ def _build_prediction_history_preview(
     source_columns: list[str],
 ) -> tuple[list[str], list[dict[str, object]]]:
     columns = [column for column in source_columns if str(column).strip().lower() != "id"] + PREDICTION_COLUMNS
-    headers = [PREDICTION_HEADERS.get(column, column) for column in columns]
+    headers = [PREDICTION_TABLE_HEADERS.get(column, column) for column in columns]
     preview_rows: list[dict[str, object]] = []
 
     for row in rows:
@@ -2007,14 +2018,14 @@ def prediction_history_detail_view(request: HttpRequest, history_id: int) -> Htt
     preview_headers, preview_rows = _build_prediction_history_preview(page_rows, source_columns)
     visible_source_columns = [column for column in source_columns if str(column).strip().lower() != "id"]
     preview_columns = visible_source_columns + PREDICTION_COLUMNS
-    preview_source_headers = [PREDICTION_HEADERS.get(column, column) for column in preview_columns[: len(visible_source_columns)]]
+    preview_source_headers = [PREDICTION_TABLE_HEADERS.get(column, column) for column in preview_columns[: len(visible_source_columns)]]
     probability_column_count = len(PREDICTION_SCORE_COLUMNS)
     preview_probability_headers = [
-        PREDICTION_HEADERS.get(column, column)
+        PREDICTION_TABLE_HEADERS.get(column, column)
         for column in preview_columns[len(visible_source_columns) : len(visible_source_columns) + probability_column_count]
     ]
     preview_label_headers = [
-        PREDICTION_HEADERS.get(column, column)
+        PREDICTION_TABLE_HEADERS.get(column, column)
         for column in preview_columns[len(visible_source_columns) + probability_column_count :]
     ]
     preview_text_column = _resolve_prediction_text_column(history.text_column, source_columns)

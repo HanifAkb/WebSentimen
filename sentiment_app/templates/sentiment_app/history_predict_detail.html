@@ -325,7 +325,7 @@
                                         <th rowspan="2" class="{% if forloop.counter0 == batch_preview_text_column_index %}predict-col-text{% endif %}">{{ header }}</th>
                                     {% endfor %}
                                     {% if batch_preview_probability_headers %}
-                                        <th colspan="{{ batch_preview_probability_headers|length }}" class="text-center align-middle">Skor 0-1</th>
+                                        <th colspan="{{ batch_preview_probability_headers|length }}" class="text-center align-middle">Nilai Probabilitas (Skor 0-1)</th>
                                     {% endif %}
                                     {% for header in batch_preview_label_headers %}
                                         <th rowspan="2" class="text-center align-middle">

@@ -642,6 +642,9 @@ class AuthAndHistoryTests(TestCase):
         self.assertEqual(history.columns[0], "id")
         self.assertEqual(history.rows[0]["id"], "abc-001")
         self.assertNotIn("id", response.context["batch_preview_headers"])
+        self.assertContains(response, "Nilai Probabilitas (Skor 0-1)")
+        self.assertContains(response, "Positif (KNN)")
+        self.assertContains(response, "Negatif (Soft Voting)")
         self.assertContains(response, "Unduh CSV Lengkap")
 
     def test_prediction_history_detail_is_user_scoped(self):
