@@ -62,13 +62,6 @@
                         <a class="btn btn-outline-secondary" href="{% url 'admin:index' %}">Batal</a>
                     </div>
                 </form>
-
-                {% if target_user and target_user.id != request.user.id %}
-                    <form class="mt-3" method="post" action="{% url 'admin:user_delete' target_user.id %}" onsubmit="return confirm('Hapus user {{ target_user.username }}? Riwayat milik user ini juga akan ikut terhapus.');">
-                        {% csrf_token %}
-                        <button class="btn btn-outline-danger" type="submit">Hapus User</button>
-                    </form>
-                {% endif %}
             </div>
         </div>
     </div>

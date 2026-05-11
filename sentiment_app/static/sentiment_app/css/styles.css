@@ -798,6 +798,23 @@ body {
     margin: 0;
 }
 
+.admin-fit-table {
+    table-layout: auto;
+}
+
+.admin-fit-table thead th {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.admin-fit-table tbody td {
+    overflow-wrap: anywhere;
+}
+
+.admin-fit-table tbody td.text-end {
+    white-space: nowrap;
+}
+
 .admin-user-meta {
     display: grid;
     grid-template-columns: max-content minmax(0, 1fr);

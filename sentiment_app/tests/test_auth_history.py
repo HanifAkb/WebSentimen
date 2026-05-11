@@ -137,6 +137,15 @@ class AuthAndHistoryTests(TestCase):
         self.assertEqual(delete_response.status_code, 302)
         self.assertFalse(User.objects.filter(id=created_user.id).exists())
 
+    def test_custom_admin_edit_user_page_hides_delete_button(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse("admin:user_edit", args=[self.user.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Edit User")
+        self.assertNotContains(response, "Hapus User")
+        self.assertNotContains(response, reverse("admin:user_delete", args=[self.user.id]))
+
     def test_custom_admin_requires_full_name_when_creating_user(self):
         self.client.force_login(self.admin)
         response = self.client.post(
