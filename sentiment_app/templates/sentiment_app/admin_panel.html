@@ -53,7 +53,6 @@
                             <thead class="text-center">
                                 <tr>
                                     <th>No.</th>
-                                    <th>ID</th>
                                     <th>Username</th>
                                     <th>Nama Lengkap</th>
                                     <th>Email</th>
@@ -67,7 +66,6 @@
                                 {% for account in users %}
                                     <tr>
                                         <td>{{ users_page_obj.start_index|add:forloop.counter0 }}</td>
-                                        <td>{{ account.id }}</td>
                                         <td class="fw-semibold">{{ account.username }}</td>
                                         <td>{{ account.get_full_name|default:"-" }}</td>
                                         <td>{{ account.email|default:"-" }}</td>
@@ -130,7 +128,6 @@
                             <thead class="text-center">
                                 <tr>
                                     <th>No.</th>
-                                    <th>ID</th>
                                     <th>User</th>
                                     <th>Tipe</th>
                                     <th>Sumber</th>
@@ -144,7 +141,6 @@
                                 {% for item in prediction_histories %}
                                     <tr>
                                         <td>{{ prediction_page_obj.start_index|add:forloop.counter0 }}</td>
-                                        <td>{{ item.id }}</td>
                                         <td>{{ item.user.username }}</td>
                                         <td>{{ item.get_input_type_display }}</td>
                                         <td>
@@ -199,7 +195,6 @@
                             <thead class="text-center">
                                 <tr>
                                     <th>No.</th>
-                                    <th>ID</th>
                                     <th>User</th>
                                     <th>Kueri</th>
                                     <th>Bahasa</th>
@@ -214,7 +209,6 @@
                                 {% for item in scrape_histories %}
                                     <tr>
                                         <td>{{ scrape_page_obj.start_index|add:forloop.counter0 }}</td>
-                                        <td>{{ item.id }}</td>
                                         <td>{{ item.user.username }}</td>
                                         <td class="text-break">{{ item.query }}</td>
                                         <td>{{ item.language|default:"-" }}</td>
