@@ -1,4 +1,4 @@
-﻿# Sistem Analisis Sentimen (Django + KNN + SVM)
+﻿# Sistem Analisis Sentimen (KNN + SVM)
 
 Aplikasi web Django untuk analisis sentimen Bahasa Indonesia menggunakan model KNN dan SVM, dengan hasil gabungan `Soft Voting`.
 
