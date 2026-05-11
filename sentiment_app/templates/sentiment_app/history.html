@@ -47,7 +47,7 @@
                                         <th class="text-center" style="width: 36px;">
                                             <input id="scrape-select-all" class="form-check-input" type="checkbox" aria-label="Pilih semua riwayat scraping">
                                         </th>
-                                        <th>#</th>
+                                        <th>No.</th>
                                         <th>Waktu</th>
                                         <th>Kueri</th>
                                         <th>Bahasa</th>
@@ -169,9 +169,9 @@
                                         <th class="text-center" style="width: 36px;">
                                             <input id="prediction-select-all" class="form-check-input" type="checkbox" aria-label="Pilih semua riwayat prediksi">
                                         </th>
-                                        <th>#</th>
+                                        <th>No.</th>
                                         <th>Waktu</th>
-                                        <th>Tipe</th>
+                                        <th>Mode</th>
                                         <th>Sumber</th>
                                         <th>Kolom Teks</th>
                                         <th>Jumlah Data</th>
@@ -200,9 +200,9 @@
                                             <td>{{ item.created_at|date:"j F Y, H:i" }}</td>
                                             <td>
                                                 {% if item.input_type == "single" %}
-                                                    Kalimat
+                                                    <span class="badge text-bg-info">Kalimat</span>
                                                 {% else %}
-                                                    CSV/TXT
+                                                    <span class="badge text-bg-primary">CSV/TXT</span>
                                                 {% endif %}
                                             </td>
                                             <td class="text-break">

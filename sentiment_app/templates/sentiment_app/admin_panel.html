@@ -129,7 +129,7 @@
                                 <tr>
                                     <th>No.</th>
                                     <th>User</th>
-                                    <th>Tipe</th>
+                                    <th>Mode</th>
                                     <th>Sumber</th>
                                     <th>Kolom Teks</th>
                                     <th>Jumlah Data</th>
@@ -142,7 +142,13 @@
                                     <tr>
                                         <td>{{ prediction_page_obj.start_index|add:forloop.counter0 }}</td>
                                         <td>{{ item.user.username }}</td>
-                                        <td>{{ item.get_input_type_display }}</td>
+                                        <td>
+                                            {% if item.input_type == "single" %}
+                                                <span class="badge text-bg-info">Kalimat</span>
+                                            {% else %}
+                                                <span class="badge text-bg-primary">CSV/TXT</span>
+                                            {% endif %}
+                                        </td>
                                         <td>
                                             {% if item.input_type == "single" %}
                                                 Input manual
