@@ -77,7 +77,15 @@
                                             <td>{{ scrape_page_obj.start_index|add:forloop.counter0 }}</td>
                                             <td>{{ item.created_at|date:"j F Y, H:i" }}</td>
                                             <td class="text-break">{{ item.query }}</td>
-                                            <td>{{ item.language|default:"-" }}</td>
+                                            <td>
+                                                {% if item.language == "in" %}
+                                                    Bahasa Indonesia
+                                                {% elif item.language == "en" %}
+                                                    Bahasa Inggris
+                                                {% else %}
+                                                    Semua Bahasa
+                                                {% endif %}
+                                            </td>
                                             <td>
                                                 {% if item.start_date|date:"Y" == item.end_date|date:"Y" %}
                                                     {% if item.start_date|date:"F" == item.end_date|date:"F" %}

@@ -203,7 +203,6 @@
                                     <th>No.</th>
                                     <th>User</th>
                                     <th>Kueri</th>
-                                    <th>Bahasa</th>
                                     <th>Rentang Tanggal</th>
                                     <th>Jumlah Tweet</th>
                                     <th>Status</th>
@@ -217,7 +216,6 @@
                                         <td>{{ scrape_page_obj.start_index|add:forloop.counter0 }}</td>
                                         <td>{{ item.user.username }}</td>
                                         <td class="text-break">{{ item.query }}</td>
-                                        <td>{{ item.language|default:"-" }}</td>
                                         <td>{{ item.start_date|date:"j F Y" }} - {{ item.end_date|date:"j F Y" }}</td>
                                         <td>{{ item.tweet_count }}</td>
                                         <td>

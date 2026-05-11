@@ -90,6 +90,7 @@ class AuthAndHistoryTests(TestCase):
         self.assertContains(response, "<th>Peran</th>", html=True)
         self.assertNotContains(response, "<th>Role</th>", html=True)
         self.assertContains(response, "<th>Mode</th>", html=True)
+        self.assertNotContains(response, "<th>Bahasa</th>", html=True)
         self.assertNotContains(response, "<th>Tipe</th>", html=True)
         self.assertContains(response, '<span class="badge text-bg-primary">CSV/TXT</span>', html=True)
         self.assertContains(response, "Nama Lengkap")
@@ -503,6 +504,42 @@ class AuthAndHistoryTests(TestCase):
 
         forbidden_detail = self.client.get(reverse("history_detail", args=[other_history.id]))
         self.assertEqual(forbidden_detail.status_code, 404)
+
+    def test_history_list_shows_readable_language_labels(self):
+        ScrapeHistory.objects.create(
+            user=self.user,
+            query="bahasa indonesia",
+            language="in",
+            start_date="2026-01-01",
+            end_date="2026-01-02",
+            tweet_count=1,
+            rows=[],
+        )
+        ScrapeHistory.objects.create(
+            user=self.user,
+            query="english language",
+            language="en",
+            start_date="2026-01-03",
+            end_date="2026-01-04",
+            tweet_count=1,
+            rows=[],
+        )
+        ScrapeHistory.objects.create(
+            user=self.user,
+            query="semua bahasa",
+            language="",
+            start_date="2026-01-05",
+            end_date="2026-01-06",
+            tweet_count=1,
+            rows=[],
+        )
+
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("history_list"))
+
+        self.assertContains(response, "Bahasa Indonesia")
+        self.assertContains(response, "Bahasa Inggris")
+        self.assertContains(response, "Semua Bahasa")
 
     def test_scrape_history_detail_has_detail_header_and_back_button(self):
         history = ScrapeHistory.objects.create(
