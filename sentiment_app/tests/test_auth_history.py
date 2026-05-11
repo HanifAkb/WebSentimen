@@ -98,7 +98,6 @@ class AuthAndHistoryTests(TestCase):
                 "username": "created_user",
                 "full_name": "Created User",
                 "email": "created@example.com",
-                "is_active": "on",
                 "is_staff": "on",
                 "is_superuser": "",
                 "password1": "CreatedPass123!",
@@ -109,6 +108,7 @@ class AuthAndHistoryTests(TestCase):
         self.assertEqual(create_response["Location"], reverse("admin:index"))
         created_user = User.objects.get(username="created_user")
         self.assertEqual(created_user.get_full_name(), "Created User")
+        self.assertTrue(created_user.is_active)
         self.assertTrue(created_user.is_staff)
         self.assertFalse(created_user.is_superuser)
 
@@ -118,7 +118,6 @@ class AuthAndHistoryTests(TestCase):
                 "username": "edited_user",
                 "full_name": "Edited Name",
                 "email": "edited@example.com",
-                "is_active": "on",
                 "is_staff": "",
                 "is_superuser": "on",
                 "password1": "EditedPass123!",
@@ -129,6 +128,7 @@ class AuthAndHistoryTests(TestCase):
         created_user.refresh_from_db()
         self.assertEqual(created_user.username, "edited_user")
         self.assertEqual(created_user.get_full_name(), "Edited Name")
+        self.assertTrue(created_user.is_active)
         self.assertTrue(created_user.is_superuser)
         self.assertTrue(created_user.is_staff)
         self.assertTrue(created_user.check_password("EditedPass123!"))
@@ -145,7 +145,6 @@ class AuthAndHistoryTests(TestCase):
                 "username": "missing_name",
                 "full_name": "",
                 "email": "missing-name@example.com",
-                "is_active": "on",
                 "is_staff": "",
                 "is_superuser": "",
                 "password1": "CreatedPass123!",

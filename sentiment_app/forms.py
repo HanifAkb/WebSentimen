@@ -192,7 +192,6 @@ class LoginForm(AuthenticationForm):
 USERNAME_HELP_TEXT = "Maksimal 150 karakter. Gunakan huruf, angka, dan tanpa spasi."
 PASSWORD_CONFIRM_HELP_TEXT = "Ulangi password yang sama."
 PASSWORD_NEW_CONFIRM_HELP_TEXT = "Ulangi password baru yang sama."
-ACTIVE_HELP_TEXT = "Menentukan apakah pengguna dianggap aktif atau nonaktif"
 STAFF_HELP_TEXT = "Menentukan apakah pengguna berhak masuk ke dalam sistem."
 SUPERUSER_HELP_TEXT = "Menentukan apakah pengguna dapat masuk ke Admin Panel."
 
@@ -201,12 +200,6 @@ class AdminCreateUserForm(UserCreationForm):
     username = forms.CharField(label="Username", help_text=USERNAME_HELP_TEXT)
     full_name = forms.CharField(label="Nama Lengkap")
     email = forms.EmailField(required=False, label="Email")
-    is_active = forms.BooleanField(
-        required=False,
-        initial=True,
-        label="Aktif",
-        help_text=ACTIVE_HELP_TEXT,
-    )
     is_staff = forms.BooleanField(
         required=False,
         label="Staff",
@@ -224,7 +217,6 @@ class AdminCreateUserForm(UserCreationForm):
             "username",
             "full_name",
             "email",
-            "is_active",
             "is_staff",
             "is_superuser",
             "password1",
@@ -247,7 +239,7 @@ class AdminCreateUserForm(UserCreationForm):
         self.fields["password1"].widget.attrs["autocomplete"] = "new-password"
         self.fields["password2"].widget.attrs["autocomplete"] = "new-password"
         self.fields["password2"].help_text = PASSWORD_CONFIRM_HELP_TEXT
-        for field_name in ("is_active", "is_staff", "is_superuser"):
+        for field_name in ("is_staff", "is_superuser"):
             self.fields[field_name].widget.attrs["class"] = "form-check-input"
 
     def save(self, commit: bool = True):
@@ -255,7 +247,7 @@ class AdminCreateUserForm(UserCreationForm):
         user.first_name = self.cleaned_data.get("full_name", "")
         user.last_name = ""
         user.email = self.cleaned_data.get("email", "")
-        user.is_active = bool(self.cleaned_data.get("is_active"))
+        user.is_active = True
         user.is_superuser = bool(self.cleaned_data.get("is_superuser"))
         user.is_staff = bool(self.cleaned_data.get("is_staff")) or user.is_superuser
         if commit:
@@ -291,7 +283,6 @@ class AdminEditUserForm(forms.ModelForm):
             "username",
             "full_name",
             "email",
-            "is_active",
             "is_staff",
             "is_superuser",
         )
@@ -299,7 +290,6 @@ class AdminEditUserForm(forms.ModelForm):
             "username": "Username",
             "full_name": "Nama Lengkap",
             "email": "Email",
-            "is_active": "Aktif",
             "is_staff": "Staff",
             "is_superuser": "Administrator",
         }
@@ -312,9 +302,8 @@ class AdminEditUserForm(forms.ModelForm):
         self.fields["username"].help_text = USERNAME_HELP_TEXT
         for field_name in ("password1", "password2"):
             self.fields[field_name].widget.attrs["class"] = "form-control"
-        for field_name in ("is_active", "is_staff", "is_superuser"):
+        for field_name in ("is_staff", "is_superuser"):
             self.fields[field_name].widget.attrs["class"] = "form-check-input"
-        self.fields["is_active"].help_text = ACTIVE_HELP_TEXT
         self.fields["is_staff"].help_text = STAFF_HELP_TEXT
         self.fields["is_superuser"].help_text = SUPERUSER_HELP_TEXT
 
@@ -335,6 +324,7 @@ class AdminEditUserForm(forms.ModelForm):
         user = super().save(commit=False)
         user.first_name = self.cleaned_data.get("full_name", "")
         user.last_name = ""
+        user.is_active = True
         if user.is_superuser:
             user.is_staff = True
         password = self.cleaned_data.get("password1")

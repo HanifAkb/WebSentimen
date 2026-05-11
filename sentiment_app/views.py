@@ -1647,8 +1647,7 @@ def admin_user_edit_view(request: HttpRequest, user_id: int) -> HttpResponse:
         keeps_current_admin = (
             target_user.pk != request.user.pk
             or (
-                bool(form.cleaned_data.get("is_active"))
-                and bool(form.cleaned_data.get("is_superuser"))
+                bool(form.cleaned_data.get("is_superuser"))
                 and (bool(form.cleaned_data.get("is_staff")) or bool(form.cleaned_data.get("is_superuser")))
             )
         )
