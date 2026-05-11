@@ -85,6 +85,8 @@ class AuthAndHistoryTests(TestCase):
         self.assertContains(response, "Tambah User")
         self.assertContains(response, "Dataset PredictionHistory")
         self.assertContains(response, "Dataset ScrapeHistory")
+        self.assertContains(response, "<th>No.</th>", html=True)
+        self.assertContains(response, "<th>ID</th>", html=True)
         self.assertContains(response, "Nama Lengkap")
         self.assertContains(response, "member")
         self.assertContains(response, "dataset scraping")
