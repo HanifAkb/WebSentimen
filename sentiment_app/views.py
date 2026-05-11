@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import csv
+import hashlib
 import io
 import random
 import re
@@ -491,13 +492,16 @@ def _display_sentiment_label_id(value: object) -> str:
 def _load_wordcloud_stopwords() -> set[str]:
     global _WORDCLOUD_STOPWORDS_CACHE, _WORDCLOUD_STOPWORDS_CACHE_SIGNATURE
 
-    current_signature: list[tuple[str, bool, int | None, int | None]] = []
+    current_signature: list[tuple[str, bool, int | None, int | None, str | None]] = []
     for path in WORDCLOUD_STOPWORDS_PATHS:
         try:
             stat_result = path.stat()
-            current_signature.append((str(path), True, stat_result.st_mtime_ns, stat_result.st_size))
+            content_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+            current_signature.append(
+                (str(path), True, stat_result.st_mtime_ns, stat_result.st_size, content_hash)
+            )
         except OSError:
-            current_signature.append((str(path), False, None, None))
+            current_signature.append((str(path), False, None, None, None))
 
     signature_tuple = tuple(current_signature)
     if (

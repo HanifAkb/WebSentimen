@@ -85,6 +85,7 @@ class AuthAndHistoryTests(TestCase):
         self.assertContains(response, "Tambah User")
         self.assertContains(response, "Dataset PredictionHistory")
         self.assertContains(response, "Dataset ScrapeHistory")
+        self.assertContains(response, "Nama Lengkap")
         self.assertContains(response, "member")
         self.assertContains(response, "dataset scraping")
         self.assertContains(response, "dataset.csv")
@@ -95,8 +96,7 @@ class AuthAndHistoryTests(TestCase):
             reverse("admin:user_add"),
             {
                 "username": "created_user",
-                "first_name": "Created",
-                "last_name": "User",
+                "full_name": "Created User",
                 "email": "created@example.com",
                 "is_active": "on",
                 "is_staff": "on",
@@ -108,6 +108,7 @@ class AuthAndHistoryTests(TestCase):
         self.assertEqual(create_response.status_code, 302)
         self.assertEqual(create_response["Location"], reverse("admin:index"))
         created_user = User.objects.get(username="created_user")
+        self.assertEqual(created_user.get_full_name(), "Created User")
         self.assertTrue(created_user.is_staff)
         self.assertFalse(created_user.is_superuser)
 
@@ -115,8 +116,7 @@ class AuthAndHistoryTests(TestCase):
             reverse("admin:user_edit", args=[created_user.id]),
             {
                 "username": "edited_user",
-                "first_name": "Edited",
-                "last_name": "Name",
+                "full_name": "Edited Name",
                 "email": "edited@example.com",
                 "is_active": "on",
                 "is_staff": "",
@@ -128,6 +128,7 @@ class AuthAndHistoryTests(TestCase):
         self.assertEqual(edit_response.status_code, 302)
         created_user.refresh_from_db()
         self.assertEqual(created_user.username, "edited_user")
+        self.assertEqual(created_user.get_full_name(), "Edited Name")
         self.assertTrue(created_user.is_superuser)
         self.assertTrue(created_user.is_staff)
         self.assertTrue(created_user.check_password("EditedPass123!"))
@@ -135,6 +136,26 @@ class AuthAndHistoryTests(TestCase):
         delete_response = self.client.post(reverse("admin:user_delete", args=[created_user.id]))
         self.assertEqual(delete_response.status_code, 302)
         self.assertFalse(User.objects.filter(id=created_user.id).exists())
+
+    def test_custom_admin_requires_full_name_when_creating_user(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse("admin:user_add"),
+            {
+                "username": "missing_name",
+                "full_name": "",
+                "email": "missing-name@example.com",
+                "is_active": "on",
+                "is_staff": "",
+                "is_superuser": "",
+                "password1": "CreatedPass123!",
+                "password2": "CreatedPass123!",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(response.context["form"], "full_name", "Bidang ini tidak boleh kosong.")
+        self.assertFalse(User.objects.filter(username="missing_name").exists())
 
     def test_custom_admin_can_detail_edit_and_delete_history_datasets(self):
         scrape_history = ScrapeHistory.objects.create(
