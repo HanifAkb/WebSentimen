@@ -828,6 +828,67 @@ body {
     white-space: nowrap;
 }
 
+.admin-dataset-table {
+    table-layout: fixed;
+    min-width: 1120px;
+}
+
+.admin-dataset-table thead th {
+    width: auto;
+}
+
+.admin-dataset-table .admin-col-no {
+    width: 4.5%;
+}
+
+.admin-dataset-table .admin-col-id {
+    width: 6%;
+}
+
+.admin-dataset-table .admin-col-user {
+    width: 10%;
+}
+
+.admin-prediction-table .admin-col-type {
+    width: 10%;
+}
+
+.admin-prediction-table .admin-col-source {
+    width: 18%;
+}
+
+.admin-prediction-table .admin-col-text-column {
+    width: 11%;
+}
+
+.admin-dataset-table .admin-col-count {
+    width: 9%;
+}
+
+.admin-dataset-table .admin-col-created {
+    width: 14%;
+}
+
+.admin-dataset-table .admin-col-actions {
+    width: 12%;
+}
+
+.admin-scrape-table .admin-col-query {
+    width: 18%;
+}
+
+.admin-scrape-table .admin-col-language {
+    width: 7%;
+}
+
+.admin-scrape-table .admin-col-date-range {
+    width: 14%;
+}
+
+.admin-scrape-table .admin-col-status {
+    width: 9%;
+}
+
 .admin-user-meta {
     display: grid;
     grid-template-columns: max-content minmax(0, 1fr);
