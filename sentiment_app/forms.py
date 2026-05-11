@@ -61,6 +61,12 @@ class PredictForm(forms.Form):
 
 
 class TwitterFetchForm(forms.Form):
+    LANGUAGE_CHOICES = (
+        ("in", "Bahasa Indonesia"),
+        ("en", "Bahasa Inggris"),
+        ("", "Semua Bahasa"),
+    )
+
     api_key = forms.CharField(
         label="API key twitterapi.io",
         widget=forms.PasswordInput(
@@ -83,11 +89,10 @@ class TwitterFetchForm(forms.Form):
             }
         ),
     )
-    language = forms.CharField(
+    language = forms.ChoiceField(
         required=False,
-        max_length=10,
-        label="Bahasa (opsional)",
-        widget=forms.TextInput(attrs={"placeholder": "Contoh: 'in' atau 'en'"}),
+        label="Bahasa",
+        choices=LANGUAGE_CHOICES,
     )
     start_date = forms.DateField(
         required=True,
@@ -126,9 +131,10 @@ class TwitterFetchForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field in self.fields.values():
+        for field_name, field in self.fields.items():
             existing_class = (field.widget.attrs.get("class") or "").strip()
-            classes = f"{existing_class} form-control".strip()
+            input_class = "form-select" if field_name == "language" else "form-control"
+            classes = f"{existing_class} {input_class}".strip()
             field.widget.attrs["class"] = " ".join(dict.fromkeys(classes.split()))
 
     def clean(self):
