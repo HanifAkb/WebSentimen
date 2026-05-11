@@ -131,8 +131,7 @@
                                     <th>User</th>
                                     <th>Mode</th>
                                     <th>Sumber</th>
-                                    <th>Kolom Teks</th>
-                                    <th>Jumlah Data</th>
+                                    <th class="text-center">Jumlah Data</th>
                                     <th>Dibuat</th>
                                     <th>Aksi</th>
                                 </tr>
@@ -156,8 +155,7 @@
                                                 {{ item.source_name|default:"-" }}
                                             {% endif %}
                                         </td>
-                                        <td>{{ item.text_column|default:"-" }}</td>
-                                        <td>{{ item.sample_count }}</td>
+                                        <td class="text-center">{{ item.sample_count }}</td>
                                         <td>{{ item.created_at|date:"j F Y, H:i" }}</td>
                                         <td class="text-end">
                                             <div class="admin-actions">
@@ -204,7 +202,7 @@
                                     <th>User</th>
                                     <th>Kueri Pencarian</th>
                                     <th>Rentang Tanggal</th>
-                                    <th>Jumlah Tweet</th>
+                                    <th class="text-center">Jumlah Tweet</th>
                                     <th>Status</th>
                                     <th>Dibuat</th>
                                     <th>Aksi</th>
@@ -227,7 +225,7 @@
                                                 {{ item.start_date|date:"j F Y" }} - {{ item.end_date|date:"j F Y" }}
                                             {% endif %}
                                         </td>
-                                        <td>{{ item.tweet_count }}</td>
+                                        <td class="text-center">{{ item.tweet_count }}</td>
                                         <td>
                                             {% if item.is_complete %}
                                                 <span class="badge text-bg-success">Selesai</span>
