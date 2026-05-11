@@ -96,6 +96,7 @@ class AuthAndHistoryTests(TestCase):
         self.assertContains(response, "Nama Lengkap")
         self.assertContains(response, "member")
         self.assertContains(response, "dataset scraping")
+        self.assertContains(response, "1 - 2 Januari 2026")
         self.assertContains(response, "dataset.csv")
         self.assertNotContains(response, reverse("admin:prediction_history_edit", args=[prediction_history.id]))
         self.assertNotContains(response, reverse("admin:scrape_history_edit", args=[scrape_history.id]))

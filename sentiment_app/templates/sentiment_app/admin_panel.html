@@ -216,7 +216,17 @@
                                         <td>{{ scrape_page_obj.start_index|add:forloop.counter0 }}</td>
                                         <td>{{ item.user.username }}</td>
                                         <td class="text-break">{{ item.query }}</td>
-                                        <td>{{ item.start_date|date:"j F Y" }} - {{ item.end_date|date:"j F Y" }}</td>
+                                        <td>
+                                            {% if item.start_date|date:"Y" == item.end_date|date:"Y" %}
+                                                {% if item.start_date|date:"F" == item.end_date|date:"F" %}
+                                                    {{ item.start_date|date:"j" }} - {{ item.end_date|date:"j F Y" }}
+                                                {% else %}
+                                                    {{ item.start_date|date:"j F" }} - {{ item.end_date|date:"j F Y" }}
+                                                {% endif %}
+                                            {% else %}
+                                                {{ item.start_date|date:"j F Y" }} - {{ item.end_date|date:"j F Y" }}
+                                            {% endif %}
+                                        </td>
                                         <td>{{ item.tweet_count }}</td>
                                         <td>
                                             {% if item.is_complete %}
