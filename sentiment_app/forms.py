@@ -252,7 +252,6 @@ class AdminEditUserForm(forms.ModelForm):
         help_text=mark_safe(
             "<ul>"
             "<li>Password minimal 8 karakter.</li>"
-            "<li>Gunakan password yang tidak terlalu umum.</li>"
             "<li>Password tidak boleh hanya berisi angka.</li>"
             "</ul>"
         ),
