@@ -192,7 +192,7 @@ class LoginForm(AuthenticationForm):
 USERNAME_HELP_TEXT = "Maksimal 150 karakter. Gunakan huruf, angka, dan tanpa spasi."
 PASSWORD_CONFIRM_HELP_TEXT = "Ulangi password yang sama."
 PASSWORD_NEW_CONFIRM_HELP_TEXT = "Ulangi password baru yang sama."
-STAFF_HELP_TEXT = "Menentukan apakah pengguna berhak masuk ke dalam sistem."
+STAFF_HELP_TEXT = "Menentukan apakah pengguna berhak masuk ke dalam sistem. (Hapus jika pegawai telah berhenti atau keluar)"
 SUPERUSER_HELP_TEXT = "Menentukan apakah pengguna dapat masuk ke Admin Panel."
 
 
