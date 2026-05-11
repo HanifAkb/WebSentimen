@@ -87,6 +87,8 @@ class AuthAndHistoryTests(TestCase):
         self.assertContains(response, "Dataset ScrapeHistory")
         self.assertContains(response, "<th>No.</th>", html=True)
         self.assertContains(response, "<th>ID</th>", html=True)
+        self.assertContains(response, "<th>Peran</th>", html=True)
+        self.assertNotContains(response, "<th>Role</th>", html=True)
         self.assertContains(response, "Nama Lengkap")
         self.assertContains(response, "member")
         self.assertContains(response, "dataset scraping")
@@ -102,8 +104,8 @@ class AuthAndHistoryTests(TestCase):
                 "username": "created_user",
                 "full_name": "Created User",
                 "email": "created@example.com",
-                "is_staff": "on",
-                "is_superuser": "",
+                "is_active": "on",
+                "role": "staff",
                 "password1": "CreatedPass123!",
                 "password2": "CreatedPass123!",
             },
@@ -122,8 +124,8 @@ class AuthAndHistoryTests(TestCase):
                 "username": "edited_user",
                 "full_name": "Edited Name",
                 "email": "edited@example.com",
-                "is_staff": "",
-                "is_superuser": "on",
+                "is_active": "on",
+                "role": "administrator",
                 "password1": "EditedPass123!",
                 "password2": "EditedPass123!",
             },
@@ -147,8 +149,21 @@ class AuthAndHistoryTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Edit User")
+        self.assertContains(response, "Edit data akun")
+        self.assertContains(response, "Peran")
+        self.assertContains(response, 'name="is_active"')
+        self.assertNotContains(response, 'name="is_staff"')
+        self.assertNotContains(response, 'name="is_superuser"')
         self.assertNotContains(response, "Hapus User")
         self.assertNotContains(response, reverse("admin:user_delete", args=[self.user.id]))
+
+    def test_custom_admin_create_user_page_uses_add_description(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse("admin:user_add"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Tambah data akun")
+        self.assertNotContains(response, "Atur data akun, status aktif, staff, dan Administrator.")
 
     def test_custom_admin_requires_full_name_when_creating_user(self):
         self.client.force_login(self.admin)
@@ -158,8 +173,8 @@ class AuthAndHistoryTests(TestCase):
                 "username": "missing_name",
                 "full_name": "",
                 "email": "missing-name@example.com",
-                "is_staff": "",
-                "is_superuser": "",
+                "is_active": "on",
+                "role": "staff",
                 "password1": "CreatedPass123!",
                 "password2": "CreatedPass123!",
             },
@@ -168,6 +183,21 @@ class AuthAndHistoryTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFormError(response.context["form"], "full_name", "Bidang ini tidak boleh kosong.")
         self.assertFalse(User.objects.filter(username="missing_name").exists())
+
+    def test_inactive_user_cannot_login(self):
+        self.user.is_active = False
+        self.user.save(update_fields=["is_active"])
+
+        response = self.client.post(
+            reverse("login"),
+            {
+                "username": self.user.username,
+                "password": "MemberPass123!",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("_auth_user_id", self.client.session)
 
     def test_custom_admin_can_detail_edit_and_delete_history_datasets(self):
         scrape_history = ScrapeHistory.objects.create(

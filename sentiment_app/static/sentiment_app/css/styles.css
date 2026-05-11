@@ -846,6 +846,33 @@ body {
     overflow-wrap: anywhere;
 }
 
+.role-select {
+    border-width: 1px;
+    font-weight: 700;
+}
+
+.role-select.role-select-staff {
+    color: #055160;
+    border-color: #9eeaf9;
+    background-color: #cff4fc;
+}
+
+.role-select.role-select-administrator {
+    color: #ffffff;
+    border-color: #0d6efd;
+    background-color: #0d6efd;
+}
+
+.role-select option[value="staff"] {
+    color: #055160;
+    background-color: #cff4fc;
+}
+
+.role-select option[value="administrator"] {
+    color: #ffffff;
+    background-color: #0d6efd;
+}
+
 .admin-json-field {
     font-size: 0.82rem;
     line-height: 1.45;

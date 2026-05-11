@@ -10,7 +10,7 @@
                 <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
                     <div>
                         <h1 class="h4 fw-semibold mb-2">{{ form_title }}</h1>
-                        <p class="text-muted small mb-0">Atur data akun, status aktif, staff, dan Administrator.</p>
+                        <p class="text-muted small mb-0">{{ form_description }}</p>
                     </div>
                     <a class="btn btn-outline-secondary btn-sm" href="{% url 'admin:index' %}">Kembali ke Admin Panel</a>
                 </div>
@@ -84,4 +84,23 @@
         </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const roleSelect = document.querySelector(".role-select");
+    if (!roleSelect) {
+        return;
+    }
+
+    const updateRoleColor = function () {
+        roleSelect.classList.toggle("role-select-staff", roleSelect.value === "staff");
+        roleSelect.classList.toggle("role-select-administrator", roleSelect.value === "administrator");
+    };
+
+    roleSelect.addEventListener("change", updateRoleColor);
+    updateRoleColor();
+});
+</script>
 {% endblock %}

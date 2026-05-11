@@ -57,7 +57,7 @@
                                     <th>Username</th>
                                     <th>Nama Lengkap</th>
                                     <th>Email</th>
-                                    <th>Role</th>
+                                    <th>Peran</th>
                                     <th>Status</th>
                                     <th>Login Terakhir</th>
                                     <th>Aksi</th>
@@ -74,11 +74,9 @@
                                         <td>
                                             {% if account.is_superuser %}
                                                 <span class="badge text-bg-primary">Administrator</span>
-                                            {% endif %}
-                                            {% if account.is_staff %}
+                                            {% elif account.is_staff %}
                                                 <span class="badge text-bg-info">Staff</span>
-                                            {% endif %}
-                                            {% if not account.is_staff and not account.is_superuser %}
+                                            {% else %}
                                                 <span class="badge text-bg-secondary">User</span>
                                             {% endif %}
                                         </td>

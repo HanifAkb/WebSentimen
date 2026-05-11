@@ -1612,7 +1612,7 @@ def admin_dashboard_view(request: HttpRequest) -> HttpResponse:
         "prediction_page_obj": prediction_page_obj,
         "prediction_histories": prediction_page_obj.object_list,
         "total_users": User.objects.count(),
-        "total_staff": User.objects.filter(is_staff=True).count(),
+        "total_staff": User.objects.filter(is_staff=True, is_superuser=False).count(),
         "total_superusers": User.objects.filter(is_superuser=True).count(),
         "total_scrape_histories": ScrapeHistory.objects.count(),
         "total_prediction_histories": PredictionHistory.objects.count(),
@@ -1632,6 +1632,7 @@ def admin_user_create_view(request: HttpRequest) -> HttpResponse:
     context = {
         "form": form,
         "form_title": "Tambah User",
+        "form_description": "Tambah data akun",
         "submit_label": "Simpan User",
         "target_user": None,
     }
@@ -1647,8 +1648,8 @@ def admin_user_edit_view(request: HttpRequest, user_id: int) -> HttpResponse:
         keeps_current_admin = (
             target_user.pk != request.user.pk
             or (
-                bool(form.cleaned_data.get("is_superuser"))
-                and (bool(form.cleaned_data.get("is_staff")) or bool(form.cleaned_data.get("is_superuser")))
+                bool(form.cleaned_data.get("is_active"))
+                and form.cleaned_data.get("role") == "administrator"
             )
         )
         if not keeps_current_admin:
@@ -1661,6 +1662,7 @@ def admin_user_edit_view(request: HttpRequest, user_id: int) -> HttpResponse:
     context = {
         "form": form,
         "form_title": "Edit User",
+        "form_description": "Edit data akun",
         "submit_label": "Simpan Perubahan",
         "target_user": target_user,
     }
