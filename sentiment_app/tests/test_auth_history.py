@@ -492,6 +492,7 @@ class AuthAndHistoryTests(TestCase):
         self.assertContains(response, "query_user")
         self.assertContains(response, "Riwayat Prediksi")
         self.assertContains(response, "Status")
+        self.assertContains(response, '<thead class="text-center">', count=2)
         self.assertContains(response, "<th>No.</th>", html=True)
         self.assertContains(response, "<th>Mode</th>", html=True)
         self.assertNotContains(response, "<th>#</th>", html=True)
@@ -529,6 +530,8 @@ class AuthAndHistoryTests(TestCase):
         self.assertContains(response, "Detail Riwayat Scraping")
         self.assertContains(response, "Kembali ke Riwayat")
         self.assertContains(response, "Status Riwayat Scraping")
+        self.assertContains(response, "<th rowspan=\"2\">No.</th>", html=True)
+        self.assertNotContains(response, "<th rowspan=\"2\">#</th>", html=True)
         self.assertNotContains(response, "Mulai Scraping")
 
     def test_predict_single_creates_prediction_history(self):
@@ -682,6 +685,8 @@ class AuthAndHistoryTests(TestCase):
         self.assertContains(response, "Sentimen Netral: 0")
         self.assertContains(response, "Sentimen Negatif: 1")
         self.assertContains(response, "prediction-dashboard-data")
+        self.assertContains(response, "<th rowspan=\"2\">No.</th>", html=True)
+        self.assertNotContains(response, "<th rowspan=\"2\">#</th>", html=True)
         self.assertEqual(response.context["dashboard"]["charts"]["trend_title"], "Jumlah Data per Harian")
 
     def test_prediction_file_history_detail_hides_id_column_in_preview(self):
