@@ -162,7 +162,6 @@
                                         <td class="text-end">
                                             <div class="admin-actions">
                                                 <a class="btn btn-sm btn-outline-secondary" href="{% url 'prediction_history_detail' item.id %}">Detail</a>
-                                                <a class="btn btn-sm btn-outline-primary" href="{% url 'admin:prediction_history_edit' item.id %}">Edit</a>
                                                 <form method="post" action="{% url 'admin:prediction_history_delete' item.id %}" onsubmit="return confirm('Hapus PredictionHistory #{{ item.id }}?');">
                                                     {% csrf_token %}
                                                     <button class="btn btn-sm btn-outline-danger" type="submit">Hapus</button>
@@ -234,7 +233,6 @@
                                         <td class="text-end">
                                             <div class="admin-actions">
                                                 <a class="btn btn-sm btn-outline-secondary" href="{% url 'history_detail' item.id %}">Detail</a>
-                                                <a class="btn btn-sm btn-outline-primary" href="{% url 'admin:scrape_history_edit' item.id %}">Edit</a>
                                                 <form method="post" action="{% url 'admin:scrape_history_delete' item.id %}" onsubmit="return confirm('Hapus ScrapeHistory #{{ item.id }}?');">
                                                     {% csrf_token %}
                                                     <button class="btn btn-sm btn-outline-danger" type="submit">Hapus</button>

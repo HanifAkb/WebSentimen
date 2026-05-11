@@ -799,16 +799,29 @@ body {
 }
 
 .admin-fit-table {
+    font-size: 0.82rem;
     table-layout: auto;
 }
 
 .admin-fit-table thead th {
     width: 1%;
+    padding: 0.52rem 0.58rem;
+    font-size: 0.78rem;
     white-space: nowrap;
 }
 
 .admin-fit-table tbody td {
+    padding: 0.48rem 0.58rem;
     overflow-wrap: anywhere;
+}
+
+.admin-fit-table .badge {
+    font-size: 0.72rem;
+}
+
+.admin-fit-table .btn-sm {
+    padding: 0.2rem 0.45rem;
+    font-size: 0.76rem;
 }
 
 .admin-fit-table tbody td.text-end {

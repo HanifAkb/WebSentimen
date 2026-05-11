@@ -59,7 +59,7 @@ class AuthAndHistoryTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_custom_admin_shows_users_and_history_datasets(self):
-        ScrapeHistory.objects.create(
+        scrape_history = ScrapeHistory.objects.create(
             user=self.other_user,
             query="dataset scraping",
             language="in",
@@ -68,7 +68,7 @@ class AuthAndHistoryTests(TestCase):
             tweet_count=7,
             rows=[],
         )
-        PredictionHistory.objects.create(
+        prediction_history = PredictionHistory.objects.create(
             user=self.other_user,
             input_type=PredictionHistory.InputType.FILE,
             source_name="dataset.csv",
@@ -91,6 +91,8 @@ class AuthAndHistoryTests(TestCase):
         self.assertContains(response, "member")
         self.assertContains(response, "dataset scraping")
         self.assertContains(response, "dataset.csv")
+        self.assertNotContains(response, reverse("admin:prediction_history_edit", args=[prediction_history.id]))
+        self.assertNotContains(response, reverse("admin:scrape_history_edit", args=[scrape_history.id]))
 
     def test_custom_admin_can_create_edit_and_delete_user(self):
         self.client.force_login(self.admin)
