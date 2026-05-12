@@ -89,6 +89,7 @@ class AuthAndHistoryTests(TestCase):
         self.assertNotContains(response, "Dataset ScrapeHistory")
         self.assertContains(response, "<th>Username</th>", html=True, count=3)
         self.assertContains(response, "<th>No.</th>", html=True)
+        self.assertContains(response, "<th>Dibuat Tanggal</th>", html=True, count=2)
         self.assertContains(response, "<th>Kueri Pencarian</th>", html=True)
         self.assertNotContains(response, "<th>Kueri</th>", html=True)
         self.assertNotContains(response, "<th>ID</th>", html=True)
@@ -322,7 +323,7 @@ class AuthAndHistoryTests(TestCase):
             html=True,
         )
         home_response = self.client.get(reverse("home"))
-        self.assertContains(home_response, '<span class="sidebar-logo-text">KNN dan SVM</span>', html=True)
+        self.assertContains(home_response, '<span class="sidebar-logo-text">Sistem Analisis Sentimen</span>', html=True)
         self.assertContains(home_response, "Membuat prediksi hasil klasifikasi sentimen.")
         self.assertContains(
             self.client.get(reverse("predict")),
