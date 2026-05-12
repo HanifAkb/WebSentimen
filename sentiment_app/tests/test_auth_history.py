@@ -320,6 +320,9 @@ class AuthAndHistoryTests(TestCase):
             "<title>Beranda | Sistem Analisis Sentimen</title>",
             html=True,
         )
+        home_response = self.client.get(reverse("home"))
+        self.assertContains(home_response, '<span class="sidebar-logo-text">KNN dan SVM</span>', html=True)
+        self.assertContains(home_response, "Membuat prediksi hasil klasifikasi sentimen.")
         self.assertContains(
             self.client.get(reverse("predict")),
             "<title>Buat Analisis | Sistem Analisis Sentimen</title>",
