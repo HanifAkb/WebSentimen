@@ -89,7 +89,7 @@ class AuthAndHistoryTests(TestCase):
         self.assertNotContains(response, "Dataset ScrapeHistory")
         self.assertContains(response, "<th>Username</th>", html=True, count=3)
         self.assertContains(response, "<th>No.</th>", html=True)
-        self.assertContains(response, "<th>Dibuat Tanggal</th>", html=True, count=2)
+        self.assertContains(response, "<th>Dibuat Pada</th>", html=True, count=2)
         self.assertContains(response, "<th>Kueri Pencarian</th>", html=True)
         self.assertNotContains(response, "<th>Kueri</th>", html=True)
         self.assertNotContains(response, "<th>ID</th>", html=True)
