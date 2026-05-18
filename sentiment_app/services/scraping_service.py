@@ -19,6 +19,7 @@ WINDOW_SLEEP_SECONDS = 0.08
 RATE_LIMIT_MAX_RETRIES = 3
 RATE_LIMIT_BACKOFF_SECONDS = 1.0
 MAX_RUNTIME_SECONDS = 90
+DUPLICATE_ONLY_PAGE_LIMIT = 1
 
 
 class TwitterAPIError(RuntimeError):
@@ -54,6 +55,21 @@ def _extract_tweets(data: dict[str, Any]) -> list[dict[str, Any]]:
         if isinstance(value, list):
             return value
     return []
+
+
+def _tweet_identity_key(tweet: dict[str, Any]) -> str:
+    tweet_id = str(_coalesce(tweet, "id", "tweet_id", "tweetId", "rest_id")).strip()
+    if tweet_id:
+        return f"id:{tweet_id}"
+
+    tweet_url = str(_coalesce(tweet, "url", "permalink")).strip()
+    if tweet_url:
+        return f"url:{tweet_url}"
+
+    author = _to_author(tweet).lower()
+    created_at = str(_coalesce(tweet, "CreatedAt", "createdAt", "created_at", "date")).strip()
+    text = str(tweet.get("text") or tweet.get("full_text") or "").strip().lower()
+    return f"fallback:{author}|{created_at}|{text[:180]}"
 
 
 def _to_author(tweet: dict[str, Any]) -> str:
@@ -244,6 +260,7 @@ def _fetch_window_tweets(
     query: str,
     max_tweets_per_window: int = MAX_TWEETS_PER_WINDOW,
     deadline_ts: float | None = None,
+    seen_tweet_keys: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     url = f"{BASE_URL}{SEARCH_ENDPOINT}"
     headers = {
@@ -255,6 +272,9 @@ def _fetch_window_tweets(
     fetched: list[dict[str, Any]] = []
     tweet_count = 0
     rate_limit_retry_count = 0
+    duplicate_only_page_count = 0
+    if seen_tweet_keys is None:
+        seen_tweet_keys = set()
     while tweet_count < max_tweets_per_window:
         if deadline_ts is not None and time.monotonic() >= deadline_ts:
             if fetched:
@@ -341,11 +361,24 @@ def _fetch_window_tweets(
         if not raw_tweets:
             break
 
+        new_tweets_this_page = 0
         for tweet in raw_tweets:
             if tweet_count >= max_tweets_per_window:
                 break
+            tweet_key = _tweet_identity_key(tweet)
+            if tweet_key in seen_tweet_keys:
+                continue
+            seen_tweet_keys.add(tweet_key)
             fetched.append(tweet)
             tweet_count += 1
+            new_tweets_this_page += 1
+
+        if new_tweets_this_page == 0:
+            duplicate_only_page_count += 1
+            if duplicate_only_page_count >= DUPLICATE_ONLY_PAGE_LIMIT:
+                break
+        else:
+            duplicate_only_page_count = 0
 
         has_next_page = bool(payload.get("has_next_page"))
         next_cursor = payload.get("next_cursor")
@@ -415,6 +448,7 @@ def fetch_tweets(
 
     all_tweets: list[dict[str, Any]] = []
     seen_keys: set[str] = set()
+    seen_raw_tweet_keys: set[str] = set()
     total_raw_tweets = 0
     total_out_of_range = 0
     total_unparseable_date = 0
@@ -441,6 +475,7 @@ def fetch_tweets(
                 query=window_query,
                 max_tweets_per_window=max_tweets_per_window,
                 deadline_ts=deadline_ts,
+                seen_tweet_keys=seen_raw_tweet_keys,
             )
         except TwitterTimeoutError:
             if kept_total > 0:
