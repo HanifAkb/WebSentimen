@@ -1,0 +1,665 @@
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/id.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const SCRAPE_API_KEY_STORAGE = "sentiment_scrape_api_key";
+
+    if (typeof flatpickr !== "undefined") {
+        const dateInputs = document.querySelectorAll(".js-flatpickr-date");
+        dateInputs.forEach(function (input) {
+            const serverFormat = input.dataset.dateFormat || "Y-m-d";
+            const displayFormat = input.dataset.dateAltFormat || "d/m/Y";
+            flatpickr(input, {
+                dateFormat: serverFormat,
+                altInput: true,
+                altFormat: displayFormat,
+                allowInput: true,
+                disableMobile: true,
+                altInputClass: "form-control flatpickr-alt-input",
+                monthSelectorType: "dropdown",
+                locale: (flatpickr.l10ns && flatpickr.l10ns.id) ? flatpickr.l10ns.id : "default",
+            });
+        });
+    }
+
+    const resumeForm = document.getElementById("resumeScrapeForm");
+    const twitterFetchForm = document.getElementById("twitterFetchForm");
+    const resumeApiKeyInput = resumeForm ? resumeForm.querySelector('input[name="api_key"]') : null;
+    const fetchApiKeyInput = twitterFetchForm
+        ? twitterFetchForm.querySelector('input[name="api_key"]')
+        : resumeApiKeyInput;
+
+    if (fetchApiKeyInput) {
+        const storedApiKey = window.sessionStorage.getItem(SCRAPE_API_KEY_STORAGE) || "";
+        if (!fetchApiKeyInput.value && storedApiKey) {
+            fetchApiKeyInput.value = storedApiKey;
+        }
+        fetchApiKeyInput.addEventListener("input", function () {
+            const keyValue = String(fetchApiKeyInput.value || "").trim();
+            if (keyValue) {
+                window.sessionStorage.setItem(SCRAPE_API_KEY_STORAGE, keyValue);
+            } else {
+                window.sessionStorage.removeItem(SCRAPE_API_KEY_STORAGE);
+            }
+        });
+    }
+
+    if (twitterFetchForm) {
+        twitterFetchForm.addEventListener("submit", function () {
+            if (!fetchApiKeyInput) {
+                return;
+            }
+            const keyValue = String(fetchApiKeyInput.value || "").trim();
+            if (keyValue) {
+                window.sessionStorage.setItem(SCRAPE_API_KEY_STORAGE, keyValue);
+            } else {
+                window.sessionStorage.removeItem(SCRAPE_API_KEY_STORAGE);
+            }
+        });
+    }
+
+    const resumeAutoButton = document.getElementById("resumeAutoButton");
+    const resumeProgressBar = document.getElementById("resumeProgressBar");
+    const resumeProgressText = document.getElementById("resumeProgressText");
+    const resumeProgressLabel = document.getElementById("resumeProgressLabel");
+    const resumeStopwatch = document.getElementById("resumeStopwatch");
+
+    if (resumeForm && resumeAutoButton && resumeProgressBar && resumeProgressText && resumeProgressLabel) {
+        const csrfInput = resumeForm.querySelector('input[name="csrfmiddlewaretoken"]');
+        const resumeLabel = resumeAutoButton.querySelector(".resume-btn-label");
+        const perPageInput = resumeForm.querySelector('input[name="per_page"]');
+        const nextUrlInput = resumeForm.querySelector('input[name="next_url"]');
+        const historyMatch = String(resumeForm.action || "").match(/\/history\/(\d+)\/resume\/?$/);
+        const currentHistoryId = historyMatch ? String(historyMatch[1] || "") : "";
+        const SCRAPE_AUTO_HISTORY_STORAGE = "sentiment_scrape_auto_history_id";
+
+        const autoDefault = resumeForm.dataset.autoDefault === "1";
+        let autoRunning = false;
+        let noProgressCount = 0;
+        let lastProgress = Number(resumeProgressBar.getAttribute("aria-valuenow") || "0");
+        let retryAttemptCount = 0;
+        let stopwatchIntervalId = null;
+        let stopwatchStartedAtMs = 0;
+        let stopwatchElapsedMs = 0;
+        const baseRetryDelayMs = 2500;
+        const maxRetryDelayMs = 60000;
+
+        const formatDuration = function (totalSeconds) {
+            const safeSeconds = Math.max(0, Math.floor(Number(totalSeconds || 0)));
+            const hours = Math.floor(safeSeconds / 3600);
+            const minutes = Math.floor((safeSeconds % 3600) / 60);
+            const seconds = safeSeconds % 60;
+            return (
+                String(hours).padStart(2, "0") +
+                ":" +
+                String(minutes).padStart(2, "0") +
+                ":" +
+                String(seconds).padStart(2, "0")
+            );
+        };
+
+        const renderStopwatch = function () {
+            if (!resumeStopwatch) {
+                return;
+            }
+            const elapsedSeconds = Math.floor(stopwatchElapsedMs / 1000);
+            resumeStopwatch.textContent = formatDuration(elapsedSeconds);
+        };
+
+        const stopStopwatch = function () {
+            if (stopwatchStartedAtMs > 0) {
+                stopwatchElapsedMs = Math.max(0, Date.now() - stopwatchStartedAtMs);
+            }
+            if (stopwatchIntervalId !== null) {
+                window.clearInterval(stopwatchIntervalId);
+                stopwatchIntervalId = null;
+            }
+            stopwatchStartedAtMs = 0;
+            renderStopwatch();
+        };
+
+        const startStopwatch = function () {
+            if (!resumeStopwatch || stopwatchIntervalId !== null) {
+                return;
+            }
+            stopwatchStartedAtMs = Date.now() - stopwatchElapsedMs;
+            stopwatchIntervalId = window.setInterval(function () {
+                stopwatchElapsedMs = Math.max(0, Date.now() - stopwatchStartedAtMs);
+                renderStopwatch();
+            }, 1000);
+            renderStopwatch();
+        };
+
+        const resetStopwatch = function () {
+            stopStopwatch();
+            stopwatchElapsedMs = 0;
+            renderStopwatch();
+        };
+
+        resetStopwatch();
+
+        const setProgress = function (pct, doneDays, totalDays) {
+            const bounded = Math.max(0, Math.min(100, Number(pct || 0)));
+            resumeProgressBar.style.width = bounded + "%";
+            resumeProgressBar.setAttribute("aria-valuenow", String(bounded));
+            resumeProgressText.textContent = bounded + "%";
+            if (doneDays !== null && doneDays !== undefined && totalDays) {
+                resumeProgressLabel.textContent = String(doneDays) + "/" + String(totalDays) + " hari";
+            }
+        };
+
+        const setButtonState = function (running) {
+            autoRunning = running;
+            resumeAutoButton.dataset.running = running ? "1" : "0";
+            resumeAutoButton.classList.toggle("is-running", running);
+            if (resumeLabel) {
+                resumeLabel.textContent = running ? "Memproses" : "Lanjutkan Scrap";
+            }
+            resumeAutoButton.disabled = running;
+        };
+
+        const resolveRetryDelayMs = function (secondsHint) {
+            const fromHint = Number(secondsHint || 0);
+            if (Number.isFinite(fromHint) && fromHint > 0) {
+                return Math.max(1000, Math.min(maxRetryDelayMs, Math.floor(fromHint * 1000)));
+            }
+            const backoff = baseRetryDelayMs * Math.pow(1.6, Math.max(0, retryAttemptCount - 1));
+            return Math.max(1000, Math.min(maxRetryDelayMs, Math.floor(backoff)));
+        };
+
+        const saveAutoResumeHistory = function () {
+            if (!currentHistoryId) {
+                return;
+            }
+            window.sessionStorage.setItem(SCRAPE_AUTO_HISTORY_STORAGE, currentHistoryId);
+        };
+
+        const clearAutoResumeHistory = function () {
+            if (!currentHistoryId) {
+                return;
+            }
+            if (window.sessionStorage.getItem(SCRAPE_AUTO_HISTORY_STORAGE) === currentHistoryId) {
+                window.sessionStorage.removeItem(SCRAPE_AUTO_HISTORY_STORAGE);
+            }
+        };
+
+        const getNavigationType = function () {
+            if (window.performance && typeof window.performance.getEntriesByType === "function") {
+                const navigationEntries = window.performance.getEntriesByType("navigation");
+                if (navigationEntries && navigationEntries.length > 0) {
+                    return String(navigationEntries[0].type || "");
+                }
+            }
+            return "";
+        };
+
+        const hasSameHistoryReferrer = function () {
+            if (!currentHistoryId || !document.referrer) {
+                return false;
+            }
+            try {
+                const referrerUrl = new URL(document.referrer, window.location.origin);
+                return referrerUrl.origin === window.location.origin && (
+                    referrerUrl.pathname === "/history/" + currentHistoryId ||
+                    referrerUrl.pathname === "/history/" + currentHistoryId + "/" ||
+                    referrerUrl.pathname === "/history/" + currentHistoryId + "/dashboard" ||
+                    referrerUrl.pathname === "/history/" + currentHistoryId + "/dashboard/"
+                );
+            } catch (error) {
+                return false;
+            }
+        };
+
+        const shouldResumeFromSavedSession = function () {
+            if (!currentHistoryId) {
+                return false;
+            }
+            if (window.sessionStorage.getItem(SCRAPE_AUTO_HISTORY_STORAGE) !== currentHistoryId) {
+                return false;
+            }
+            const navigationType = getNavigationType();
+            return navigationType === "reload" || hasSameHistoryReferrer();
+        };
+
+        const scheduleAutoRetry = function (secondsHint, message) {
+            const delayMs = resolveRetryDelayMs(secondsHint);
+            if (message) {
+                console.warn(String(message) + " Auto lanjut lagi dalam " + Math.ceil(delayMs / 1000) + " detik.");
+            }
+            window.setTimeout(function () {
+                if (!autoRunning) {
+                    return;
+                }
+                runAutoStep();
+            }, delayMs);
+        };
+
+        const runAutoStep = async function () {
+            if (!csrfInput) {
+                console.warn("Form tidak lengkap untuk auto continue.");
+                clearAutoResumeHistory();
+                stopStopwatch();
+                setButtonState(false);
+                return;
+            }
+
+            const apiKey = fetchApiKeyInput
+                ? String(fetchApiKeyInput.value || "").trim()
+                : String(window.sessionStorage.getItem(SCRAPE_API_KEY_STORAGE) || "").trim();
+            if (!apiKey) {
+                console.warn("Isi API key dulu untuk menjalankan auto continue.");
+                clearAutoResumeHistory();
+                stopStopwatch();
+                setButtonState(false);
+                return;
+            }
+            window.sessionStorage.setItem(SCRAPE_API_KEY_STORAGE, apiKey);
+
+            const formData = new URLSearchParams();
+            formData.append("api_key", apiKey);
+            formData.append("ajax", "1");
+            formData.append("per_page", perPageInput ? String(perPageInput.value || "10") : "10");
+            if (nextUrlInput && nextUrlInput.value) {
+                formData.append("next_url", String(nextUrlInput.value));
+            }
+
+            let response;
+            let payload = null;
+            try {
+                response = await fetch(resumeForm.action, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                        "X-CSRFToken": csrfInput.value,
+                        "X-Requested-With": "XMLHttpRequest",
+                    },
+                    body: formData.toString(),
+                });
+            } catch (error) {
+                retryAttemptCount += 1;
+                scheduleAutoRetry(null, "Gagal menghubungi server saat auto continue.");
+                return;
+            }
+
+            try {
+                payload = await response.json();
+            } catch (error) {
+                payload = null;
+            }
+
+            if (!response.ok || !payload || !payload.ok) {
+                const retryable = Boolean(payload && payload.retryable);
+                if (retryable) {
+                    retryAttemptCount += 1;
+                    scheduleAutoRetry(payload.retry_after_seconds, payload.error || "Server meminta retry otomatis.");
+                    return;
+                }
+                const message = payload && payload.error ? payload.error : "Auto continue gagal.";
+                console.warn(String(message));
+                clearAutoResumeHistory();
+                stopStopwatch();
+                setButtonState(false);
+                return;
+            }
+
+            retryAttemptCount = 0;
+            const currentProgress = Number(payload.progress_pct || 0);
+            setProgress(currentProgress, payload.done_days, payload.total_days);
+
+            const addedCount = Number(payload.appended_count || 0);
+            if (currentProgress <= lastProgress && addedCount <= 0) {
+                noProgressCount += 1;
+            } else {
+                noProgressCount = 0;
+            }
+            lastProgress = currentProgress;
+
+            if (payload.complete) {
+                clearAutoResumeHistory();
+                stopStopwatch();
+                setButtonState(false);
+                window.setTimeout(function () {
+                    window.location.reload();
+                }, 900);
+                return;
+            }
+
+            if (noProgressCount >= 2) {
+                retryAttemptCount += 1;
+                scheduleAutoRetry(4, "Progress belum bertambah.");
+                return;
+            }
+
+            window.setTimeout(runAutoStep, 250);
+        };
+
+        const startAutoResume = function () {
+            if (autoRunning) {
+                return;
+            }
+            noProgressCount = 0;
+            retryAttemptCount = 0;
+            resetStopwatch();
+            saveAutoResumeHistory();
+            setButtonState(true);
+            startStopwatch();
+            runAutoStep();
+        };
+
+        resumeAutoButton.addEventListener("click", function () {
+            startAutoResume();
+        });
+
+        if (autoDefault || shouldResumeFromSavedSession()) {
+            const availableApiKey = fetchApiKeyInput
+                ? String(fetchApiKeyInput.value || "").trim()
+                : String(window.sessionStorage.getItem(SCRAPE_API_KEY_STORAGE) || "").trim();
+            if (availableApiKey) {
+                window.setTimeout(function () {
+                    startAutoResume();
+                }, 350);
+            } else {
+                console.warn("Auto continue aktif, tetapi API key tidak tersedia di sesi browser.");
+            }
+        }
+    }
+
+    const slugifyDashboardFilenamePart = function (value, fallbackValue) {
+        const normalizedValue = String(value || "")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "");
+        return normalizedValue || fallbackValue;
+    };
+
+    const initDashboardDownloadButtons = function (rootElement) {
+        const scope = rootElement || document;
+        const buttons = scope.querySelectorAll("[data-dashboard-download]");
+        buttons.forEach(function (button) {
+            if (button.dataset.dashboardDownloadBound === "1") {
+                return;
+            }
+            button.dataset.dashboardDownloadBound = "1";
+            button.addEventListener("click", async function () {
+                const exportWrapper = button.closest("[data-dashboard-export-wrapper]");
+                const exportCard = button.closest("[data-dashboard-export-card]");
+                const exportTarget = exportWrapper || exportCard;
+                if (!exportTarget || typeof html2canvas === "undefined") {
+                    window.alert("Fitur unduh JPG belum tersedia di browser ini.");
+                    return;
+                }
+
+                const baseName = slugifyDashboardFilenamePart(
+                    exportCard ? exportCard.dataset.dashboardDownloadName || "dashboard" : "dashboard",
+                    "dashboard"
+                );
+                const activePane = exportTarget.querySelector("#dashboardPageTabsContent .tab-pane.active");
+                const activePaneTitle = activePane ? activePane.dataset.dashboardTitle || "" : "";
+                const pageName = slugifyDashboardFilenamePart(activePaneTitle, "halaman");
+                const exportDate = new Date().toISOString().slice(0, 10);
+                const originalButtonText = button.textContent;
+
+                button.disabled = true;
+                button.textContent = "Menyiapkan...";
+                exportTarget.classList.add("dashboard-exporting");
+
+                try {
+                    if (document.fonts && document.fonts.ready) {
+                        await document.fonts.ready;
+                    }
+                    await new Promise(function (resolve) {
+                        window.setTimeout(resolve, 150);
+                    });
+
+                    const canvas = await html2canvas(exportTarget, {
+                        backgroundColor: "#ffffff",
+                        scale: 2,
+                        useCORS: true,
+                        logging: false,
+                    });
+                    const downloadLink = document.createElement("a");
+                    downloadLink.href = canvas.toDataURL("image/jpeg", 0.95);
+                    downloadLink.download = baseName + "-" + pageName + "-" + exportDate + ".jpg";
+                    downloadLink.click();
+                } catch (error) {
+                    console.error("Gagal mengunduh dashboard JPG:", error);
+                    window.alert("Dashboard tidak dapat diunduh sebagai JPG saat ini.");
+                } finally {
+                    exportTarget.classList.remove("dashboard-exporting");
+                    button.disabled = false;
+                    button.textContent = originalButtonText;
+                }
+            });
+        });
+    };
+
+    const chartDataScript = document.getElementById("scraping-dashboard-data");
+    const dashboardCharts = [];
+    const dashboardPageLabel = document.getElementById("dashboardPageLabel");
+    const dashboardPrevButton = document.getElementById("dashboardPagePrev");
+    const dashboardNextButton = document.getElementById("dashboardPageNext");
+    const dashboardPanes = Array.from(document.querySelectorAll("#dashboardPageTabsContent .tab-pane"));
+    let currentDashboardPageIndex = 0;
+
+    const showDashboardPage = function (index) {
+        if (!dashboardPanes.length) {
+            return;
+        }
+
+        const lastIndex = dashboardPanes.length - 1;
+        const boundedIndex = Math.max(0, Math.min(index, lastIndex));
+
+        dashboardPanes.forEach(function (pane, paneIndex) {
+            if (paneIndex === boundedIndex) {
+                pane.classList.add("show", "active");
+            } else {
+                pane.classList.remove("show", "active");
+            }
+        });
+
+        const activePane = dashboardPanes[boundedIndex];
+        if (dashboardPageLabel && activePane) {
+            dashboardPageLabel.textContent = (boundedIndex + 1) + " / " + dashboardPanes.length;
+            dashboardPageLabel.title = activePane.dataset.dashboardTitle || "";
+        }
+        if (dashboardPrevButton) {
+            dashboardPrevButton.disabled = boundedIndex <= 0;
+        }
+        if (dashboardNextButton) {
+            dashboardNextButton.disabled = boundedIndex >= lastIndex;
+        }
+
+        currentDashboardPageIndex = boundedIndex;
+        dashboardCharts.forEach(function (chart) {
+            chart.resize();
+        });
+    };
+
+    if (dashboardPrevButton) {
+        dashboardPrevButton.addEventListener("click", function () {
+            showDashboardPage(currentDashboardPageIndex - 1);
+        });
+    }
+
+    if (dashboardNextButton) {
+        dashboardNextButton.addEventListener("click", function () {
+            showDashboardPage(currentDashboardPageIndex + 1);
+        });
+    }
+
+    if (dashboardPanes.length) {
+        showDashboardPage(0);
+    }
+
+    initDashboardDownloadButtons(document);
+
+    if (chartDataScript && typeof Chart !== "undefined") {
+        try {
+            const chartData = JSON.parse(chartDataScript.textContent);
+            const pieLabels = chartData.pie_labels || ["Positif", "Negatif", "Netral"];
+
+            const knnCanvas = document.getElementById("knnPieChart");
+            if (knnCanvas) {
+                const knnPie = new Chart(knnCanvas, {
+                    type: "pie",
+                    data: {
+                        labels: pieLabels,
+                        datasets: [
+                            {
+                                data: chartData.knn_pie || [],
+                                backgroundColor: ["#16a34a", "#dc2626", "#64748b"],
+                                borderColor: "#ffffff",
+                                borderWidth: 2,
+                            },
+                        ],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: "bottom",
+                            },
+                        },
+                    },
+                });
+                dashboardCharts.push(knnPie);
+            }
+
+            const svmCanvas = document.getElementById("svmPieChart");
+            if (svmCanvas) {
+                const svmPie = new Chart(svmCanvas, {
+                    type: "pie",
+                    data: {
+                        labels: pieLabels,
+                        datasets: [
+                            {
+                                data: chartData.svm_pie || [],
+                                backgroundColor: ["#16a34a", "#dc2626", "#64748b"],
+                                borderColor: "#ffffff",
+                                borderWidth: 2,
+                            },
+                        ],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: "bottom",
+                            },
+                        },
+                    },
+                });
+                dashboardCharts.push(svmPie);
+            }
+
+            const combinedCanvas = document.getElementById("combinedPieChart");
+            if (combinedCanvas) {
+                const combinedPie = new Chart(combinedCanvas, {
+                    type: "pie",
+                    data: {
+                        labels: pieLabels,
+                        datasets: [
+                            {
+                                data: chartData.combined_pie || [],
+                                backgroundColor: ["#22c55e", "#ef4444", "#94a3b8"],
+                                borderColor: "#ffffff",
+                                borderWidth: 2,
+                            },
+                        ],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: "bottom",
+                            },
+                        },
+                    },
+                });
+                dashboardCharts.push(combinedPie);
+            }
+
+            const trendCanvas = document.getElementById("tweetTrendChart");
+            if (trendCanvas) {
+                const trendChart = new Chart(trendCanvas, {
+                    type: "line",
+                    data: {
+                        labels: chartData.trend_labels || [],
+                        datasets: [
+                            {
+                                label: chartData.trend_title || "Jumlah Tweet",
+                                data: chartData.trend_values || [],
+                                borderColor: "#2563eb",
+                                backgroundColor: "rgba(37, 99, 235, 0.16)",
+                                fill: true,
+                                tension: 0.25,
+                                pointRadius: 3,
+                                pointHoverRadius: 5,
+                            },
+                        ],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    precision: 0,
+                                },
+                            },
+                        },
+                    },
+                });
+                dashboardCharts.push(trendChart);
+            }
+            if (dashboardPanes.length) {
+                showDashboardPage(currentDashboardPageIndex);
+            }
+        } catch (error) {
+            console.error("Gagal memuat data chart dashboard:", error);
+        }
+    }
+
+    const topScroll = document.getElementById("twitter-top-scroll");
+    const topScrollInner = document.getElementById("twitter-top-scroll-inner");
+    const mainScroll = document.getElementById("twitter-main-scroll");
+    const table = mainScroll ? mainScroll.querySelector("table") : null;
+
+    if (!topScroll || !topScrollInner || !mainScroll || !table) {
+        return;
+    }
+
+    const syncTopWidth = function () {
+        topScrollInner.style.width = table.scrollWidth + "px";
+    };
+
+    syncTopWidth();
+    let isSyncing = false;
+
+    topScroll.addEventListener("scroll", function () {
+        if (isSyncing) {
+            return;
+        }
+        isSyncing = true;
+        mainScroll.scrollLeft = topScroll.scrollLeft;
+        isSyncing = false;
+    });
+
+    mainScroll.addEventListener("scroll", function () {
+        if (isSyncing) {
+            return;
+        }
+        isSyncing = true;
+        topScroll.scrollLeft = mainScroll.scrollLeft;
+        isSyncing = false;
+    });
+
+    window.addEventListener("resize", syncTopWidth);
+});
+</script>

@@ -1,0 +1,217 @@
+{% if dashboard_error %}
+    <div class="alert alert-warning py-2 mb-0">{{ dashboard_error }}</div>
+{% endif %}
+{% if dashboard %}
+    <div class="dashboard-export-wrapper" data-dashboard-export-wrapper>
+        <div
+            class="card shadow-sm panel-card dashboard-export-card"
+            data-dashboard-export-card
+            data-dashboard-download-name="dashboard-riwayat-csv-txt"
+        >
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <div>
+                        <h2 class="h5 mb-0 text-primary fw-semibold">
+                            Rentang data: {{ dashboard.period_label }}
+                        </h2>
+                    </div>
+                    <div class="d-flex flex-wrap justify-content-end gap-2">
+                        <span class="badge text-bg-success">Sentimen Positif: {{ dashboard.combined_counts.positive }}</span>
+                        <span class="badge text-bg-secondary">Sentimen Netral: {{ dashboard.combined_counts.neutral }}</span>
+                        <span class="badge text-bg-danger">Sentimen Negatif: {{ dashboard.combined_counts.negative }}</span>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-end mb-3">
+                    <button
+                        class="btn btn-primary btn-sm d-inline-flex align-items-center gap-2"
+                        type="button"
+                        data-dashboard-download
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.6a.5.5 0 0 0 .5.5h12a.5.5 0 0 0 .5-.5v-2.6a.5.5 0 0 1 1 0v2.6A1.5 1.5 0 0 1 13.5 14.5h-12A1.5 1.5 0 0 1 0 13v-2.6a.5.5 0 0 1 .5-.5Z"/>
+                            <path d="M7.646 10.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 9.293V1.5a.5.5 0 0 0-1 0v7.793L5.354 7.146a.5.5 0 1 0-.708.708l3 3Z"/>
+                        </svg>
+                        <span>Unduh</span>
+                    </button>
+                </div>
+
+                <div class="tab-content" id="dashboardPageTabsContent">
+                    <div
+                        class="tab-pane fade show active"
+                        id="dashboard-page-pie"
+                        role="tabpanel"
+                        tabindex="0"
+                        data-dashboard-title="Halaman 1: Pie Chart"
+                    >
+                        <div class="row g-3 mb-2">
+                            <div class="col-12 col-md-6 col-xl-3" data-dashboard-optional-chart="knn">
+                                <div class="dashboard-chart-card h-100">
+                                    <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                                        <h3 class="h6 fw-semibold mb-0">Distribusi Sentimen KNN</h3>
+                                        <button
+                                            class="btn btn-outline-primary btn-sm dashboard-chart-toggle-btn"
+                                            type="button"
+                                            data-dashboard-hide-chart="knn"
+                                        >
+                                            Hide
+                                        </button>
+                                    </div>
+                                    <div class="dashboard-chart-wrap dashboard-chart-wrap-sm">
+                                        <canvas id="knnPieChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-6 col-xl-3" data-dashboard-optional-chart="svm">
+                                <div class="dashboard-chart-card h-100">
+                                    <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                                        <h3 class="h6 fw-semibold mb-0">Distribusi Sentimen SVM</h3>
+                                        <button
+                                            class="btn btn-outline-primary btn-sm dashboard-chart-toggle-btn"
+                                            type="button"
+                                            data-dashboard-hide-chart="svm"
+                                        >
+                                            Hide
+                                        </button>
+                                    </div>
+                                    <div class="dashboard-chart-wrap dashboard-chart-wrap-sm">
+                                        <canvas id="svmPieChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-xl-6" data-dashboard-combined-chart>
+                                <div class="dashboard-chart-card h-100">
+                                    <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
+                                        <h3 class="h6 fw-semibold mb-0">Distribusi Sentimen Gabungan (<em>Soft Voting</em>)</h3>
+                                        <div class="dashboard-hidden-chart-actions">
+                                            <button
+                                                class="btn btn-outline-primary btn-sm dashboard-chart-toggle-btn"
+                                                type="button"
+                                                data-dashboard-show-chart="knn"
+                                                hidden
+                                            >
+                                                Tampilkan KNN
+                                            </button>
+                                            <button
+                                                class="btn btn-outline-primary btn-sm dashboard-chart-toggle-btn"
+                                                type="button"
+                                                data-dashboard-show-chart="svm"
+                                                hidden
+                                            >
+                                                Tampilkan SVM
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="dashboard-chart-wrap">
+                                        <canvas id="combinedPieChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        class="tab-pane fade"
+                        id="dashboard-page-wordcloud"
+                        role="tabpanel"
+                        tabindex="0"
+                        data-dashboard-title="Halaman 2: WordCloud"
+                    >
+                        {% if dashboard.wordcloud_error %}
+                            <div class="alert alert-warning py-2">{{ dashboard.wordcloud_error }}</div>
+                        {% endif %}
+
+                        <div class="row g-3 mb-2">
+                            <div class="col-12 col-lg-6">
+                                <div class="dashboard-chart-card h-100">
+                                    <h3 class="h6 fw-semibold mb-2">Wordcloud Positif</h3>
+                                    <div class="wordcloud-image-wrap">
+                                        {% if dashboard.wordclouds.combined_positive_image %}
+                                            <img
+                                                class="wordcloud-image"
+                                                src="data:image/png;base64,{{ dashboard.wordclouds.combined_positive_image }}"
+                                                alt="WordCloud Soft Voting Positif"
+                                            >
+                                        {% else %}
+                                            <div class="wordcloud-empty">Data kata sentimen positif Soft Voting belum cukup.</div>
+                                        {% endif %}
+                                    </div>
+                                    {% if dashboard.wordcloud_top_unigrams.combined_positive %}
+                                        <div class="small text-muted mt-2">
+                                            <div>Kata muncul terbanyak:</div>
+                                            <ul class="mb-0 ps-3">
+                                                {% for item in dashboard.wordcloud_top_unigrams.combined_positive %}
+                                                    <li><strong>{{ item.word }}</strong> ({{ item.count }})</li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <div class="dashboard-chart-card h-100">
+                                    <h3 class="h6 fw-semibold mb-2">Wordcloud Negatif</h3>
+                                    <div class="wordcloud-image-wrap">
+                                        {% if dashboard.wordclouds.combined_negative_image %}
+                                            <img
+                                                class="wordcloud-image"
+                                                src="data:image/png;base64,{{ dashboard.wordclouds.combined_negative_image }}"
+                                                alt="WordCloud Soft Voting Negatif"
+                                            >
+                                        {% else %}
+                                            <div class="wordcloud-empty">Data kata sentimen negatif Soft Voting belum cukup.</div>
+                                        {% endif %}
+                                    </div>
+                                    {% if dashboard.wordcloud_top_unigrams.combined_negative %}
+                                        <div class="small text-muted mt-2">
+                                            <div>Kata muncul terbanyak:</div>
+                                            <ul class="mb-0 ps-3">
+                                                {% for item in dashboard.wordcloud_top_unigrams.combined_negative %}
+                                                    <li><strong>{{ item.word }}</strong> ({{ item.count }})</li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        class="tab-pane fade"
+                        id="dashboard-page-trend"
+                        role="tabpanel"
+                        tabindex="0"
+                        data-dashboard-title="Halaman 3: Tren Waktu"
+                    >
+                        <div class="dashboard-chart-card">
+                            <h3 class="h6 fw-semibold mb-2">{{ dashboard.charts.trend_title }}</h3>
+                            <div class="dashboard-line-wrap">
+                                <canvas id="tweetTrendChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="dashboard-pager mt-3">
+            <button
+                id="dashboardPagePrev"
+                class="btn btn-outline-primary btn-sm dashboard-page-arrow"
+                type="button"
+                aria-label="Halaman dashboard sebelumnya"
+            >
+                &lt;
+            </button>
+            <div id="dashboardPageLabel" class="dashboard-page-label">1 / 3</div>
+            <button
+                id="dashboardPageNext"
+                class="btn btn-outline-primary btn-sm dashboard-page-arrow"
+                type="button"
+                aria-label="Halaman dashboard berikutnya"
+            >
+                &gt;
+            </button>
+        </div>
+    </div>
+    {{ dashboard.charts|json_script:"prediction-dashboard-data" }}
+{% endif %}

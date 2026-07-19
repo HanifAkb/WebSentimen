@@ -1,0 +1,106 @@
+{% extends "sentiment_app/base.html" %}
+
+{% block title %}{{ form_title }} | Sistem Analisis Sentimen{% endblock %}
+
+{% block content %}
+<div class="row g-4 app-page">
+    <div class="col-12">
+        <div class="card shadow-sm panel-card">
+            <div class="card-body">
+                <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                    <div>
+                        <h1 class="h4 fw-semibold mb-2">{{ form_title }}</h1>
+                        <p class="text-muted small mb-0">{{ form_description }}</p>
+                    </div>
+                    <a class="btn btn-outline-secondary btn-sm" href="{% url 'admin:index' %}">Kembali ke Admin Panel</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-xl-8">
+        <div class="card shadow-sm panel-card">
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>
+                    {% endif %}
+
+                    {% for field in form %}
+                        {% if field.field.widget.input_type == "checkbox" %}
+                            <div class="form-check mb-3">
+                                {{ field }}
+                                <label class="form-check-label" for="{{ field.id_for_label }}">
+                                    {{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}
+                                </label>
+                                {% if field.help_text %}
+                                    <div class="form-text">{{ field.help_text }}</div>
+                                {% endif %}
+                                {% if field.errors %}
+                                    <div class="text-danger small">{{ field.errors }}</div>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <div class="mb-3">
+                                <label class="form-label" for="{{ field.id_for_label }}">
+                                    {{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}
+                                </label>
+                                {{ field }}
+                                {% if field.help_text %}
+                                    <div class="form-text">{{ field.help_text }}</div>
+                                {% endif %}
+                                {% if field.errors %}
+                                    <div class="text-danger small">{{ field.errors }}</div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-primary" type="submit">{{ submit_label }}</button>
+                        <a class="btn btn-outline-secondary" href="{% url 'admin:index' %}">Batal</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {% if target_user %}
+        <div class="col-12 col-xl-4">
+            <div class="card shadow-sm panel-card">
+                <div class="card-body">
+                    <h2 class="h6 fw-semibold mb-3">Info User</h2>
+                    <dl class="admin-user-meta mb-0">
+                        <dt>Username</dt>
+                        <dd>{{ target_user.username }}</dd>
+                        <dt>Tanggal dibuat</dt>
+                        <dd>{{ target_user.date_joined|date:"j F Y, H:i" }}</dd>
+                        <dt>Login terakhir</dt>
+                        <dd>{{ target_user.last_login|date:"j F Y, H:i"|default:"-" }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const roleSelect = document.querySelector(".role-select");
+    if (!roleSelect) {
+        return;
+    }
+
+    const updateRoleColor = function () {
+        roleSelect.classList.toggle("role-select-staff", roleSelect.value === "staff");
+        roleSelect.classList.toggle("role-select-administrator", roleSelect.value === "administrator");
+    };
+
+    roleSelect.addEventListener("change", updateRoleColor);
+    updateRoleColor();
+});
+</script>
+{% endblock %}

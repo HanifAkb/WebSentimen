@@ -1,0 +1,404 @@
+{% extends "sentiment_app/base.html" %}
+
+{% block title %}Riwayat Aktivitas | Sistem Analisis Sentimen{% endblock %}
+
+{% block content %}
+<div class="row g-4 app-page">
+    <div class="col-12">
+        <div class="card shadow-sm panel-card">
+            <div class="card-body">
+                <h1 class="h4 fw-semibold mb-2">Riwayat Aktivitas</h1>
+                <p class="text-muted small mb-0">Riwayat ini berisi hasil analisis pernah dijalankan.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        {% with active_tab=active_history_tab|default:'scraping' %}
+            <ul class="nav nav-tabs" id="historyTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button
+                        class="nav-link {% if active_tab == 'scraping' %}active{% endif %}"
+                        id="scraping-history-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#scraping-history-pane"
+                        type="button"
+                        role="tab"
+                        aria-controls="scraping-history-pane"
+                        aria-selected="{% if active_tab == 'scraping' %}true{% else %}false{% endif %}"
+                    >
+                        Riwayat Pengumpulan Data X
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button
+                        class="nav-link {% if active_tab == 'prediction' %}active{% endif %}"
+                        id="prediction-history-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#prediction-history-pane"
+                        type="button"
+                        role="tab"
+                        aria-controls="prediction-history-pane"
+                        aria-selected="{% if active_tab == 'prediction' %}true{% else %}false{% endif %}"
+                    >
+                        Riwayat CSV/TXT
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content border border-top-0 rounded-bottom panel-inner p-3" id="historyTabsContent">
+                        <div
+                            class="tab-pane fade {% if active_tab == 'scraping' %}show active{% endif %}"
+                            id="scraping-history-pane"
+                            role="tabpanel"
+                            aria-labelledby="scraping-history-tab"
+                            tabindex="0"
+                        >
+                            {% if scrape_histories %}
+                                <form
+                                    id="scrape-selected-form"
+                                    method="post"
+                                    action="{% url 'history_delete_selected' %}"
+                                    onsubmit="return confirm('Hapus semua riwayat scraping yang terpilih?');"
+                                >
+                                    {% csrf_token %}
+                                    <input type="hidden" name="scope" value="scrape">
+                                    <input type="hidden" name="scrape_page" value="{{ scrape_page_obj.number }}">
+                                    <input type="hidden" name="pred_page" value="{{ prediction_page_obj.number }}">
+                                    <input type="hidden" name="history_tab" value="scraping">
+                                    <div class="history-card-toolbar">
+                                        <div class="form-check mb-0">
+                                            <input id="scrape-select-all" class="form-check-input" type="checkbox" aria-label="Pilih semua riwayat scraping">
+                                            <label class="form-check-label" for="scrape-select-all">Pilih semua</label>
+                                        </div>
+                                        <button
+                                            id="scrape-delete-selected-button"
+                                            class="btn btn-danger px-4 history-delete-selected-btn"
+                                            type="submit"
+                                            disabled
+                                        >
+                                            Hapus
+                                        </button>
+                                    </div>
+                                    <div class="history-card-grid">
+                                        {% for item in scrape_histories %}
+                                            <article
+                                                class="card shadow-sm history-entry-card history-click-row"
+                                                data-href="{% url 'history_detail' item.id %}"
+                                                tabindex="0"
+                                                role="link"
+                                                aria-label="Buka detail riwayat scraping {{ item.id }}"
+                                            >
+                                                <div class="card-body">
+                                                    <div class="history-entry-top">
+                                                        <div class="form-check history-entry-check">
+                                                            <input
+                                                                class="form-check-input scrape-select-item"
+                                                                type="checkbox"
+                                                                name="selected_ids"
+                                                                value="{{ item.id }}"
+                                                                aria-label="Pilih riwayat scraping {{ item.id }}"
+                                                            >
+                                                        </div>
+                                                        <div class="history-entry-top-main">
+                                                            <h3 class="history-entry-title text-break mb-0">
+                                                                <span class="history-entry-index">{{ scrape_page_obj.start_index|add:forloop.counter0 }}.</span>
+                                                                <span class="history-entry-prefix">Kueri:</span>
+                                                                {{ item.query }}
+                                                            </h3>
+                                                        </div>
+                                                        <div class="history-entry-badges">
+                                                            {% if item.is_complete %}
+                                                                <span class="badge text-bg-success">Selesai</span>
+                                                            {% else %}
+                                                                <span class="badge text-bg-warning text-dark">Belum selesai</span>
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+                                                    <dl class="history-entry-meta">
+                                                        <div>
+                                                            <dt>Dibuat</dt>
+                                                            <dd>{{ item.created_at|date:"j F Y, H:i" }}</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt>Rentang Tanggal</dt>
+                                                            <dd>
+                                                                {% if item.start_date|date:"Y" == item.end_date|date:"Y" %}
+                                                                    {% if item.start_date|date:"F" == item.end_date|date:"F" %}
+                                                                        {{ item.start_date|date:"j" }} - {{ item.end_date|date:"j F Y" }}
+                                                                    {% else %}
+                                                                        {{ item.start_date|date:"j F" }} - {{ item.end_date|date:"j F Y" }}
+                                                                    {% endif %}
+                                                                {% else %}
+                                                                    {{ item.start_date|date:"j F Y" }} - {{ item.end_date|date:"j F Y" }}
+                                                                {% endif %}
+                                                            </dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt>Jumlah Tweet</dt>
+                                                            <dd>{{ item.tweet_count }}</dd>
+                                                        </div>
+                                                    </dl>
+                                                    <div class="d-flex flex-wrap gap-2 mt-3">
+                                                        <a class="btn btn-primary btn-sm px-3 d-inline-flex align-items-center gap-1" href="{% url 'history_detail' item.id %}">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                                <path d="M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm15 2H1v3h14zm0 4H1v3h14zm0 4H1v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1zM1 3h14V2a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1z"/>
+                                                            </svg>
+                                                            <span>Tabel</span>
+                                                        </a>
+                                                        <a class="btn btn-primary btn-sm px-3 d-inline-flex align-items-center gap-1" href="{% url 'history_dashboard' item.id %}">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                                <path d="M0 0h4v10H0zm6 6h4v10H6zm6-4h4v14h-4z"/>
+                                                            </svg>
+                                                            <span>Dashboard</span>
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </article>
+                                        {% endfor %}
+                                    </div>
+                                </form>
+                                {% if scrape_page_obj.paginator.num_pages > 1 %}
+                                    <nav class="mt-3" aria-label="Navigasi halaman riwayat scraping">
+                                        <ul class="pagination pagination-sm mb-0">
+                                            <li class="page-item {% if not scrape_page_obj.has_previous %}disabled{% endif %}">
+                                                {% if scrape_page_obj.has_previous %}
+                                                    <a class="page-link" href="?scrape_page={{ scrape_page_obj.previous_page_number }}&pred_page={{ prediction_page_obj.number }}&history_tab=scraping">Sebelumnya</a>
+                                                {% else %}
+                                                    <span class="page-link">Sebelumnya</span>
+                                                {% endif %}
+                                            </li>
+                                            {% for page_num in scrape_page_obj.paginator.page_range %}
+                                                <li class="page-item {% if page_num == scrape_page_obj.number %}active{% endif %}">
+                                                    <a class="page-link" href="?scrape_page={{ page_num }}&pred_page={{ prediction_page_obj.number }}&history_tab=scraping">{{ page_num }}</a>
+                                                </li>
+                                            {% endfor %}
+                                            <li class="page-item {% if not scrape_page_obj.has_next %}disabled{% endif %}">
+                                                {% if scrape_page_obj.has_next %}
+                                                    <a class="page-link" href="?scrape_page={{ scrape_page_obj.next_page_number }}&pred_page={{ prediction_page_obj.number }}&history_tab=scraping">Berikutnya</a>
+                                                {% else %}
+                                                    <span class="page-link">Berikutnya</span>
+                                                {% endif %}
+                                            </li>
+                                        </ul>
+                                    </nav>
+                                {% endif %}
+                            {% else %}
+                                <div class="alert alert-info mb-0">Belum ada riwayat scraping.</div>
+                            {% endif %}
+                        </div>
+
+                        <div
+                            class="tab-pane fade {% if active_tab == 'prediction' %}show active{% endif %}"
+                            id="prediction-history-pane"
+                            role="tabpanel"
+                            aria-labelledby="prediction-history-tab"
+                            tabindex="0"
+                        >
+                            {% if prediction_histories %}
+                                <form
+                                    id="prediction-selected-form"
+                                    method="post"
+                                    action="{% url 'history_delete_selected' %}"
+                                    onsubmit="return confirm('Hapus semua riwayat prediksi yang terpilih?');"
+                                >
+                                    {% csrf_token %}
+                                    <input type="hidden" name="scope" value="prediction">
+                                    <input type="hidden" name="scrape_page" value="{{ scrape_page_obj.number }}">
+                                    <input type="hidden" name="pred_page" value="{{ prediction_page_obj.number }}">
+                                    <input type="hidden" name="history_tab" value="prediction">
+                                    <div class="history-card-toolbar">
+                                        <div class="form-check mb-0">
+                                            <input id="prediction-select-all" class="form-check-input" type="checkbox" aria-label="Pilih semua riwayat prediksi">
+                                            <label class="form-check-label" for="prediction-select-all">Pilih semua</label>
+                                        </div>
+                                        <button
+                                            id="prediction-delete-selected-button"
+                                            class="btn btn-danger px-4 history-delete-selected-btn"
+                                            type="submit"
+                                            disabled
+                                        >
+                                            Hapus
+                                        </button>
+                                    </div>
+                                    <div class="history-card-grid">
+                                        {% for item in prediction_histories %}
+                                            <article
+                                                class="card shadow-sm history-entry-card history-click-row"
+                                                data-href="{% url 'prediction_history_detail' item.id %}"
+                                                tabindex="0"
+                                                role="link"
+                                                aria-label="Buka detail riwayat prediksi {{ item.id }}"
+                                            >
+                                                <div class="card-body">
+                                                    <div class="history-entry-top">
+                                                        <div class="form-check history-entry-check">
+                                                            <input
+                                                                class="form-check-input prediction-select-item"
+                                                                type="checkbox"
+                                                                name="selected_ids"
+                                                                value="{{ item.id }}"
+                                                                aria-label="Pilih riwayat prediksi {{ item.id }}"
+                                                            >
+                                                        </div>
+                                                        <div class="history-entry-top-main">
+                                                            <h3 class="history-entry-title text-break mb-0">
+                                                                <span class="history-entry-index">{{ prediction_page_obj.start_index|add:forloop.counter0 }}.</span>
+                                                                {{ item.source_name|default:"-" }}
+                                                            </h3>
+                                                        </div>
+                                                        <div class="history-entry-badges">
+                                                            <span class="badge {{ item.file_type_badge_class }}">{{ item.file_type_label }}</span>
+                                                            <span class="badge text-bg-success">Selesai</span>
+                                                        </div>
+                                                    </div>
+                                                    <dl class="history-entry-meta">
+                                                        <div>
+                                                            <dt>Dibuat</dt>
+                                                            <dd>{{ item.created_at|date:"j F Y, H:i" }}</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt>Kolom Teks</dt>
+                                                            <dd>{{ item.text_column|default:"-" }}</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt>Jumlah Data</dt>
+                                                            <dd>{{ item.sample_count }}</dd>
+                                                        </div>
+                                                    </dl>
+                                                    <div class="d-flex flex-wrap gap-2 mt-3">
+                                                        <a class="btn btn-primary btn-sm px-3 d-inline-flex align-items-center gap-1" href="{% url 'prediction_history_detail' item.id %}">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                                <path d="M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm15 2H1v3h14zm0 4H1v3h14zm0 4H1v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1zM1 3h14V2a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1z"/>
+                                                            </svg>
+                                                            <span>Tabel</span>
+                                                        </a>
+                                                        <a class="btn btn-primary btn-sm px-3 d-inline-flex align-items-center gap-1" href="{% url 'prediction_history_dashboard' item.id %}">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                                <path d="M0 0h4v10H0zm6 6h4v10H6zm6-4h4v14h-4z"/>
+                                                            </svg>
+                                                            <span>Dashboard</span>
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </article>
+                                        {% endfor %}
+                                    </div>
+                                </form>
+                                {% if prediction_page_obj.paginator.num_pages > 1 %}
+                                    <nav class="mt-3" aria-label="Navigasi halaman riwayat prediksi">
+                                        <ul class="pagination pagination-sm mb-0">
+                                            <li class="page-item {% if not prediction_page_obj.has_previous %}disabled{% endif %}">
+                                                {% if prediction_page_obj.has_previous %}
+                                                    <a class="page-link" href="?scrape_page={{ scrape_page_obj.number }}&pred_page={{ prediction_page_obj.previous_page_number }}&history_tab=prediction">Sebelumnya</a>
+                                                {% else %}
+                                                    <span class="page-link">Sebelumnya</span>
+                                                {% endif %}
+                                            </li>
+                                            {% for page_num in prediction_page_obj.paginator.page_range %}
+                                                <li class="page-item {% if page_num == prediction_page_obj.number %}active{% endif %}">
+                                                    <a class="page-link" href="?scrape_page={{ scrape_page_obj.number }}&pred_page={{ page_num }}&history_tab=prediction">{{ page_num }}</a>
+                                                </li>
+                                            {% endfor %}
+                                            <li class="page-item {% if not prediction_page_obj.has_next %}disabled{% endif %}">
+                                                {% if prediction_page_obj.has_next %}
+                                                    <a class="page-link" href="?scrape_page={{ scrape_page_obj.number }}&pred_page={{ prediction_page_obj.next_page_number }}&history_tab=prediction">Berikutnya</a>
+                                                {% else %}
+                                                    <span class="page-link">Berikutnya</span>
+                                                {% endif %}
+                                            </li>
+                                        </ul>
+                                    </nav>
+                                {% endif %}
+                            {% else %}
+                                <div class="alert alert-info mb-0">Belum ada riwayat prediksi.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+        {% endwith %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const historyTabButtons = Array.from(document.querySelectorAll("#historyTabs button[data-bs-toggle='tab']"));
+    historyTabButtons.forEach(function (button) {
+        button.addEventListener("shown.bs.tab", function (event) {
+            const targetSelector = event.target.getAttribute("data-bs-target") || "";
+            const tabValue = targetSelector === "#prediction-history-pane" ? "prediction" : "scraping";
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set("history_tab", tabValue);
+            window.history.replaceState({}, "", currentUrl.toString());
+        });
+    });
+
+    const bindRowNavigation = function (rowSelector) {
+        const interactiveSelector = "a, button, input, label, select, textarea";
+        const rows = Array.from(document.querySelectorAll(rowSelector));
+
+        rows.forEach(function (row) {
+            const destination = row.dataset.href;
+            if (!destination) {
+                return;
+            }
+
+            row.addEventListener("click", function (event) {
+                if (event.target.closest(interactiveSelector)) {
+                    return;
+                }
+                window.location.href = destination;
+            });
+
+            row.addEventListener("keydown", function (event) {
+                if (event.key !== "Enter" && event.key !== " ") {
+                    return;
+                }
+                if (event.target.closest(interactiveSelector)) {
+                    return;
+                }
+                event.preventDefault();
+                window.location.href = destination;
+            });
+        });
+    };
+
+    const bindSelectionTable = function (selectAllId, itemSelector, deleteButtonId) {
+        const selectAll = document.getElementById(selectAllId);
+        const deleteButton = document.getElementById(deleteButtonId);
+        const items = Array.from(document.querySelectorAll(itemSelector));
+
+        if (!selectAll || !deleteButton || !items.length) {
+            return;
+        }
+
+        const refreshState = function () {
+            const checkedItems = items.filter(function (item) { return item.checked; });
+            const checkedCount = checkedItems.length;
+            deleteButton.disabled = checkedCount === 0;
+            selectAll.checked = checkedCount > 0 && checkedCount === items.length;
+            selectAll.indeterminate = checkedCount > 0 && checkedCount < items.length;
+        };
+
+        selectAll.addEventListener("change", function () {
+            const checked = selectAll.checked;
+            items.forEach(function (item) {
+                item.checked = checked;
+            });
+            refreshState();
+        });
+
+        items.forEach(function (item) {
+            item.addEventListener("change", refreshState);
+        });
+
+        refreshState();
+    };
+
+    bindSelectionTable("scrape-select-all", ".scrape-select-item", "scrape-delete-selected-button");
+    bindSelectionTable("prediction-select-all", ".prediction-select-item", "prediction-delete-selected-button");
+    bindRowNavigation(".history-click-row");
+});
+</script>
+{% endblock %}

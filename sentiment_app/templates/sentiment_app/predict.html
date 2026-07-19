@@ -1,0 +1,260 @@
+{% extends "sentiment_app/base.html" %}
+
+{% block title %}Buat Analisis | Sistem Analisis Sentimen{% endblock %}
+{% block extra_head %}
+{% include "sentiment_app/_scraping_assets.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="row g-4 app-page">
+    <div class="col-12">
+        <div class="card shadow-sm panel-card">
+            <div class="card-body">
+                <h1 class="h4 mb-2 fw-semibold">Buat Analisis Sentimen</h1>
+                <p class="text-muted small mb-0">
+                    Ambil data dari X atau unggah CSV/TXT secara manual.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="predict-shared-model-bar">
+            <div class="predict-shared-model-copy">
+                <label class="form-label fw-semibold mb-1" for="{{ form.model_version.id_for_label }}">{{ form.model_version.label }}</label>
+            </div>
+            <div class="predict-shared-model-field">
+                <select
+                    id="{{ form.model_version.id_for_label }}"
+                    class="form-select model-version-select"
+                    aria-label="{{ form.model_version.label }}"
+                >
+                    {% for option_value, option_label in form.fields.model_version.choices %}
+                        <option value="{{ option_value }}" {% if selected_model_version == option_value %}selected{% endif %}>{{ option_label }}</option>
+                    {% endfor %}
+                </select>
+                {% if form.model_version.errors and active_tab == 'file' %}
+                    <div class="text-danger small mt-2">{{ form.model_version.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <ul class="nav nav-tabs" id="predictTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button
+                    class="nav-link {% if active_tab == 'scraping' %}active{% endif %}"
+                    id="scraping-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#scraping-pane"
+                    type="button"
+                    role="tab"
+                    aria-controls="scraping-pane"
+                    aria-selected="{% if active_tab == 'scraping' %}true{% else %}false{% endif %}"
+                >
+                    Pengumpulan Data X
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button
+                    class="nav-link {% if active_tab == 'file' %}active{% endif %}"
+                    id="file-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#file-pane"
+                    type="button"
+                    role="tab"
+                    aria-controls="file-pane"
+                    aria-selected="{% if active_tab == 'file' %}true{% else %}false{% endif %}"
+                >
+                    CSV / TXT
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content border border-top-0 rounded-bottom panel-inner p-3" id="predictTabsContent">
+            <div
+                class="tab-pane fade {% if active_tab == 'file' %}show active{% endif %}"
+                id="file-pane"
+                role="tabpanel"
+                aria-labelledby="file-tab"
+                tabindex="0"
+            >
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <input type="hidden" name="input_mode" value="file">
+                    <input type="hidden" name="model_version" class="shared-model-version-input" value="{{ selected_model_version }}">
+                    {% if form.non_field_errors and active_tab == 'file' %}
+                        <div class="alert alert-danger py-2">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+                    <div class="row g-3">
+                        <div class="col-md-7">
+                            <label class="form-label" for="{{ form.upload_file.id_for_label }}">{{ form.upload_file.label }}</label>
+                            {{ form.upload_file }}
+                            <div class="form-text">{{ form.upload_file.help_text }}</div>
+                            {% if form.upload_file.errors %}
+                                <div class="text-danger small">{{ form.upload_file.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label" for="{{ form.text_column.id_for_label }}">{{ form.text_column.label }}</label>
+                            {{ form.text_column }}
+                            <div class="form-text">{{ form.text_column.help_text }}</div>
+                            {% if form.text_column.errors %}
+                                <div class="text-danger small">{{ form.text_column.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                            <div class="form-text d-flex flex-wrap align-items-center gap-1 mt-2">
+                                <span>Perlu panduan format CSV/TXT?</span>
+                                <button
+                                    class="query-help-inline"
+                                    type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#fileHelpPanel"
+                                    aria-expanded="false"
+                                    aria-controls="fileHelpPanel"
+                                >
+                                    Klik di sini untuk bantuan format file.
+                                </button>
+                            </div>
+
+                            <div class="collapse mt-3" id="fileHelpPanel">
+                                <div class="card border border-2 panel-inner">
+                                    <div class="card-body pt-3 pb-2">
+                                        <h2 class="h6 fw-semibold mb-2">Panduan Format CSV / TXT</h2>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm align-middle mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th style="width: 24%;">Jenis File</th>
+                                                        <th style="width: 18%;">Perlu Header?</th>
+                                                        <th style="width: 30%;">Aturan Isi</th>
+                                                        <th>Contoh</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td><code>.txt</code></td>
+                                                        <td>Tidak</td>
+                                                        <td>Setiap baris = 1 teks. Baris kosong diabaikan.</td>
+                                                        <td><code>Saya suka layanan ini.</code><br><code>Produk ini buruk.</code></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>.csv</code></td>
+                                                        <td>Ya</td>
+                                                        <td>Harus punya kolom teks. Bisa auto-detect (<code>text</code>, <code>tweet</code>, <code>content</code>, <code>sentence</code>) atau isi manual kolom teks.</td>
+                                                        <td><code>id,text</code><br><code>1,Saya suka</code><br><code>2,Tidak puas</code></td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div class="small text-muted mt-2">
+                                            Catatan: {{ form.upload_file.help_text }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4">
+                                <button class="btn btn-primary px-4" type="submit">Jalankan</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div
+                        class="tab-pane fade {% if active_tab == 'scraping' %}show active{% endif %}"
+                        id="scraping-pane"
+                        role="tabpanel"
+                        aria-labelledby="scraping-tab"
+                        tabindex="0"
+                    >
+                        {% include "sentiment_app/_scraping_content.html" %}
+                    </div>
+                </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const sharedModelVersionSelect = document.getElementById("{{ form.model_version.id_for_label }}");
+    const sharedModelVersionInputs = Array.from(document.querySelectorAll(".shared-model-version-input"));
+    const syncSharedModelVersion = function () {
+        if (!sharedModelVersionSelect) {
+            return;
+        }
+        sharedModelVersionInputs.forEach(function (input) {
+            input.value = sharedModelVersionSelect.value;
+        });
+    };
+
+    if (sharedModelVersionSelect) {
+        sharedModelVersionSelect.addEventListener("change", syncSharedModelVersion);
+        syncSharedModelVersion();
+    }
+
+    const predictTabButtons = Array.from(document.querySelectorAll("#predictTabs button[data-bs-toggle='tab']"));
+    predictTabButtons.forEach(function (button) {
+        button.addEventListener("shown.bs.tab", function (event) {
+            const targetSelector = event.target.getAttribute("data-bs-target") || "";
+            let tabValue = "scraping";
+            if (targetSelector === "#file-pane") {
+                tabValue = "file";
+            }
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set("tab", tabValue);
+            if (tabValue !== "scraping") {
+                currentUrl.searchParams.delete("show");
+                currentUrl.searchParams.delete("history");
+                currentUrl.searchParams.delete("dashboard");
+                currentUrl.searchParams.delete("page");
+                currentUrl.searchParams.delete("per_page");
+                currentUrl.searchParams.delete("auto");
+            }
+            window.history.replaceState({}, "", currentUrl.toString());
+        });
+    });
+
+    const topScroll = document.getElementById("predict-top-scroll");
+    const topScrollInner = document.getElementById("predict-top-scroll-inner");
+    const mainScroll = document.getElementById("predict-main-scroll");
+    const table = mainScroll ? mainScroll.querySelector("table") : null;
+
+    if (!topScroll || !topScrollInner || !mainScroll || !table) {
+        return;
+    }
+
+    const syncTopWidth = function () {
+        topScrollInner.style.width = table.scrollWidth + "px";
+    };
+
+    syncTopWidth();
+    let isSyncing = false;
+
+    topScroll.addEventListener("scroll", function () {
+        if (isSyncing) {
+            return;
+        }
+        isSyncing = true;
+        mainScroll.scrollLeft = topScroll.scrollLeft;
+        isSyncing = false;
+    });
+
+    mainScroll.addEventListener("scroll", function () {
+        if (isSyncing) {
+            return;
+        }
+        isSyncing = true;
+        topScroll.scrollLeft = mainScroll.scrollLeft;
+        isSyncing = false;
+    });
+
+    window.addEventListener("resize", syncTopWidth);
+});
+</script>
+{% include "sentiment_app/_scraping_scripts.html" %}
+{% endblock %}

@@ -1,0 +1,509 @@
+{% extends "sentiment_app/base.html" %}
+
+{% block title %}Admin Panel | Sistem Analisis Sentimen{% endblock %}
+
+{% block content %}
+<div class="row g-4 app-page">
+    <div class="col-12">
+        <div class="card shadow-sm panel-card">
+            <div class="card-body">
+                <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                    <div>
+                        <h1 class="h4 fw-semibold mb-2">Admin Panel</h1>
+                        <p class="text-muted small mb-0">Kelola user dan lihat database.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="beranda-summary admin-summary-overview">
+            <section class="beranda-summary-section beranda-summary-section-prediction admin-summary-user-section" aria-labelledby="admin-summary-users-title">
+                <div class="beranda-summary-heading">
+                    <div>
+                        <h3 class="h6 fw-semibold mb-0" id="admin-summary-users-title">User</h3>
+                    </div>
+                </div>
+                <div class="beranda-summary-metrics admin-user-summary-metrics">
+                    <div class="beranda-summary-metric admin-user-summary-total">
+                        <div class="beranda-summary-value">{{ total_users }}</div>
+                        <div class="beranda-summary-label">Total User</div>
+                    </div>
+                    <div class="admin-user-summary-breakdown">
+                        <div class="admin-user-summary-item">
+                            <div class="admin-user-summary-item-value">{{ total_staff }}</div>
+                            <div class="admin-user-summary-item-label">Staff</div>
+                        </div>
+                        <div class="admin-user-summary-item">
+                            <div class="admin-user-summary-item-value">{{ total_superusers }}</div>
+                            <div class="admin-user-summary-item-label">Administrator</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section class="beranda-summary-section beranda-summary-section-scraping" aria-labelledby="admin-summary-system-title">
+                <div class="beranda-summary-heading">
+                    <div>
+                        <h3 class="h6 fw-semibold mb-0" id="admin-summary-system-title">Database</h3>
+                    </div>
+                </div>
+                <div class="beranda-summary-metrics">
+                    <div class="beranda-summary-metric">
+                        <div class="beranda-summary-value">{{ total_scrape_histories }}</div>
+                        <div class="beranda-summary-label">Riwayat Pengumpulan Data X</div>
+                    </div>
+                    <div class="beranda-summary-metric">
+                        <div class="beranda-summary-value">{{ total_prediction_histories }}</div>
+                        <div class="beranda-summary-label">Riwayat CSV/TXT</div>
+                    </div>
+                    <div class="beranda-summary-metric">
+                        <div class="beranda-summary-value">{{ total_model_versions }}</div>
+                        <div class="beranda-summary-label">Versi Model</div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="card shadow-sm panel-card">
+            <div class="card-body">
+                <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-3">
+                    <div>
+                        <h2 class="h5 fw-semibold mb-1">Model</h2>
+                    </div>
+                    <a class="btn btn-primary btn-sm" href="{% url 'admin:model_add' %}">Tambah Model</a>
+                </div>
+                {% if model_versions %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover align-middle admin-fit-table">
+                            <thead class="text-center">
+                                <tr>
+                                    <th>No.</th>
+                                    <th>Versi Model</th>
+                                    <th>File KNN</th>
+                                    <th>File SVM</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for model_version in model_versions %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td class="fw-semibold">{{ model_version.version_name }}</td>
+                                        <td class="text-center"><span class="badge text-bg-success">{{ model_version.knn_file_name }}</span></td>
+                                        <td class="text-center"><span class="badge text-bg-primary">{{ model_version.svm_file_name }}</span></td>
+                                        <td class="text-end">
+                                            <div class="admin-actions">
+                                                <a class="btn btn-sm admin-user-edit-btn" href="{% url 'admin:model_edit' model_version.version_name %}">Edit</a>
+                                                <form method="post" action="{% url 'admin:model_delete' model_version.version_name %}" onsubmit="return confirm('Hapus versi model {{ model_version.version_name }}?');">
+                                                    {% csrf_token %}
+                                                    <button class="btn btn-sm admin-user-delete-btn" type="submit">Hapus</button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info mb-0">Belum ada versi model yang tersedia.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="card shadow-sm panel-card">
+            <div class="card-body">
+                <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-3">
+                    <h2 class="h5 fw-semibold mb-0">User</h2>
+                    <a class="btn btn-sm admin-user-add-btn" href="{% url 'admin:user_add' %}">Tambah User</a>
+                </div>
+                {% if users %}
+                    <div class="row row-cols-1 row-cols-md-2 row-cols-xxl-3 g-3">
+                        {% for account in users %}
+                            <div class="col">
+                                <article class="card shadow-sm admin-user-card h-100">
+                                    <div class="card-body d-flex flex-column">
+                                        <div class="mb-3">
+                                            <div class="admin-user-card-name">
+                                                {{ account.get_full_name|default:account.username }}
+                                            </div>
+                                            <div class="admin-user-card-username">Username: {{ account.username }}</div>
+                                        </div>
+
+                                        <div class="d-flex flex-wrap gap-2 mb-3">
+                                            {% if account.is_superuser %}
+                                                <span class="badge text-bg-primary">Administrator</span>
+                                            {% elif account.is_staff %}
+                                                <span class="badge text-bg-info">Staff</span>
+                                            {% else %}
+                                                <span class="badge text-bg-secondary">User</span>
+                                            {% endif %}
+
+                                            {% if account.is_active %}
+                                                <span class="badge text-bg-success">Aktif</span>
+                                            {% else %}
+                                                <span class="badge text-bg-danger">Nonaktif</span>
+                                            {% endif %}
+                                        </div>
+
+                                        <dl class="admin-user-meta mb-3">
+                                            <dt>Email</dt>
+                                            <dd>{{ account.email|default:"-" }}</dd>
+                                            <dt>Login Terakhir</dt>
+                                            <dd>{{ account.last_login|date:"j F Y, H:i"|default:"-" }}</dd>
+                                        </dl>
+
+                                        <div class="admin-actions mt-auto pt-2">
+                                            <a class="btn btn-sm admin-user-edit-btn" href="{% url 'admin:user_edit' account.id %}">Edit</a>
+                                            <form method="post" action="{% url 'admin:user_delete' account.id %}" onsubmit="return confirm('Hapus user {{ account.username }}? Riwayat milik user ini juga akan ikut terhapus.');">
+                                                {% csrf_token %}
+                                                <button class="btn btn-sm admin-user-delete-btn" type="submit" {% if account.id == request.user.id %}disabled{% endif %}>Hapus</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </article>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    {% if users_page_obj.paginator.num_pages > 1 %}
+                        <nav class="mt-2" aria-label="Navigasi halaman user">
+                            <ul class="pagination pagination-sm mb-0">
+                                {% for page_num in users_page_obj.paginator.page_range %}
+                                    <li class="page-item {% if page_num == users_page_obj.number %}active{% endif %}">
+                                        <a class="page-link" href="?users_page={{ page_num }}&scrape_page={{ scrape_page_obj.number }}&pred_page={{ prediction_page_obj.number }}">{{ page_num }}</a>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </nav>
+                    {% endif %}
+                {% else %}
+                    <div class="alert alert-info mb-0">Belum ada user.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="card shadow-sm panel-card">
+            <div class="card-body">
+                {% with active_dataset_tab=request.GET.dataset_tab|default:'scraping' %}
+                    <div class="mb-3">
+                        <h2 class="h5 fw-semibold mb-2">Database</h2>
+                        <ul class="nav nav-tabs" id="datasetTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button
+                                    class="nav-link {% if active_dataset_tab == 'scraping' %}active{% endif %}"
+                                    id="scraping-dataset-tab"
+                                    data-bs-toggle="tab"
+                                    data-bs-target="#scraping-dataset-pane"
+                                    type="button"
+                                    role="tab"
+                                    aria-controls="scraping-dataset-pane"
+                                    aria-selected="{% if active_dataset_tab == 'scraping' %}true{% else %}false{% endif %}"
+                                >
+                                    Hasil Pengumpulan Data X
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button
+                                    class="nav-link {% if active_dataset_tab != 'scraping' %}active{% endif %}"
+                                    id="prediction-dataset-tab"
+                                    data-bs-toggle="tab"
+                                    data-bs-target="#prediction-dataset-pane"
+                                    type="button"
+                                    role="tab"
+                                    aria-controls="prediction-dataset-pane"
+                                    aria-selected="{% if active_dataset_tab != 'scraping' %}true{% else %}false{% endif %}"
+                                >
+                                    Hasil CSV/TXT
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="tab-content border border-top-0 rounded-bottom panel-inner p-3" id="datasetTabsContent">
+                        <div
+                            class="tab-pane fade {% if active_dataset_tab != 'scraping' %}show active{% endif %}"
+                            id="prediction-dataset-pane"
+                            role="tabpanel"
+                            aria-labelledby="prediction-dataset-tab"
+                            tabindex="0"
+                        >
+                            {% if prediction_histories %}
+                                <form
+                                    id="admin-prediction-selected-form"
+                                    method="post"
+                                    action="{% url 'admin:history_delete_selected' %}"
+                                    onsubmit="return confirm('Hapus semua dataset prediksi yang terpilih?');"
+                                >
+                                    {% csrf_token %}
+                                    <input type="hidden" name="scope" value="prediction">
+                                    <input type="hidden" name="users_page" value="{{ users_page_obj.number }}">
+                                    <input type="hidden" name="scrape_page" value="{{ scrape_page_obj.number }}">
+                                    <input type="hidden" name="pred_page" value="{{ prediction_page_obj.number }}">
+                                    <input type="hidden" name="dataset_tab" value="prediction">
+                                    <div class="mb-2">
+                                        <button
+                                            id="admin-prediction-delete-selected-button"
+                                            class="btn btn-danger px-4 history-delete-selected-btn"
+                                            type="submit"
+                                            disabled
+                                        >
+                                            Hapus
+                                        </button>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover align-middle admin-fit-table mb-0">
+                                            <thead class="text-center">
+                                                <tr>
+                                                    <th class="text-center admin-select-column">
+                                                        <input id="admin-prediction-select-all" class="form-check-input" type="checkbox" aria-label="Pilih semua dataset prediksi">
+                                                    </th>
+                                                    <th>No.</th>
+                                                    <th>Username</th>
+                                                    <th>File Type</th>
+                                                    <th>Sumber</th>
+                                                    <th class="text-center">Jml. Data</th>
+                                                    <th>Dibuat Pada</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for item in prediction_histories %}
+                                                    <tr
+                                                        class="history-click-row admin-dataset-click-row"
+                                                        data-href="{% url 'prediction_history_detail' item.id %}"
+                                                        tabindex="0"
+                                                        role="link"
+                                                        aria-label="Buka detail dataset prediksi {{ item.id }}"
+                                                    >
+                                                        <td class="text-center admin-select-column-cell">
+                                                            <input
+                                                                class="form-check-input admin-prediction-select-item"
+                                                                type="checkbox"
+                                                                name="selected_ids"
+                                                                value="{{ item.id }}"
+                                                                aria-label="Pilih dataset prediksi {{ item.id }}"
+                                                            >
+                                                        </td>
+                                                        <td>{{ prediction_page_obj.start_index|add:forloop.counter0 }}</td>
+                                                        <td>{{ item.user.username }}</td>
+                                                        <td>
+                                                            <span class="badge {{ item.file_type_badge_class }}">{{ item.file_type_label }}</span>
+                                                        </td>
+                                                        <td>{{ item.source_name|default:"-" }}</td>
+                                                        <td class="text-center">{{ item.sample_count }}</td>
+                                                        <td>{{ item.created_at|date:"j F Y, H:i" }}</td>
+                                                    </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </form>
+                                {% if prediction_page_obj.paginator.num_pages > 1 %}
+                                    <nav class="mt-3" aria-label="Navigasi halaman PredictionHistory">
+                                        <ul class="pagination pagination-sm mb-0">
+                                            {% for page_num in prediction_page_obj.paginator.page_range %}
+                                                <li class="page-item {% if page_num == prediction_page_obj.number %}active{% endif %}">
+                                                    <a class="page-link" href="?users_page={{ users_page_obj.number }}&scrape_page={{ scrape_page_obj.number }}&pred_page={{ page_num }}&dataset_tab=prediction">{{ page_num }}</a>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </nav>
+                                {% endif %}
+                            {% else %}
+                                <div class="alert alert-info mb-0">Belum ada PredictionHistory.</div>
+                            {% endif %}
+                        </div>
+
+                        <div
+                            class="tab-pane fade {% if active_dataset_tab == 'scraping' %}show active{% endif %}"
+                            id="scraping-dataset-pane"
+                            role="tabpanel"
+                            aria-labelledby="scraping-dataset-tab"
+                            tabindex="0"
+                        >
+                            {% if scrape_histories %}
+                                <form
+                                    id="admin-scrape-selected-form"
+                                    method="post"
+                                    action="{% url 'admin:history_delete_selected' %}"
+                                    onsubmit="return confirm('Hapus semua dataset scraping yang terpilih?');"
+                                >
+                                    {% csrf_token %}
+                                    <input type="hidden" name="scope" value="scrape">
+                                    <input type="hidden" name="users_page" value="{{ users_page_obj.number }}">
+                                    <input type="hidden" name="scrape_page" value="{{ scrape_page_obj.number }}">
+                                    <input type="hidden" name="pred_page" value="{{ prediction_page_obj.number }}">
+                                    <input type="hidden" name="dataset_tab" value="scraping">
+                                    <div class="mb-2">
+                                        <button
+                                            id="admin-scrape-delete-selected-button"
+                                            class="btn btn-danger px-4 history-delete-selected-btn"
+                                            type="submit"
+                                            disabled
+                                        >
+                                            Hapus
+                                        </button>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover align-middle admin-fit-table mb-0">
+                                            <thead class="text-center">
+                                                <tr>
+                                                    <th class="text-center admin-select-column">
+                                                        <input id="admin-scrape-select-all" class="form-check-input" type="checkbox" aria-label="Pilih semua dataset scraping">
+                                                    </th>
+                                                    <th>No.</th>
+                                                    <th>Username</th>
+                                                    <th>Kueri Pencarian</th>
+                                                    <th>Rentang Tanggal</th>
+                                                    <th class="text-center">Jml. Tweet</th>
+                                                    <th>Status</th>
+                                                    <th>Dibuat Pada</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for item in scrape_histories %}
+                                                    <tr
+                                                        class="history-click-row admin-dataset-click-row"
+                                                        data-href="{% url 'history_detail' item.id %}"
+                                                        tabindex="0"
+                                                        role="link"
+                                                        aria-label="Buka detail dataset scraping {{ item.id }}"
+                                                    >
+                                                        <td class="text-center admin-select-column-cell">
+                                                            <input
+                                                                class="form-check-input admin-scrape-select-item"
+                                                                type="checkbox"
+                                                                name="selected_ids"
+                                                                value="{{ item.id }}"
+                                                                aria-label="Pilih dataset scraping {{ item.id }}"
+                                                            >
+                                                        </td>
+                                                        <td>{{ scrape_page_obj.start_index|add:forloop.counter0 }}</td>
+                                                        <td>{{ item.user.username }}</td>
+                                                        <td class="text-break">{{ item.query }}</td>
+                                                        <td>
+                                                            {% if item.start_date|date:"Y" == item.end_date|date:"Y" %}
+                                                                {% if item.start_date|date:"F" == item.end_date|date:"F" %}
+                                                                    {{ item.start_date|date:"j" }} - {{ item.end_date|date:"j F Y" }}
+                                                                {% else %}
+                                                                    {{ item.start_date|date:"j F" }} - {{ item.end_date|date:"j F Y" }}
+                                                                {% endif %}
+                                                            {% else %}
+                                                                {{ item.start_date|date:"j F Y" }} - {{ item.end_date|date:"j F Y" }}
+                                                            {% endif %}
+                                                        </td>
+                                                        <td class="text-center">{{ item.tweet_count }}</td>
+                                                        <td>
+                                                            {% if item.is_complete %}
+                                                                <span class="badge text-bg-success">Selesai</span>
+                                                            {% else %}
+                                                                <span class="badge text-bg-warning text-dark">Belum selesai</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td>{{ item.created_at|date:"j F Y, H:i" }}</td>
+                                                    </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </form>
+                                {% if scrape_page_obj.paginator.num_pages > 1 %}
+                                    <nav class="mt-3" aria-label="Navigasi halaman ScrapeHistory">
+                                        <ul class="pagination pagination-sm mb-0">
+                                            {% for page_num in scrape_page_obj.paginator.page_range %}
+                                                <li class="page-item {% if page_num == scrape_page_obj.number %}active{% endif %}">
+                                                    <a class="page-link" href="?users_page={{ users_page_obj.number }}&scrape_page={{ page_num }}&pred_page={{ prediction_page_obj.number }}&dataset_tab=scraping">{{ page_num }}</a>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </nav>
+                                {% endif %}
+                            {% else %}
+                                <div class="alert alert-info mb-0">Belum ada ScrapeHistory.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endwith %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const bindRowNavigation = function (rowSelector) {
+        const interactiveSelector = "a, button, input, label, select, textarea";
+        const rows = Array.from(document.querySelectorAll(rowSelector));
+
+        rows.forEach(function (row) {
+            const destination = row.dataset.href;
+            if (!destination) {
+                return;
+            }
+
+            row.addEventListener("click", function (event) {
+                if (event.target.closest(interactiveSelector)) {
+                    return;
+                }
+                window.location.href = destination;
+            });
+
+            row.addEventListener("keydown", function (event) {
+                if (event.key !== "Enter" && event.key !== " ") {
+                    return;
+                }
+                if (event.target.closest(interactiveSelector)) {
+                    return;
+                }
+                event.preventDefault();
+                window.location.href = destination;
+            });
+        });
+    };
+
+    const bindSelectionTable = function (selectAllId, itemSelector, deleteButtonId) {
+        const selectAll = document.getElementById(selectAllId);
+        const deleteButton = document.getElementById(deleteButtonId);
+        const items = Array.from(document.querySelectorAll(itemSelector));
+
+        if (!selectAll || !deleteButton || !items.length) {
+            return;
+        }
+
+        const refreshState = function () {
+            const checkedItems = items.filter(function (item) { return item.checked; });
+            const checkedCount = checkedItems.length;
+            deleteButton.disabled = checkedCount === 0;
+            selectAll.checked = checkedCount > 0 && checkedCount === items.length;
+            selectAll.indeterminate = checkedCount > 0 && checkedCount < items.length;
+        };
+
+        selectAll.addEventListener("change", function () {
+            const checked = selectAll.checked;
+            items.forEach(function (item) {
+                item.checked = checked;
+            });
+            refreshState();
+        });
+
+        items.forEach(function (item) {
+            item.addEventListener("change", refreshState);
+        });
+
+        refreshState();
+    };
+
+    bindSelectionTable("admin-scrape-select-all", ".admin-scrape-select-item", "admin-scrape-delete-selected-button");
+    bindSelectionTable("admin-prediction-select-all", ".admin-prediction-select-item", "admin-prediction-delete-selected-button");
+    bindRowNavigation(".admin-dataset-click-row");
+});
+</script>
+{% endblock %}

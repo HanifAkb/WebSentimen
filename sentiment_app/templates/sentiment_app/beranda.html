@@ -1,0 +1,101 @@
+{% extends "sentiment_app/base.html" %}
+
+{% block title %}Beranda | Sistem Analisis Sentimen{% endblock %}
+
+{% block content %}
+<div class="row g-4 app-page">
+    <div class="col-12">
+        <div class="card shadow-sm panel-card">
+            <div class="card-body">
+                <p class="small text-uppercase fw-semibold text-primary mb-2">Beranda</p>
+                <h1 class="h3 fw-bold mb-3">Selamat Datang</h1>
+                <p class="text-muted mb-0">
+                    Analisis sentimen dengan mengambil data secara langsung dari X atau menggunakan file CSV dan TXT.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="beranda-summary home-summary-overview">
+            <section class="beranda-summary-section beranda-summary-section-scraping" aria-labelledby="summary-scraping-title">
+                <div class="beranda-summary-heading">
+                    <div>
+                        <h3 class="h6 fw-semibold mb-0" id="summary-scraping-title">Hasil Scraping</h3>
+                    </div>
+                </div>
+                <div class="beranda-summary-metrics">
+                    <div class="beranda-summary-metric">
+                        <div class="beranda-summary-value">{{ total_scraping_count|default:0 }}</div>
+                        <div class="beranda-summary-label">Total Pengumpulan Data X</div>
+                        <div class="beranda-summary-help">Total kueri yang pernah dijalankan.</div>
+                    </div>
+                    <div class="beranda-summary-metric">
+                        <div class="beranda-summary-value">{{ total_scraping_results|default:0 }}</div>
+                        <div class="beranda-summary-label">Total Tweet Terkumpul</div>
+                        <div class="beranda-summary-help">Total tweet yang pernah dianalisis</div>
+                    </div>
+                </div>
+            </section>
+            <section class="beranda-summary-section beranda-summary-section-prediction" aria-labelledby="summary-prediction-title">
+                <div class="beranda-summary-heading">
+                    <div>
+                        <h3 class="h6 fw-semibold mb-0" id="summary-prediction-title">Hasil CSV/TXT</h3>
+                    </div>
+                </div>
+                <div class="beranda-summary-metrics">
+                    <div class="beranda-summary-metric">
+                        <div class="beranda-summary-value">{{ total_prediction_count|default:0 }}</div>
+                        <div class="beranda-summary-label">Total File</div>
+                        <div class="beranda-summary-help">Jumlah file yang pernah dianalisis.</div>
+                    </div>
+                    <div class="beranda-summary-metric">
+                        <div class="beranda-summary-value">{{ total_prediction_results|default:0 }}</div>
+                        <div class="beranda-summary-label">Total Data</div>
+                        <div class="beranda-summary-help">Total data dalam seluruh file.</div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="card shadow-sm panel-card">
+            <div class="card-body">
+                <h2 class="h5 fw-semibold mb-3">Cara Menggunakan</h2>
+                <div class="beranda-guide">
+                    <section class="beranda-guide-item">
+                        <div class="beranda-guide-number">1</div>
+                        <div class="beranda-guide-body">
+                            <h3 class="h6 fw-semibold mb-2">Membuat Analisis</h3>
+                            <ol class="beranda-guide-steps mb-0">
+                                <li>Buka menu <strong>Buat Analisis</strong>.</li>
+                                <li>Pilih salah satu tab:
+                                    <br><strong>Pengumpulan Data X</strong>: isi API Key, versi model, kueri, dan rentang tanggal.
+                                    <br><strong>CSV/TXT</strong>: unggah file lalu pilih kolom teks yang ingin dianalisis.
+                                </li>
+                                <li>Klik <strong>Jalankan</strong> untuk memulai proses.</li>
+                            </ol>
+                            <div class="beranda-guide-note"><strong>Jangan bagikan API key Anda ke orang lain.</strong></div>
+                        </div>
+                    </section>
+                    <section class="beranda-guide-item">
+                        <div class="beranda-guide-number">2</div>
+                        <div class="beranda-guide-body">
+                            <h3 class="h6 fw-semibold mb-2">Melihat Riwayat</h3>
+                            <ol class="beranda-guide-steps mb-0">
+                                <li>Buka menu <strong>Riwayat</strong>.</li>
+                                <li>Pilih tab <strong>Riwayat Pengumpulan Data X</strong> atau <strong>Riwayat CSV/TXT</strong>.</li>
+                                <li>Klik salah satu data untuk membuka detail hasil.</li>
+                                <li>Gunakan halaman detail untuk melihat tabel, dashboard, atau unduh file hasil jika tersedia.</li>
+                                <li>Jika proses pengumpulan data belum selesai, tunggu hingga status selesai atau pantau dari halaman detail riwayat.</li>
+                            </ol>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
