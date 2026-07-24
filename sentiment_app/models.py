@@ -66,7 +66,6 @@ class ScrapeHistory(models.Model):
     resume_next_date = models.DateField(null=True, blank=True)
     stop_reason = models.CharField(max_length=32, blank=True)
     error_message = models.TextField(blank=True, default="")
-    resume_interval_days = models.PositiveSmallIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -1568,7 +1568,6 @@ def _apply_history_progress_meta(
     fetch_meta: dict[str, object],
     end_date: date,
     fallback_start_date: date,
-    window_days: int,
 ) -> None:
     next_start_date = _next_fetch_start_date(fetch_meta, fallback_start_date)
     timed_out = bool(fetch_meta.get("timed_out"))
@@ -1576,7 +1575,6 @@ def _apply_history_progress_meta(
     truncated = bool(fetch_meta.get("truncated"))
     is_finished = next_start_date > end_date and not (timed_out or rate_limited or truncated)
 
-    history.resume_interval_days = max(1, int(window_days))
     history.is_complete = bool(is_finished)
     history.resume_next_date = None if history.is_complete else min(next_start_date, end_date)
     if history.is_complete:
@@ -1830,9 +1828,7 @@ def _resume_scrape_once(history: ScrapeHistory, api_key: str) -> dict[str, objec
     max_total_tweets = int(runtime_config["max_total_tweets"])
     max_runtime_seconds = int(runtime_config["max_runtime_seconds"])
     predict_chunk_size = int(runtime_config["predict_chunk_size"])
-    default_window_days = int(runtime_config["window_days"])
-    window_days = int(history.resume_interval_days or default_window_days)
-    window_days = max(1, window_days)
+    window_days = int(runtime_config["window_days"])
 
     seen_keys = _build_existing_scrape_keys(history)
     chunk_index = _next_chunk_index(history)
@@ -1876,7 +1872,6 @@ def _resume_scrape_once(history: ScrapeHistory, api_key: str) -> dict[str, objec
             resume_next_date=min(next_start_date, history.end_date),
             is_complete=False,
             stop_reason="processing",
-            resume_interval_days=window_days,
         )
 
     try:
@@ -1931,8 +1926,8 @@ def _resume_scrape_once(history: ScrapeHistory, api_key: str) -> dict[str, objec
 
     total_rows = _load_scrape_rows(history)
     history.tweet_count = len(total_rows)
-    _apply_history_progress_meta(history, fetch_meta, history.end_date, resume_start_date, window_days)
-    history.save(update_fields=["tweet_count", "is_complete", "resume_next_date", "stop_reason", "resume_interval_days"])
+    _apply_history_progress_meta(history, fetch_meta, history.end_date, resume_start_date)
+    history.save(update_fields=["tweet_count", "is_complete", "resume_next_date", "stop_reason"])
     done_days, total_days, progress_pct = _history_resume_progress(history)
 
     return {
@@ -3116,7 +3111,6 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
         start_date = form.cleaned_data.get("start_date")
         end_date = form.cleaned_data.get("end_date")
         runtime_config = _build_scrape_runtime_config(start_date, end_date)
-        window_days = int(runtime_config["window_days"])
 
         if not api_key:
             messages.error(request, "API key wajib diisi.")
@@ -3137,7 +3131,6 @@ def twitter_fetch_view(request: HttpRequest) -> HttpResponse:
                 resume_next_date=start_date,
                 stop_reason="processing",
                 error_message="",
-                resume_interval_days=window_days,
             )
             return redirect(f"{reverse('history_detail', args=[history_item.id])}?auto=1")
         except (TwitterAPIError, ModelServiceError, FileValidationError) as exc:

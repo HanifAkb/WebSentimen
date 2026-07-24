@@ -509,7 +509,6 @@ class AuthAndHistoryTests(TestCase):
                 "is_complete": "on",
                 "resume_next_date": "",
                 "stop_reason": "",
-                "resume_interval_days": 1,
             },
         )
         self.assertEqual(scrape_edit.status_code, 302)
@@ -722,7 +721,6 @@ class AuthAndHistoryTests(TestCase):
         self.assertFalse(history.is_processing)
         self.assertEqual(str(history.resume_next_date), "2026-01-01")
         self.assertEqual(history.stop_reason, "processing")
-        self.assertEqual(history.resume_interval_days, 1)
         self.assertEqual(response.url, f"{reverse('history_detail', args=[history.id])}?auto=1")
 
     def test_predict_page_contains_scraping_tab_and_handles_scraping_submit(self):
@@ -1704,7 +1702,7 @@ class AuthAndHistoryTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         history = ScrapeHistory.objects.get()
-        self.assertEqual(history.resume_interval_days, 1)
+        self.assertEqual(str(history.resume_next_date), "2026-01-01")
         self.assertEqual(response.url, f"{reverse('history_detail', args=[history.id])}?auto=1")
 
     def test_scraping_marks_history_incomplete_when_partial_timeout(self):
@@ -1752,7 +1750,6 @@ class AuthAndHistoryTests(TestCase):
             is_complete=False,
             resume_next_date="2026-01-02",
             stop_reason="timed_out",
-            resume_interval_days=1,
         )
 
         window_rows = [
@@ -1817,7 +1814,6 @@ class AuthAndHistoryTests(TestCase):
             is_complete=False,
             resume_next_date="2026-01-01",
             stop_reason="processing",
-            resume_interval_days=1,
         )
 
         window_rows = [
@@ -1880,7 +1876,6 @@ class AuthAndHistoryTests(TestCase):
             is_complete=False,
             resume_next_date="2026-01-02",
             stop_reason="timed_out",
-            resume_interval_days=1,
         )
 
         window_rows = [
@@ -1944,7 +1939,6 @@ class AuthAndHistoryTests(TestCase):
             is_complete=False,
             resume_next_date="2026-01-02",
             stop_reason="rate_limited",
-            resume_interval_days=1,
         )
 
         with patch(
@@ -1980,7 +1974,6 @@ class AuthAndHistoryTests(TestCase):
             is_complete=False,
             resume_next_date="2026-01-02",
             stop_reason="timed_out",
-            resume_interval_days=1,
         )
 
         with patch(

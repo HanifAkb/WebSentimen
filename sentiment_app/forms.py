@@ -509,7 +509,6 @@ class AdminScrapeHistoryForm(forms.ModelForm):
             "is_complete",
             "resume_next_date",
             "stop_reason",
-            "resume_interval_days",
         )
         labels = {
             "user": "User",
@@ -521,7 +520,6 @@ class AdminScrapeHistoryForm(forms.ModelForm):
             "is_complete": "Selesai",
             "resume_next_date": "Tanggal Lanjutan",
             "stop_reason": "Alasan Berhenti",
-            "resume_interval_days": "Resume Interval Days",
         }
         widgets = {
             "query": forms.Textarea(attrs={"rows": 3}),
@@ -542,7 +540,6 @@ class AdminScrapeHistoryForm(forms.ModelForm):
             "tweet_count",
             "resume_next_date",
             "stop_reason",
-            "resume_interval_days",
         ):
             self.fields[field_name].widget.attrs["class"] = "form-control"
         self.fields["is_complete"].widget.attrs["class"] = "form-check-input"
