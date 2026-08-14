@@ -379,6 +379,7 @@ document.addEventListener("DOMContentLoaded", function () {
             combined: document.querySelector('[data-dashboard-optional-chart="combined"]'),
         };
         const combinedPieCard = document.querySelector("[data-dashboard-combined-chart]");
+        const mainPieTitle = document.querySelector("[data-dashboard-main-pie-title]");
         const hideChartButtons = Array.from(document.querySelectorAll("[data-dashboard-hide-chart]"));
         const showChartButtons = Array.from(document.querySelectorAll("[data-dashboard-show-chart]"));
         const chartVisibility = {
@@ -451,6 +452,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 combinedPieCard.classList.add("col-xl-9");
             } else {
                 combinedPieCard.classList.add("col-xl-12");
+            }
+            if (mainPieTitle) {
+                mainPieTitle.textContent = visibleOptionalCount > 0 ? "Distribusi Sentimen (SVM)" : "Distribusi Sentimen";
             }
 
             dashboardCharts.forEach(function (chart) {
