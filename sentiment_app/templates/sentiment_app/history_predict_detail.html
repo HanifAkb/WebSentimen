@@ -578,7 +578,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         labels: pieLabels,
                         datasets: [
                             {
-                                data: chartData.combined_pie || [],
+                                data: chartData.sentiment_pie || chartData.svm_pie || chartData.combined_pie || [],
                                 backgroundColor: ["#22c55e", "#ef4444", "#94a3b8"],
                                 borderColor: "#ffffff",
                                 borderWidth: 2,

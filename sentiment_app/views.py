@@ -74,25 +74,25 @@ DEFAULT_PER_PAGE = 10
 MAX_PER_PAGE = 200
 HISTORY_PER_PAGE = 10
 TWITTER_RESULT_SESSION_KEY = "twitter_last_result"
-PREDICTION_LABEL_COLUMNS = ["knn_label", "svm_label", "combined_label"]
+PREDICTION_LABEL_COLUMNS = ["knn_label", "combined_label", "svm_label"]
 PREDICTION_SCORE_COLUMNS = [
     "knn_positive_score",
     "knn_negative_score",
-    "svm_positive_score",
-    "svm_negative_score",
     "combined_positive_score",
     "combined_negative_score",
+    "svm_positive_score",
+    "svm_negative_score",
 ]
 PREDICTION_COLUMNS = [
     "knn_positive_score",
     "knn_negative_score",
-    "svm_positive_score",
-    "svm_negative_score",
     "combined_positive_score",
     "combined_negative_score",
+    "svm_positive_score",
+    "svm_negative_score",
     "knn_label",
-    "svm_label",
     "combined_label",
+    "svm_label",
 ]
 LEGACY_PREDICTION_COLUMNS = {"knn_score", "svm_score", "combined_score"}
 ALL_PREDICTION_COLUMNS = set(PREDICTION_COLUMNS) | LEGACY_PREDICTION_COLUMNS
@@ -611,12 +611,12 @@ def _display_sentiment_label_id(value: object) -> str:
     return str(value or "")
 
 
-def _build_combined_sentiment_counts(rows: list[dict[str, object]]) -> dict[str, int]:
+def _build_svm_sentiment_counts(rows: list[dict[str, object]]) -> dict[str, int]:
     counts: Counter[str] = Counter()
     for row in rows:
         if not isinstance(row, dict):
             continue
-        counts[_normalize_sentiment_label(row.get("combined_label"))] += 1
+        counts[_normalize_sentiment_label(row.get("svm_label"))] += 1
     return {
         "positive": int(counts.get("Positive", 0)),
         "neutral": int(counts.get("Neutral", 0)),
@@ -624,7 +624,7 @@ def _build_combined_sentiment_counts(rows: list[dict[str, object]]) -> dict[str,
     }
 
 
-def _build_scrape_history_combined_counts(history: ScrapeHistory) -> dict[str, int]:
+def _build_scrape_history_svm_counts(history: ScrapeHistory) -> dict[str, int]:
     counts: Counter[str] = Counter()
 
     def add_rows(source_rows: object) -> None:
@@ -633,7 +633,7 @@ def _build_scrape_history_combined_counts(history: ScrapeHistory) -> dict[str, i
         for row in source_rows:
             if not isinstance(row, dict):
                 continue
-            counts[_normalize_sentiment_label(row.get("combined_label"))] += 1
+            counts[_normalize_sentiment_label(row.get("svm_label"))] += 1
 
     add_rows(history.rows)
     for chunk_rows in history.temp_chunks.order_by("chunk_index", "id").values_list("rows", flat=True):
@@ -803,10 +803,10 @@ def _build_scraping_dashboard(
     max_texts_per_label = _setting_positive_int("SENTIMENT_WORDCLOUD_MAX_TEXTS_PER_LABEL", 1200)
     max_chars_per_label = _setting_positive_int("SENTIMENT_WORDCLOUD_MAX_CHARS_PER_LABEL", 160000)
 
-    combined_positive_texts: list[str] = []
-    combined_negative_texts: list[str] = []
-    combined_positive_chars = 0
-    combined_negative_chars = 0
+    svm_positive_texts: list[str] = []
+    svm_negative_texts: list[str] = []
+    svm_positive_chars = 0
+    svm_negative_chars = 0
     knn_counts: Counter[str] = Counter()
     svm_counts: Counter[str] = Counter()
     combined_counts: Counter[str] = Counter()
@@ -823,16 +823,16 @@ def _build_scraping_dashboard(
         combined_counts[combined_label] += 1
 
         if text:
-            if combined_label == "Positive":
-                if len(combined_positive_texts) < max_texts_per_label and combined_positive_chars < max_chars_per_label:
-                    clipped_text = text[: max(1, max_chars_per_label - combined_positive_chars)]
-                    combined_positive_chars += len(clipped_text)
-                    combined_positive_texts.append(clipped_text)
-            elif combined_label == "Negative":
-                if len(combined_negative_texts) < max_texts_per_label and combined_negative_chars < max_chars_per_label:
-                    clipped_text = text[: max(1, max_chars_per_label - combined_negative_chars)]
-                    combined_negative_chars += len(clipped_text)
-                    combined_negative_texts.append(clipped_text)
+            if svm_label == "Positive":
+                if len(svm_positive_texts) < max_texts_per_label and svm_positive_chars < max_chars_per_label:
+                    clipped_text = text[: max(1, max_chars_per_label - svm_positive_chars)]
+                    svm_positive_chars += len(clipped_text)
+                    svm_positive_texts.append(clipped_text)
+            elif svm_label == "Negative":
+                if len(svm_negative_texts) < max_texts_per_label and svm_negative_chars < max_chars_per_label:
+                    clipped_text = text[: max(1, max_chars_per_label - svm_negative_chars)]
+                    svm_negative_chars += len(clipped_text)
+                    svm_negative_texts.append(clipped_text)
 
         created_date = _parse_created_at_date(row.get("CreatedAt"))
         if created_date is None:
@@ -865,12 +865,12 @@ def _build_scraping_dashboard(
     wordcloud_error = ""
     max_wordcloud_rows = _setting_positive_int("SENTIMENT_WORDCLOUD_MAX_ROWS", 1500)
     wordclouds: dict[str, str | None] = {
-        "combined_positive_image": None,
-        "combined_negative_image": None,
+        "svm_positive_image": None,
+        "svm_negative_image": None,
     }
     wordcloud_top_unigrams: dict[str, list[dict[str, object]]] = {
-        "combined_positive": [],
-        "combined_negative": [],
+        "svm_positive": [],
+        "svm_negative": [],
     }
     if len(rows) > max_wordcloud_rows:
         wordcloud_error = (
@@ -886,27 +886,33 @@ def _build_scraping_dashboard(
         try:
             excluded_terms = _wordcloud_excluded_terms(query)
             positive_unigram_counter = _build_wordcloud_unigram_counter(
-                combined_positive_texts,
+                svm_positive_texts,
                 excluded_terms=excluded_terms,
             )
             negative_unigram_counter = _build_wordcloud_unigram_counter(
-                combined_negative_texts,
+                svm_negative_texts,
                 excluded_terms=excluded_terms,
             )
-            wordclouds["combined_positive_image"] = _build_wordcloud_image(
-                combined_positive_texts,
+            wordclouds["svm_positive_image"] = _build_wordcloud_image(
+                svm_positive_texts,
                 colormap=WORDCLOUD_POSITIVE_COLORS,
                 excluded_terms=excluded_terms,
             )
-            wordclouds["combined_negative_image"] = _build_wordcloud_image(
-                combined_negative_texts,
+            wordclouds["svm_negative_image"] = _build_wordcloud_image(
+                svm_negative_texts,
                 colormap=WORDCLOUD_NEGATIVE_COLORS,
                 excluded_terms=excluded_terms,
             )
-            wordcloud_top_unigrams["combined_positive"] = _top_unigram_stats(positive_unigram_counter)
-            wordcloud_top_unigrams["combined_negative"] = _top_unigram_stats(negative_unigram_counter)
+            wordcloud_top_unigrams["svm_positive"] = _top_unigram_stats(positive_unigram_counter)
+            wordcloud_top_unigrams["svm_negative"] = _top_unigram_stats(negative_unigram_counter)
         except Exception as exc:
             wordcloud_error = f"Gagal membuat WordCloud: {exc}"
+
+    svm_pie_values = [
+        int(svm_counts.get("Positive", 0)),
+        int(svm_counts.get("Negative", 0)),
+        int(svm_counts.get("Neutral", 0)),
+    ]
 
     return {
         "period_label": f"{_format_indonesian_date(start_date)} - {_format_indonesian_date(end_date)}",
@@ -942,11 +948,8 @@ def _build_scraping_dashboard(
                 int(svm_counts.get("Negative", 0)),
                 int(svm_counts.get("Neutral", 0)),
             ],
-            "combined_pie": [
-                int(combined_counts.get("Positive", 0)),
-                int(combined_counts.get("Negative", 0)),
-                int(combined_counts.get("Neutral", 0)),
-            ],
+            "sentiment_pie": svm_pie_values,
+            "combined_pie": svm_pie_values,
             "trend_labels": chart_labels,
             "trend_values": chart_values,
             "trend_title": f"Jumlah {trend_subject} per {granularity_label}",
@@ -2624,7 +2627,7 @@ def _build_scrape_history_view_context(
     if dashboard_enabled or history_processing or bool(history_error):
         return context
 
-    context["history_combined_counts"] = _build_scrape_history_combined_counts(history)
+    context["history_combined_counts"] = _build_scrape_history_svm_counts(history)
 
     history = _upgrade_scrape_history_scores_if_needed(history)
     has_context = False
@@ -2810,7 +2813,7 @@ def _build_prediction_history_view_context(
 
     history = _upgrade_prediction_history_scores_if_needed(history)
     rows = history.rows if isinstance(history.rows, list) else []
-    context["history_combined_counts"] = _build_combined_sentiment_counts(rows)
+    context["history_combined_counts"] = _build_svm_sentiment_counts(rows)
 
     requested_page = _safe_positive_int(request.GET.get("page"), 1)
     per_page = _normalize_per_page(request.GET.get("per_page"), DEFAULT_PER_PAGE)

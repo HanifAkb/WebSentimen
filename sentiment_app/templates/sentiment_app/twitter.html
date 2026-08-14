@@ -536,16 +536,16 @@
                                     <th rowspan="2">Gambar Tweet</th>
                                     <th colspan="6" class="text-center align-middle">Nilai Probabilitas (Skor 0-1)</th>
                                     <th rowspan="2" class="text-center align-middle">KNN</th>
-                                    <th rowspan="2" class="text-center align-middle">SVM</th>
                                     <th rowspan="2" class="text-center align-middle"><span>Gabungan</span><br><span>(<em>Soft Voting</em>)</span></th>
+                                    <th rowspan="2" class="text-center align-middle">SVM</th>
                                 </tr>
                                 <tr>
                                     <th class="text-center">Positif (KNN)</th>
                                     <th class="text-center">Negatif (KNN)</th>
-                                    <th class="text-center">Positif (SVM)</th>
-                                    <th class="text-center">Negatif (SVM)</th>
                                     <th class="text-center">Positif (Soft Voting)</th>
                                     <th class="text-center">Negatif (Soft Voting)</th>
+                                    <th class="text-center">Positif (SVM)</th>
+                                    <th class="text-center">Negatif (SVM)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -577,23 +577,23 @@
                                         </td>
                                         <td class="text-center">{% if row.knn_positive_score is not None %}{{ row.knn_positive_score|floatformat:4 }}{% endif %}</td>
                                         <td class="text-center">{% if row.knn_negative_score is not None %}{{ row.knn_negative_score|floatformat:4 }}{% endif %}</td>
-                                        <td class="text-center">{% if row.svm_positive_score is not None %}{{ row.svm_positive_score|floatformat:4 }}{% endif %}</td>
-                                        <td class="text-center">{% if row.svm_negative_score is not None %}{{ row.svm_negative_score|floatformat:4 }}{% endif %}</td>
                                         <td class="text-center">{% if row.combined_positive_score is not None %}{{ row.combined_positive_score|floatformat:4 }}{% endif %}</td>
                                         <td class="text-center">{% if row.combined_negative_score is not None %}{{ row.combined_negative_score|floatformat:4 }}{% endif %}</td>
+                                        <td class="text-center">{% if row.svm_positive_score is not None %}{{ row.svm_positive_score|floatformat:4 }}{% endif %}</td>
+                                        <td class="text-center">{% if row.svm_negative_score is not None %}{{ row.svm_negative_score|floatformat:4 }}{% endif %}</td>
                                         <td class="text-center">
                                             <span class="badge {% if row.knn_label == 'Positive' %}text-bg-success{% elif row.knn_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
                                                 {% if row.knn_label == "Positive" %}Positif{% elif row.knn_label == "Negative" %}Negatif{% elif row.knn_label == "Neutral" %}Netral{% else %}{{ row.knn_label }}{% endif %}
                                             </span>
                                         </td>
                                         <td class="text-center">
-                                            <span class="badge {% if row.svm_label == 'Positive' %}text-bg-success{% elif row.svm_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
-                                                {% if row.svm_label == "Positive" %}Positif{% elif row.svm_label == "Negative" %}Negatif{% elif row.svm_label == "Neutral" %}Netral{% else %}{{ row.svm_label }}{% endif %}
+                                            <span class="badge {% if row.combined_label == 'Positive' %}text-bg-success{% elif row.combined_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
+                                                {% if row.combined_label == "Positive" %}Positif{% elif row.combined_label == "Negative" %}Negatif{% elif row.combined_label == "Neutral" %}Netral{% else %}{{ row.combined_label }}{% endif %}
                                             </span>
                                         </td>
                                         <td class="text-center">
-                                            <span class="badge {% if row.combined_label == 'Positive' %}text-bg-success{% elif row.combined_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
-                                                {% if row.combined_label == "Positive" %}Positif{% elif row.combined_label == "Negative" %}Negatif{% elif row.combined_label == "Neutral" %}Netral{% else %}{{ row.combined_label }}{% endif %}
+                                            <span class="badge {% if row.svm_label == 'Positive' %}text-bg-success{% elif row.svm_label == 'Negative' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
+                                                {% if row.svm_label == "Positive" %}Positif{% elif row.svm_label == "Negative" %}Negatif{% elif row.svm_label == "Neutral" %}Netral{% else %}{{ row.svm_label }}{% endif %}
                                             </span>
                                         </td>
                                     </tr>
@@ -1299,7 +1299,7 @@ document.addEventListener("DOMContentLoaded", function () {
                             labels: pieLabels,
                             datasets: [
                                 {
-                                    data: chartData.combined_pie || [],
+                                    data: chartData.sentiment_pie || chartData.svm_pie || chartData.combined_pie || [],
                                     backgroundColor: ["#22c55e", "#ef4444", "#94a3b8"],
                                     borderColor: "#ffffff",
                                     borderWidth: 2,

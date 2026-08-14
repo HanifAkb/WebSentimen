@@ -868,14 +868,49 @@ class AuthAndHistoryTests(TestCase):
             language="in",
             start_date="2026-01-01",
             end_date="2026-01-02",
-            tweet_count=1,
+            tweet_count=3,
             rows=[
                 {
                     "id": "1",
                     "text": "mobil listrik bagus",
                     "CreatedAt": "2026-01-01T10:00:00+00:00",
                     "knn_label": "Positive",
+                    "knn_positive_score": 0.91,
+                    "knn_negative_score": 0.09,
                     "svm_label": "Positive",
+                    "svm_positive_score": 0.87,
+                    "svm_negative_score": 0.13,
+                    "combined_label": "Negative",
+                    "combined_positive_score": 0.20,
+                    "combined_negative_score": 0.80,
+                },
+                {
+                    "id": "2",
+                    "text": "pendapat biasa",
+                    "CreatedAt": "2026-01-01T11:00:00+00:00",
+                    "knn_label": "Positive",
+                    "knn_positive_score": 0.55,
+                    "knn_negative_score": 0.45,
+                    "svm_label": "Neutral",
+                    "svm_positive_score": 0.50,
+                    "svm_negative_score": 0.50,
+                    "combined_label": "Positive",
+                    "combined_positive_score": 0.70,
+                    "combined_negative_score": 0.30,
+                },
+                {
+                    "id": "3",
+                    "text": "servis buruk",
+                    "CreatedAt": "2026-01-02T10:00:00+00:00",
+                    "knn_label": "Negative",
+                    "knn_positive_score": 0.16,
+                    "knn_negative_score": 0.84,
+                    "svm_label": "Negative",
+                    "svm_positive_score": 0.12,
+                    "svm_negative_score": 0.88,
+                    "combined_label": "Positive",
+                    "combined_positive_score": 0.60,
+                    "combined_negative_score": 0.40,
                 }
             ],
         )
@@ -891,6 +926,18 @@ class AuthAndHistoryTests(TestCase):
         self.assertContains(response, "<th rowspan=\"2\">No.</th>", html=True)
         self.assertNotContains(response, "<th rowspan=\"2\">#</th>", html=True)
         self.assertNotContains(response, "Mulai Scraping")
+        self.assertContains(response, "Sentimen Positif: 1")
+        self.assertContains(response, "Sentimen Netral: 1")
+        self.assertContains(response, "Sentimen Negatif: 1")
+        response_html = response.content.decode("utf-8")
+        self.assertLess(
+            response_html.index("<span>Gabungan</span><br><span>(<em>Soft Voting</em>)</span>"),
+            response_html.index('<th rowspan="2" class="text-center align-middle">SVM</th>'),
+        )
+        self.assertLess(
+            response_html.index("Positif (Soft Voting)"),
+            response_html.index("Positif (SVM)"),
+        )
         self.assertContains(response, reverse("history_dashboard", args=[history.id]))
         self.assertContains(response, "<span>Tabel</span>", html=False)
         self.assertContains(response, "<span>Dashboard</span>", html=False)
@@ -1184,7 +1231,7 @@ class AuthAndHistoryTests(TestCase):
             source_name="uji.csv",
             model_version="Sentimen V1.0",
             text_column="review",
-            sample_count=1,
+            sample_count=3,
             columns=["review"],
             rows=[
                 {
@@ -1195,6 +1242,33 @@ class AuthAndHistoryTests(TestCase):
                     "svm_label": "Positive",
                     "svm_positive_score": 0.87,
                     "svm_negative_score": 0.13,
+                    "combined_label": "Negative",
+                    "combined_positive_score": 0.20,
+                    "combined_negative_score": 0.80,
+                },
+                {
+                    "review": "pendapat biasa",
+                    "knn_label": "Positive",
+                    "knn_positive_score": 0.55,
+                    "knn_negative_score": 0.45,
+                    "svm_label": "Neutral",
+                    "svm_positive_score": 0.50,
+                    "svm_negative_score": 0.50,
+                    "combined_label": "Positive",
+                    "combined_positive_score": 0.70,
+                    "combined_negative_score": 0.30,
+                },
+                {
+                    "review": "servis buruk",
+                    "knn_label": "Negative",
+                    "knn_positive_score": 0.16,
+                    "knn_negative_score": 0.84,
+                    "svm_label": "Negative",
+                    "svm_positive_score": 0.12,
+                    "svm_negative_score": 0.88,
+                    "combined_label": "Positive",
+                    "combined_positive_score": 0.60,
+                    "combined_negative_score": 0.40,
                 }
             ],
         )
@@ -1205,6 +1279,18 @@ class AuthAndHistoryTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, reverse("prediction_history_dashboard", args=[history.id]))
         self.assertContains(response, "Model: Sentimen V1.0")
+        self.assertContains(response, "Sentimen Positif: 1")
+        self.assertContains(response, "Sentimen Netral: 1")
+        self.assertContains(response, "Sentimen Negatif: 1")
+        response_html = response.content.decode("utf-8")
+        self.assertLess(
+            response_html.index("<span>Gabungan</span><br><span>(<em>Soft Voting</em>)</span>"),
+            response_html.index('<th rowspan="2" class="text-center align-middle">\n                                                \n                                                    SVM'),
+        )
+        self.assertLess(
+            response_html.index("Positif (Soft Voting)"),
+            response_html.index("Positif (SVM)"),
+        )
         self.assertNotContains(response, "Status Riwayat CSV/TXT")
         self.assertNotContains(response, "Dashboard Hasil Prediksi")
 

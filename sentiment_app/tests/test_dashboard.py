@@ -66,14 +66,14 @@ class ScrapingDashboardTests(SimpleTestCase):
                 "tanggal": "2026-01-01",
                 "knn_label": "Positive",
                 "svm_label": "Positive",
-                "combined_label": "Positive",
+                "combined_label": "Negative",
             },
             {
                 "review": "servis kendaraan buruk",
                 "tanggal": "2026-01-02",
                 "knn_label": "Negative",
                 "svm_label": "Negative",
-                "combined_label": "Negative",
+                "combined_label": "Positive",
             },
         ]
 
@@ -82,10 +82,11 @@ class ScrapingDashboardTests(SimpleTestCase):
         self.assertEqual(dashboard["charts"]["knn_pie"], [1, 1, 0])
         self.assertEqual(dashboard["charts"]["svm_pie"], [1, 1, 0])
         self.assertEqual(dashboard["charts"]["combined_pie"], [1, 1, 0])
-        self.assertIn("combined_positive_image", dashboard["wordclouds"])
-        self.assertIn("combined_negative_image", dashboard["wordclouds"])
+        self.assertEqual(dashboard["charts"]["sentiment_pie"], [1, 1, 0])
+        self.assertIn("svm_positive_image", dashboard["wordclouds"])
+        self.assertIn("svm_negative_image", dashboard["wordclouds"])
         self.assertNotIn("knn_positive_image", dashboard["wordclouds"])
-        self.assertNotIn("svm_positive_image", dashboard["wordclouds"])
+        self.assertNotIn("combined_positive_image", dashboard["wordclouds"])
         self.assertEqual(dashboard["charts"]["trend_title"], "Jumlah Data per Harian")
         self.assertEqual(dashboard["charts"]["trend_values"], [1, 1])
 
@@ -93,13 +94,14 @@ class ScrapingDashboardTests(SimpleTestCase):
         rows = [
             {"CreatedAt": "2026-02-01T10:00:00+00:00", "text": "mobil listrik mobil baterai hemat cepat", "knn_label": "Positive", "svm_label": "Positive", "combined_label": "Positive"},
             {"CreatedAt": "2026-02-02T10:00:00+00:00", "text": "servis buruk servis lambat mahal rusak", "knn_label": "Negative", "svm_label": "Negative", "combined_label": "Negative"},
+            {"CreatedAt": "2026-02-03T10:00:00+00:00", "text": "gabungan salah jangan masuk", "knn_label": "Negative", "svm_label": "Neutral", "combined_label": "Positive"},
         ]
 
         with patch("sentiment_app.views.WordCloud", _WordCloudStub):
             dashboard = _build_scraping_dashboard(rows, date(2026, 2, 1), date(2026, 2, 2))
 
         self.assertEqual(
-            dashboard["wordcloud_top_unigrams"]["combined_positive"],
+            dashboard["wordcloud_top_unigrams"]["svm_positive"],
             [
                 {"word": "mobil", "count": 2},
                 {"word": "listrik", "count": 1},
@@ -109,7 +111,7 @@ class ScrapingDashboardTests(SimpleTestCase):
             ],
         )
         self.assertEqual(
-            dashboard["wordcloud_top_unigrams"]["combined_negative"],
+            dashboard["wordcloud_top_unigrams"]["svm_negative"],
             [
                 {"word": "servis", "count": 2},
                 {"word": "buruk", "count": 1},
@@ -123,6 +125,7 @@ class ScrapingDashboardTests(SimpleTestCase):
         rows = [
             {"CreatedAt": "2026-02-01T10:00:00+00:00", "text": "kendaraan listrik hemat kendaraan listrik cepat baterai", "knn_label": "Positive", "svm_label": "Positive", "combined_label": "Positive"},
             {"CreatedAt": "2026-02-02T10:00:00+00:00", "text": "kendaraan listrik mahal servis buruk", "knn_label": "Negative", "svm_label": "Negative", "combined_label": "Negative"},
+            {"CreatedAt": "2026-02-03T10:00:00+00:00", "text": "kendaraan listrik gabungan bukan svm", "knn_label": "Negative", "svm_label": "Neutral", "combined_label": "Positive"},
         ]
 
         with patch("sentiment_app.views.WordCloud", _WordCloudStub), patch(
@@ -137,7 +140,7 @@ class ScrapingDashboardTests(SimpleTestCase):
             )
 
         self.assertEqual(
-            dashboard["wordcloud_top_unigrams"]["combined_positive"],
+            dashboard["wordcloud_top_unigrams"]["svm_positive"],
             [
                 {"word": "hemat", "count": 1},
                 {"word": "cepat", "count": 1},
@@ -145,7 +148,7 @@ class ScrapingDashboardTests(SimpleTestCase):
             ],
         )
         self.assertEqual(
-            dashboard["wordcloud_top_unigrams"]["combined_negative"],
+            dashboard["wordcloud_top_unigrams"]["svm_negative"],
             [
                 {"word": "mahal", "count": 1},
                 {"word": "servis", "count": 1},
