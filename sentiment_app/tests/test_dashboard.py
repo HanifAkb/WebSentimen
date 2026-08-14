@@ -73,7 +73,7 @@ class ScrapingDashboardTests(SimpleTestCase):
                 "tanggal": "2026-01-02",
                 "knn_label": "Negative",
                 "svm_label": "Negative",
-                "combined_label": "Positive",
+                "combined_label": "Negative",
             },
         ]
 
@@ -81,7 +81,7 @@ class ScrapingDashboardTests(SimpleTestCase):
 
         self.assertEqual(dashboard["charts"]["knn_pie"], [1, 1, 0])
         self.assertEqual(dashboard["charts"]["svm_pie"], [1, 1, 0])
-        self.assertEqual(dashboard["charts"]["combined_pie"], [1, 1, 0])
+        self.assertEqual(dashboard["charts"]["combined_pie"], [0, 2, 0])
         self.assertEqual(dashboard["charts"]["sentiment_pie"], [1, 1, 0])
         self.assertIn("svm_positive_image", dashboard["wordclouds"])
         self.assertIn("svm_negative_image", dashboard["wordclouds"])

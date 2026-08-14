@@ -1100,14 +1100,14 @@ document.addEventListener("DOMContentLoaded", function () {
         const dashboardPanes = Array.from(document.querySelectorAll("#dashboardPageTabsContent .tab-pane"));
         const optionalPieCards = {
             knn: document.querySelector('[data-dashboard-optional-chart="knn"]'),
-            svm: document.querySelector('[data-dashboard-optional-chart="svm"]'),
+            combined: document.querySelector('[data-dashboard-optional-chart="combined"]'),
         };
         const combinedPieCard = document.querySelector("[data-dashboard-combined-chart]");
         const hideChartButtons = Array.from(document.querySelectorAll("[data-dashboard-hide-chart]"));
         const showChartButtons = Array.from(document.querySelectorAll("[data-dashboard-show-chart]"));
         const chartVisibility = {
             knn: true,
-            svm: true,
+            combined: true,
         };
         let currentDashboardPageIndex = 0;
 
@@ -1263,15 +1263,15 @@ document.addEventListener("DOMContentLoaded", function () {
                     dashboardCharts.push(knnPie);
                 }
 
-                const svmCanvas = document.getElementById("svmPieChart");
-                if (svmCanvas) {
-                    const svmPie = new Chart(svmCanvas, {
+                const combinedSmallCanvas = document.getElementById("combinedSmallPieChart");
+                if (combinedSmallCanvas) {
+                    const combinedSmallPie = new Chart(combinedSmallCanvas, {
                         type: "pie",
                         data: {
                             labels: pieLabels,
                             datasets: [
                                 {
-                                    data: chartData.svm_pie || [],
+                                    data: chartData.combined_pie || [],
                                     backgroundColor: ["#16a34a", "#dc2626", "#64748b"],
                                     borderColor: "#ffffff",
                                     borderWidth: 2,
@@ -1288,7 +1288,7 @@ document.addEventListener("DOMContentLoaded", function () {
                             },
                         },
                     });
-                    dashboardCharts.push(svmPie);
+                    dashboardCharts.push(combinedSmallPie);
                 }
 
                 const combinedCanvas = document.getElementById("combinedPieChart");
@@ -1299,7 +1299,7 @@ document.addEventListener("DOMContentLoaded", function () {
                             labels: pieLabels,
                             datasets: [
                                 {
-                                    data: chartData.sentiment_pie || chartData.svm_pie || chartData.combined_pie || [],
+                                    data: chartData.sentiment_pie || chartData.svm_pie || [],
                                     backgroundColor: ["#22c55e", "#ef4444", "#94a3b8"],
                                     borderColor: "#ffffff",
                                     borderWidth: 2,

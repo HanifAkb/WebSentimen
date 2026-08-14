@@ -913,6 +913,11 @@ def _build_scraping_dashboard(
         int(svm_counts.get("Negative", 0)),
         int(svm_counts.get("Neutral", 0)),
     ]
+    combined_pie_values = [
+        int(combined_counts.get("Positive", 0)),
+        int(combined_counts.get("Negative", 0)),
+        int(combined_counts.get("Neutral", 0)),
+    ]
 
     return {
         "period_label": f"{_format_indonesian_date(start_date)} - {_format_indonesian_date(end_date)}",
@@ -949,7 +954,7 @@ def _build_scraping_dashboard(
                 int(svm_counts.get("Neutral", 0)),
             ],
             "sentiment_pie": svm_pie_values,
-            "combined_pie": svm_pie_values,
+            "combined_pie": combined_pie_values,
             "trend_labels": chart_labels,
             "trend_values": chart_values,
             "trend_title": f"Jumlah {trend_subject} per {granularity_label}",
